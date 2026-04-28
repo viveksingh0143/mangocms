@@ -40,15 +40,37 @@ defmodule MangoCMS.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      # Phoenix Core
       {:phoenix, "~> 1.8.5"},
-      {:phoenix_ecto, "~> 4.5"},
-      {:ecto_sql, "~> 3.13"},
-      {:postgrex, ">= 0.0.0"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1"},
-      {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
+
+      # Ecto + SQLite (replaces raw exqlite usage)
+      {:phoenix_ecto, "~> 4.5"},
+      {:ecto_sql, "~> 3.13"},
+      {:ecto_sqlite3, "~> 0.18"},   # pulls in exqlite transitively
+      # {:postgrex, ">= 0.0.0"},
+
+      # HTTP Server
+      {:bandit, "~> 1.5"},
+
+      # Caching
+      {:redix, "~> 1.5"},
+      {:castore, ">= 0.0.0"},       # TLS certs for Redix in prod
+
+      # Background Jobs
+      {:oban, "~> 2.19"},
+
+      # Serialization & HTTP
+      {:jason, "~> 1.4"},
+      {:req, "~> 0.5"},
+
+      # Email (Phase 2 invite-only auth)
+      {:swoosh, "~> 1.16"},
+
+      # Assets
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:heroicons,
@@ -58,30 +80,27 @@ defmodule MangoCMS.MixProject do
        app: false,
        compile: false,
        depth: 1},
-      {:swoosh, "~> 1.16"},
-      {:req, "~> 0.5"},
+
+      # Observability
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
+
+      # Internationalisation
       {:gettext, "~> 1.0"},
-      {:jason, "~> 1.4"},
+
+      # Clustering
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"},
-      {:redix, "~> 1.5"},
-      {:castore, ">= 0.0.0"},
-      {:exqlite, "~> 0.36"},
-      {:oban, "~> 2.19"},
+
+      # Dev Tooling
       {:igniter, "~> 0.5", only: [:dev]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+
+      # Test
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 
-  # Aliases are shortcuts or tasks specific to the current project.
-  # For example, to install project dependencies and perform other setup tasks, run:
-  #
-  #     $ mix setup
-  #
-  # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
