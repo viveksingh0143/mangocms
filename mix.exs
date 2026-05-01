@@ -50,7 +50,8 @@ defmodule MangoCMS.MixProject do
       # Ecto + SQLite (replaces raw exqlite usage)
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
-      {:ecto_sqlite3, "~> 0.18"},   # pulls in exqlite transitively
+      # pulls in exqlite transitively
+      {:ecto_sqlite3, "~> 0.18"},
       # {:postgrex, ">= 0.0.0"},
 
       # HTTP Server
@@ -58,7 +59,8 @@ defmodule MangoCMS.MixProject do
 
       # Caching
       {:redix, "~> 1.5"},
-      {:castore, ">= 0.0.0"},       # TLS certs for Redix in prod
+      # TLS certs for Redix in prod
+      {:castore, ">= 0.0.0"},
 
       # Background Jobs
       {:oban, "~> 2.19"},

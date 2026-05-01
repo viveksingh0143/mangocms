@@ -7,10 +7,43 @@
 # General application configuration
 import Config
 
+config :mangocms, MangoCMS.Repo,
+  adapter: Ecto.Adapters.SQLite3,
+  database: Path.expand("../priv/data/platform/platform.db", __DIR__),
+  pool_size: 5,
+  # WAL = better concurrent reads
+  journal_mode: :wal,
+  # 64 MB page cache
+  cache_size: -64000,
+  foreign_keys: :on,
+  busy_timeout: 5_000
+
 config :mangocms,
   namespace: MangoCMS,
   ecto_repos: [MangoCMS.Repo],
-  generators: [timestamp_type: :utc_datetime, binary_id: true]
+  generators: [timestamp_type: :utc_datetime, binary_id: true],
+  tenant_data_root: Path.expand("../priv/data/tenants", __DIR__)
+
+# Redis connection defaults
+config :mangocms, :redis,
+  hostname: "localhost",
+  port: 6379,
+  database: 0
+
+# Oban — background jobs with cron schedule
+config :mangocms, Oban,
+  repo: MangoCMS.Repo,
+  plugins: [
+    # Prune completed jobs older than 7 days
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+
+    # Schedule daily backup at 2:00 AM
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 2 * * *", MangoCMS.Workers.BackupWorker}
+     ]}
+  ],
+  queues: [default: 10, backups: 2, mailers: 5]
 
 # Configure the endpoint
 config :mangocms, MangoCMSWeb.Endpoint,

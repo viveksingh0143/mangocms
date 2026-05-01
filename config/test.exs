@@ -6,10 +6,8 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :mangocms, MangoCMS.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "mangocms_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database:
+    Path.expand("../priv/data/platform/test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
@@ -19,6 +17,8 @@ config :mangocms, MangoCMSWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "4Bym+GrxQP/cMta5Jq5sk6X97Eyb2VDpzDYtxaeuk5Qbna6mcn4kaTUqEZ9O/9A0",
   server: false
+
+config :mangocms, Oban, testing: :inline
 
 # In test we don't send emails
 config :mangocms, MangoCMS.Mailer, adapter: Swoosh.Adapters.Test
