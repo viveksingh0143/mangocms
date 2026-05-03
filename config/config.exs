@@ -33,6 +33,9 @@ config :mangocms, :redis,
 # Oban — background jobs with cron schedule
 config :mangocms, Oban,
   repo: MangoCMS.Repo,
+  prefix: nil,
+  peer: Oban.Peers.Global,
+  notifier: Oban.Notifiers.PG,
   plugins: [
     # Prune completed jobs older than 7 days
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
