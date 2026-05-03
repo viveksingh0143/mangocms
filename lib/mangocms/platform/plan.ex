@@ -29,6 +29,8 @@ defmodule MangoCMS.Platform.Plan do
     sort_order
   )a
 
+  @type t :: %__MODULE__{}
+
   schema "plans" do
     # ── Identity ────────────────────────────────────────────────
     field :name, :string

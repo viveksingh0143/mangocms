@@ -20,6 +20,16 @@ defmodule MangoCMSWeb.Router do
     get "/", PageController, :home
   end
 
+  scope "/platform/admin", MangoCMSWeb.Platform.Admin do
+    pipe_through :browser
+
+    live "/plans", PlanLive.Index, :index
+    live "/plans/new", PlanLive.Index, :new
+    live "/plans/:id/edit", PlanLive.Index, :edit
+    live "/plans/:id", PlanLive.Show, :show
+    live "/plans/:id/show/edit", PlanLive.Show, :edit
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", MangoCMSWeb do
   #   pipe_through :api
