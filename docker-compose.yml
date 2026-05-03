@@ -1,0 +1,150 @@
+# MangoCMS — Local Development Services
+#
+# Usage:
+#   Start all services:        docker compose up -d
+#   Start only redis:          docker compose up -d redis
+#   Start only postgres:       docker compose up -d postgres
+#   Stop all:                  docker compose down
+#   Stop + wipe volumes:       docker compose down -v
+#   View logs:                 docker compose logs -f
+#   View logs for one service: docker compose logs -f redis
+#
+# NOTE: MangoCMS uses SQLite as its primary DB (not Postgres).
+# Postgres is included here for future use or if you add a
+# reporting/analytics database later.
+#
+# Add new services below following the same pattern.
+
+name: mangocms
+
+# ── Shared network ─────────────────────────────────────────────
+# All services talk to each other via service name as hostname.
+# e.g. redis is reachable at redis:6379 from inside any container.
+networks:
+  mangocms_net:
+    driver: bridge
+
+# ── Named volumes ──────────────────────────────────────────────
+# Data persists across docker compose down / up restarts.
+# Only wiped with: docker compose down -v
+volumes:
+  postgres_data:
+  redis_data:
+
+# ══════════════════════════════════════════════════════════════
+# SERVICES
+# ══════════════════════════════════════════════════════════════
+services:
+
+  # ── Redis ────────────────────────────────────────────────────
+  # Used for: tenant domain resolution cache (TenantResolverPlug)
+  # Host port 6379 → container port 6379
+  redis:
+    image: redis:8.6-alpine
+    container_name: mangocms_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - mangocms_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      com.mangocms.service: "cache"
+      com.mangocms.env: "development"
+
+  # ── PostgreSQL ───────────────────────────────────────────────
+  # Not used by default (MangoCMS uses SQLite).
+  # Included for: future analytics DB, reporting, or if you
+  # switch the platform DB to Postgres later.
+  # Host port 5432 → container port 5432
+  postgres:
+    image: postgres:18-alpine
+    container_name: mangocms_postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-mangocms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mangocms_dev}
+      POSTGRES_DB:       ${POSTGRES_DB:-mangocms_dev}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - mangocms_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mangocms} -d ${POSTGRES_DB:-mangocms_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      com.mangocms.service: "database"
+      com.mangocms.env: "development"
+
+  # ── RedisInsight (Redis GUI) ──────────────────────────────────
+  # Optional browser-based Redis GUI.
+  # Access at: http://localhost:5540
+  # To enable: docker compose --profile tools up -d
+  redis_insight:
+    image: redislabs/redisinsight:latest
+    container_name: mangocms_redis_insight
+    restart: unless-stopped
+    ports:
+      - "${REDIS_INSIGHT_PORT:-5540}:5540"
+    networks:
+      - mangocms_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - tools
+    labels:
+      com.mangocms.service: "redis-gui"
+      com.mangocms.env: "development"
+
+  # ── pgAdmin (Postgres GUI) ────────────────────────────────────
+  # Optional browser-based Postgres GUI.
+  # Access at: http://localhost:5050
+  # To enable: docker compose --profile tools up -d
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mangocms_pgadmin
+    restart: unless-stopped
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@mangocms.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    networks:
+      - mangocms_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+    labels:
+      com.mangocms.service: "postgres-gui"
+      com.mangocms.env: "development"
+
+  # ────────────────────────────────────────────────────────────
+  # ADD NEW SERVICES BELOW THIS LINE
+  # Copy any block above and adjust image/ports/volumes.
+  #
+  # Future candidates:
+  #   - Mailpit      (local SMTP for email testing)
+  #   - Minio        (local S3-compatible object storage)
+  #   - Typesense    (search engine)
+  #   - Prometheus   (metrics)
+  #   - Grafana      (dashboards)
+  # ────────────────────────────────────────────────────────────
