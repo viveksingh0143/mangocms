@@ -4,7 +4,6 @@ defmodule MangoCMS.Platform do
   alias MangoCMS.Platform.{Plan, Tenant}
   require Logger
 
-
   # ═══════════════════════════════════════════════════════════════
   # PLANS
   # ═══════════════════════════════════════════════════════════════
@@ -76,6 +75,7 @@ defmodule MangoCMS.Platform do
         provision_tenant_storage(tenant)
         Logger.info(" mangoCMS [Tenant] Created tenant: #{tenant.name}")
         {:ok, tenant}
+
       {:error, reason} ->
         Logger.error(" mangoCMS [Tenant] Failed to create tenant: #{inspect(reason)}")
         {:error, reason}
@@ -92,11 +92,13 @@ defmodule MangoCMS.Platform do
 
   def activate_tenant(%Tenant{} = tenant, billing_cycle) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
-    period_end = case billing_cycle do
-      "monthly" ->  DateTime.add(now, 1, :month)
-      "yearly" ->  DateTime.add(now, 1, :year)
-      _ ->  raise "mangoCMS [Tenant] Invalid billing_cycle: #{inspect(billing_cycle)}"
-    end
+
+    period_end =
+      case billing_cycle do
+        "monthly" -> DateTime.shift(now, month: 1)
+        "yearly" -> DateTime.shift(now, year: 1)
+        _ -> raise "mangoCMS [Tenant] Invalid billing_cycle: #{inspect(billing_cycle)}"
+      end
 
     update_tenant(tenant, %{
       status: "active",
@@ -126,6 +128,7 @@ defmodule MangoCMS.Platform do
         {:ok, updated_tenant} ->
           Logger.info(" mangoCMS [Tenant] Trial started for tenant: #{tenant.name}")
           {:ok, updated_tenant}
+
         {:error, reason} ->
           Logger.error(" mangoCMS [Tenant] Failed to start trial: #{inspect(reason)}")
           {:error, reason}
@@ -143,6 +146,7 @@ defmodule MangoCMS.Platform do
       {:ok, updated_tenant} ->
         Logger.info(" mangoCMS [Tenant] Cancelled tenant: #{tenant.name}")
         {:ok, updated_tenant}
+
       {:error, reason} ->
         Logger.error(" mangoCMS [Tenant] Failed to cancel tenant: #{inspect(reason)}")
         {:error, reason}
@@ -167,6 +171,7 @@ defmodule MangoCMS.Platform do
       {:ok, updated_tenant} ->
         Logger.info(" mangoCMS [Tenant] Suspended tenant: #{tenant.name}")
         {:ok, updated_tenant}
+
       {:error, reason} ->
         Logger.error(" mangoCMS [Tenant] Failed to suspend tenant: #{inspect(reason)}")
         {:error, reason}
@@ -176,19 +181,22 @@ defmodule MangoCMS.Platform do
   # ── Trial expiry check ───────────────────────────────────────
 
   def trial_expired?(%Tenant{status: "trialing", trial_ends_at: nil}), do: false
+
   def trial_expired?(%Tenant{status: "trialing", trial_ends_at: ends_at}) do
     DateTime.compare(DateTime.utc_now(), ends_at) == :gt
   end
+
   def trial_expired?(_tenant), do: false
 
   # ── Disk provisioning ────────────────────────────────────────
 
   defp provision_tenant_storage(%Tenant{storage_path: path}) when is_binary(path) do
-    File.mkdir_p!(path)
+    File.mkdir_p(path)
     |> case do
       :ok -> :ok
       err -> Logger.error(" mangoCMS [Tenant] Failed to provision storage: #{inspect(err)}")
     end
   end
+
   defp provision_tenant_storage(_), do: :ok
 end

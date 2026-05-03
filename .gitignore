@@ -41,3 +41,4 @@ npm-debug.log
 # Ignore system files
 .DS_Store
 
+.vscode/settings.json

@@ -31,39 +31,39 @@ defmodule MangoCMS.Platform.Plan do
 
   schema "plans" do
     # ── Identity ────────────────────────────────────────────────
-    field :name,         :string
+    field :name, :string
     field :display_name, :string
-    field :description,  :string
-    field :active,       :boolean, default: true
-    field :is_public,    :boolean, default: true
+    field :description, :string
+    field :active, :boolean, default: true
+    field :is_public, :boolean, default: true
 
     # ── Pricing ─────────────────────────────────────────────────
     # Stored in smallest unit: paise (INR) or cents (USD)
     # ₹999/mo → 99900 | $9.99/mo → 999
-    field :price_monthly,      :integer, default: 0
-    field :price_yearly,       :integer, default: 0
-    field :currency,           :string,  default: "INR"
+    field :price_monthly, :integer, default: 0
+    field :price_yearly, :integer, default: 0
+    field :currency, :string, default: "INR"
     field :yearly_discount_bps, :integer, default: 0
 
     # ── Trial ───────────────────────────────────────────────────
-    field :trial_period_days,   :integer, default: 0
+    field :trial_period_days, :integer, default: 0
     field :trial_requires_card, :boolean, default: false
 
     # ── Resource limits ──────────────────────────────────────────
-    field :max_pages,             :integer, default: 10
-    field :max_storage_mb,        :integer, default: 500
+    field :max_pages, :integer, default: 10
+    field :max_storage_mb, :integer, default: 500
     field :max_api_calls_per_day, :integer, default: 1000
-    field :max_users,             :integer, default: 1
-    field :max_domains,           :integer, default: 1
-    field :max_media_files,       :integer, default: 100
+    field :max_users, :integer, default: 1
+    field :max_domains, :integer, default: 1
+    field :max_media_files, :integer, default: 100
 
     # ── Feature flags ────────────────────────────────────────────
     # %{"seo" => true, "analytics" => false, "exports" => true}
-    field :features,             :map,     default: %{}
+    field :features, :map, default: %{}
     field :custom_domain_support, :boolean, default: false
-    field :api_access,           :boolean, default: false
-    field :priority_support,     :boolean, default: false
-    field :white_label,          :boolean, default: false
+    field :api_access, :boolean, default: false
+    field :priority_support, :boolean, default: false
+    field :white_label, :boolean, default: false
 
     # ── Display ──────────────────────────────────────────────────
     field :sort_order, :integer, default: 0
@@ -84,7 +84,10 @@ defmodule MangoCMS.Platform.Plan do
     |> validate_inclusion(:currency, @valid_currencies)
     |> validate_number(:price_monthly, greater_than_or_equal_to: 0)
     |> validate_number(:price_yearly, greater_than_or_equal_to: 0)
-    |> validate_number(:yearly_discount_bps, greater_than_or_equal_to: 0, less_than_or_equal_to: 10_000)
+    |> validate_number(:yearly_discount_bps,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 10_000
+    )
     |> validate_number(:trial_period_days, greater_than_or_equal_to: 0)
     |> validate_number(:max_pages, greater_than: 0)
     |> validate_number(:max_storage_mb, greater_than: 0)
@@ -123,7 +126,9 @@ defmodule MangoCMS.Platform.Plan do
   # Force name to lowercase + underscored for consistency
   defp normalize_name(changeset) do
     case get_change(changeset, :name) do
-      nil  -> changeset
+      nil ->
+        changeset
+
       name ->
         normalized = name |> String.downcase() |> String.replace(~r/\s+/, "_")
         put_change(changeset, :name, normalized)
