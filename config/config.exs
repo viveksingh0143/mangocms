@@ -7,16 +7,75 @@
 # General application configuration
 import Config
 
-config :mangocms, MangoCMS.Repo,
-  adapter: Ecto.Adapters.SQLite3,
-  database: Path.expand("../priv/data/platform/platform.db", __DIR__),
-  pool_size: 5,
-  # WAL = better concurrent reads
-  journal_mode: :wal,
-  # 64 MB page cache
-  cache_size: -64000,
-  foreign_keys: :on,
-  busy_timeout: 5_000
+database_adapter =
+  System.get_env("MANGO_DB", "sqlite3")
+  |> String.downcase()
+
+repo_adapter =
+  case database_adapter do
+    "postgres" -> Ecto.Adapters.Postgres
+    "postgresql" -> Ecto.Adapters.Postgres
+    "sqlite" -> Ecto.Adapters.SQLite3
+    "sqlite3" -> Ecto.Adapters.SQLite3
+    other -> raise "Unsupported MANGO_DB=#{inspect(other)}. Use sqlite3 or postgres."
+  end
+
+config :mangocms,
+  database_adapter: if(repo_adapter == Ecto.Adapters.Postgres, do: :postgres, else: :sqlite3),
+  repo_adapter: repo_adapter
+
+sqlite_database =
+  case config_env() do
+    :test ->
+      Path.expand(
+        "../priv/data/platform/test#{System.get_env("MIX_TEST_PARTITION")}.db",
+        __DIR__
+      )
+
+    _ ->
+      Path.expand("../priv/data/platform/platform.db", __DIR__)
+  end
+
+postgres_database =
+  case config_env() do
+    :test -> "mangocms_test#{System.get_env("MIX_TEST_PARTITION")}"
+    :prod -> "mangocms_prod"
+    _ -> "mangocms_dev"
+  end
+
+repo_config =
+  case repo_adapter do
+    Ecto.Adapters.Postgres ->
+      if database_url = System.get_env("DATABASE_URL") do
+        [
+          url: database_url,
+          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+        ]
+      else
+        [
+          username: System.get_env("POSTGRES_USER") || "postgres",
+          password: System.get_env("POSTGRES_PASSWORD") || "postgres",
+          hostname: System.get_env("POSTGRES_HOST") || "localhost",
+          port: String.to_integer(System.get_env("POSTGRES_PORT") || "5432"),
+          database: System.get_env("POSTGRES_DB") || postgres_database,
+          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+        ]
+      end
+
+    Ecto.Adapters.SQLite3 ->
+      [
+        database: sqlite_database,
+        pool_size: 5,
+        # WAL = better concurrent reads
+        journal_mode: :wal,
+        # 64 MB page cache
+        cache_size: -64_000,
+        foreign_keys: :on,
+        busy_timeout: 5_000
+      ]
+  end
+
+config :mangocms, MangoCMS.Repo, repo_config
 
 config :mangocms,
   namespace: MangoCMS,
@@ -31,11 +90,23 @@ config :mangocms, :redis,
   database: 0
 
 # Oban — background jobs with cron schedule
-config :mangocms, Oban,
+oban_adapter_config =
+  case repo_adapter do
+    Ecto.Adapters.Postgres ->
+      [
+        engine: Oban.Engines.Basic,
+        notifier: Oban.Notifiers.Postgres,
+        peer: Oban.Peers.Database
+      ]
+
+    Ecto.Adapters.SQLite3 ->
+      [
+        engine: Oban.Engines.Lite
+      ]
+  end
+
+oban_config = [
   repo: MangoCMS.Repo,
-  prefix: nil,
-  peer: Oban.Peers.Global,
-  notifier: Oban.Notifiers.PG,
   plugins: [
     # Prune completed jobs older than 7 days
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
@@ -47,6 +118,9 @@ config :mangocms, Oban,
      ]}
   ],
   queues: [default: 10, backups: 2, mailers: 5]
+]
+
+config :mangocms, Oban, Keyword.merge(oban_config, oban_adapter_config)
 
 # Configure the endpoint
 config :mangocms, MangoCMSWeb.Endpoint,

@@ -224,6 +224,26 @@ mix ecto.setup
 mix phx.server
 ```
 
+## Database Adapter
+
+SQLite is the default platform database:
+
+```bash
+MANGO_DB=sqlite3 mix ecto.setup
+MANGO_DB=sqlite3 mix test
+```
+
+Postgres can be selected at compile/test time:
+
+```bash
+MANGO_DB=postgres DATABASE_URL=ecto://postgres:postgres@localhost/mangocms_dev mix ecto.setup
+MANGO_DB=postgres DATABASE_URL=ecto://postgres:postgres@localhost/mangocms_test mix test
+```
+
+When switching adapters in the same checkout, run `mix clean` first or use a separate `MIX_BUILD_PATH`.
+
+Oban uses `Oban.Engines.Lite` for SQLite and `Oban.Engines.Basic` with Postgres notifications for Postgres.
+
 ---
 
 # 📌 Future Extensions

@@ -1,26 +1,8 @@
 import Config
 
-# Platform-level Meta DB
 config :mangocms, MangoCMS.Repo,
-  adapter: Ecto.Adapters.SQLite3,
-  database: Path.expand("../priv/data/platform/platform.db", __DIR__),
-  pool_size: 5,
+  stacktrace: true,
   show_sensitive_data_on_connection_error: true
-
-# journal_mode: :wal, #WAL = better concurrent reads
-# cache_size: -64_000, # 64 MB page cache
-# foreign_keys: true,
-# busy_timeout: 5_000
-
-# # Configure your database in postgres
-# config :mangocms, MangoCMS.Repo,
-#   username: "postgres",
-#   password: "postgres",
-#   hostname: "localhost",
-#   database: "mangocms_dev",
-#   stacktrace: true,
-#   show_sensitive_data_on_connection_error: true,
-#   pool_size: 10
 
 # Redis (local dev)
 config :mangocms, :redis,

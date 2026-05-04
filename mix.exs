@@ -52,7 +52,7 @@ defmodule MangoCMS.MixProject do
       {:ecto_sql, "~> 3.13"},
       # pulls in exqlite transitively
       {:ecto_sqlite3, "~> 0.18"},
-      # {:postgrex, ">= 0.0.0"},
+      {:postgrex, ">= 0.0.0"},
 
       # HTTP Server
       {:bandit, "~> 1.5"},

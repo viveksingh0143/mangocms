@@ -24,24 +24,46 @@ config :mangocms, MangoCMSWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() == :prod do
-  # database_url =
-  #   System.get_env("DATABASE_URL") ||
-  #     raise """
-  #     environment variable DATABASE_URL is missing.
-  #     For example: ecto://USER:PASS@HOST/DATABASE
-  #     """
+  database_adapter =
+    (System.get_env("MANGO_DB") ||
+       :mangocms
+       |> Application.get_env(:database_adapter, :sqlite3)
+       |> Atom.to_string())
+    |> String.downcase()
 
-  # maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
+  repo_config =
+    case database_adapter do
+      adapter when adapter in ["postgres", "postgresql"] ->
+        database_url =
+          System.get_env("DATABASE_URL") ||
+            raise """
+            environment variable DATABASE_URL is missing.
+            For example: ecto://USER:PASS@HOST/DATABASE
+            """
 
-  config :mangocms, MangoCMS.Repo,
-    # ssl: true,
-    # url: database_url,
-    database: System.get_env("DATABASE_PATH") || raise("DATABASE_PATH env var not set"),
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+        maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
-  # For machines with several cores, consider starting multiple pools of `pool_size`
-  # pool_count: 4,
-  # socket_options: maybe_ipv6
+        [
+          url: database_url,
+          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+          socket_options: maybe_ipv6
+        ]
+
+      adapter when adapter in ["sqlite", "sqlite3"] ->
+        [
+          database: System.get_env("DATABASE_PATH") || raise("DATABASE_PATH env var not set"),
+          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+          journal_mode: :wal,
+          cache_size: -64_000,
+          foreign_keys: :on,
+          busy_timeout: 5_000
+        ]
+
+      other ->
+        raise "Unsupported MANGO_DB=#{inspect(other)}. Use sqlite3 or postgres."
+    end
+
+  config :mangocms, MangoCMS.Repo, repo_config
 
   config :mangocms, :redis,
     host: System.get_env("REDIS_HOST") || "localhost",
