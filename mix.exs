@@ -99,7 +99,8 @@ defmodule MangoCMS.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
 
       # Test
-      {:lazy_html, ">= 0.1.0", only: :test}
+      {:lazy_html, ">= 0.1.0", only: :test},
+      {:dotenvy, "~> 1.1.1"}
     ]
   end
 
