@@ -256,6 +256,28 @@ Oban uses `Oban.Engines.Lite` for SQLite and `Oban.Engines.Basic` with Postgres 
 
 ---
 
+# 📌 docker tools
+
+## Start all the containers with GUI tools
+
+```bash
+docker compose --profile tools up -d
+```
+
+## Stop all the containers with GUI tools
+
+```bash
+docker compose --profile tools down
+```
+
+## Stop all the containers with GUI tools also remove volumes attached
+
+```bash
+docker compose --profile tools down -v
+```
+
+---
+
 # 👨‍💻 Author Notes
 
 This system is designed with **platform-first thinking**, ensuring:

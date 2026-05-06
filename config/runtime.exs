@@ -1,152 +1,93 @@
 import Config
+import Dotenvy
 
-# config/runtime.exs is executed for all environments, including
-# during releases. It is executed after compilation and before the
-# system starts, so it is typically used to load production configuration
-# and secrets from environment variables or elsewhere. Do not define
-# any compile-time configuration in here, as it won't be applied.
-# The block below contains prod specific runtime configuration.
+# Handle both local dev paths and production Release paths
+env_dir_prefix = System.get_env("RELEASE_ROOT") || Path.expand(".")
+env_path = Path.join(env_dir_prefix, "envs")
 
-# ## Using releases
-#
-# If you use `mix release`, you need to explicitly enable the server
-# by passing the PHX_SERVER=true when you start it:
-#
-#     PHX_SERVER=true bin/mangocms start
-#
-# Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
-# script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
+# The Full Source Cascade
+source!([
+  Path.join(env_path, ".env"),
+  Path.join(env_path, ".#{config_env()}.env"),
+  Path.join(env_path, ".#{config_env()}.overrides.env"),
+  System.get_env()
+])
+
+if env!("PHX_SERVER", :boolean, false) do
   config :mangocms, MangoCMSWeb.Endpoint, server: true
 end
 
-config :mangocms, MangoCMSWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+# Dynamic Ports
+default_port = if config_env() == :test, do: 4002, else: 4000
+config :mangocms, MangoCMSWeb.Endpoint, http: [port: env!("PORT", :integer!, default_port)]
 
-if config_env() == :prod do
-  database_adapter =
-    (System.get_env("MANGO_DB") ||
-       :mangocms
-       |> Application.get_env(:database_adapter, :sqlite3)
-       |> Atom.to_string())
-    |> String.downcase()
+config :mangocms, :redis,
+  host: env!("REDIS_HOST", :string!, "localhost"),
+  port: env!("REDIS_PORT", :integer!, 6379)
 
-  repo_config =
-    case database_adapter do
-      adapter when adapter in ["postgres", "postgresql"] ->
-        database_url =
-          System.get_env("DATABASE_URL") ||
-            raise """
-            environment variable DATABASE_URL is missing.
-            For example: ecto://USER:PASS@HOST/DATABASE
-            """
+config :mangocms,
+       :tenant_data_root,
+       env!("TENANT_DATA_ROOT", :string!, Path.expand("../priv/data/tenants", __DIR__))
 
-        maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
+# Database Runtime Routing
+database_adapter = Application.get_env(:mangocms, :database_adapter)
 
-        [
-          url: database_url,
-          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-          socket_options: maybe_ipv6
-        ]
+repo_config =
+  if database_adapter == :postgres do
+    maybe_ipv6 = if env!("ECTO_IPV6", :boolean, false), do: [:inet6], else: []
+    db_url = env!("DATABASE_URL", :string?, nil)
 
-      adapter when adapter in ["sqlite", "sqlite3"] ->
-        [
-          database: System.get_env("DATABASE_PATH") || raise("DATABASE_PATH env var not set"),
-          pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-          journal_mode: :wal,
-          cache_size: -64_000,
-          foreign_keys: :on,
-          busy_timeout: 5_000
-        ]
-
-      other ->
-        raise "Unsupported MANGO_DB=#{inspect(other)}. Use sqlite3 or postgres."
+    if db_url do
+      [url: db_url, pool_size: env!("POOL_SIZE", :integer!, 10), socket_options: maybe_ipv6]
+    else
+      [
+        username: env!("POSTGRES_USER", :string!, "postgres"),
+        password: env!("POSTGRES_PASSWORD", :string!, "postgres"),
+        hostname: env!("POSTGRES_HOST", :string!, "localhost"),
+        database: env!("POSTGRES_DB", :string!, "mangocms_#{config_env()}"),
+        port: env!("POSTGRES_PORT", :integer!, 5432),
+        pool_size: env!("POOL_SIZE", :integer!, 10),
+        socket_options: maybe_ipv6
+      ]
     end
+  else
+    db_path =
+      env!("DATABASE_PATH", :string?, nil) ||
+        if config_env() == :test do
+          Path.expand(
+            "../priv/data/platform/test#{System.get_env("MIX_TEST_PARTITION")}.db",
+            __DIR__
+          )
+        else
+          Path.expand("../priv/data/platform/platform.db", __DIR__)
+        end
 
-  config :mangocms, MangoCMS.Repo, repo_config
+    [
+      database: db_path,
+      pool_size: env!("POOL_SIZE", :integer!, 5),
+      journal_mode: :wal,
+      cache_size: -64_000,
+      foreign_keys: :on,
+      busy_timeout: 5_000
+    ]
+  end
 
-  config :mangocms, :redis,
-    host: System.get_env("REDIS_HOST") || "localhost",
-    port: String.to_integer(System.get_env("REDIS_PORT") || "6379")
+config :mangocms, MangoCMS.Repo, repo_config
 
-  config :mangocms,
-         :tenant_data_root,
-         System.get_env("TENANT_DATA_ROOT") || raise("TENANT_DATA_ROOT env var not set")
+# Production Hard Requirements
+if config_env() == :prod do
+  host = env!("PHX_HOST", :string!, "example.com")
+  dns_query = env!("DNS_CLUSTER_QUERY", :string?, nil)
 
-  # The secret key base is used to sign/encrypt cookies and other secrets.
-  # A default value is used in config/dev.exs and config/test.exs but you
-  # want to use a different value for prod and you most likely don't want
-  # to check this value into version control, so we use an environment
-  # variable instead.
-  secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
-
-  host = System.get_env("PHX_HOST") || "example.com"
-
-  config :mangocms, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  if dns_query, do: config(:mangocms, :dns_cluster_query, dns_query)
 
   config :mangocms, MangoCMSWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
-    ],
-    secret_key_base: secret_key_base
-
-  # ## SSL Support
-  #
-  # To get SSL working, you will need to add the `https` key
-  # to your endpoint configuration:
-  #
-  #     config :mangocms, MangoCMSWeb.Endpoint,
-  #       https: [
-  #         ...,
-  #         port: 443,
-  #         cipher_suite: :strong,
-  #         keyfile: System.get_env("SOME_APP_SSL_KEY_PATH"),
-  #         certfile: System.get_env("SOME_APP_SSL_CERT_PATH")
-  #       ]
-  #
-  # The `cipher_suite` is set to `:strong` to support only the
-  # latest and more secure SSL ciphers. This means old browsers
-  # and clients may not be supported. You can set it to
-  # `:compatible` for wider support.
-  #
-  # `:keyfile` and `:certfile` expect an absolute path to the key
-  # and cert in disk or a relative path inside priv, for example
-  # "priv/ssl/server.key". For all supported SSL configuration
-  # options, see https://hexdocs.pm/plug/Plug.SSL.html#configure/1
-  #
-  # We also recommend setting `force_ssl` in your config/prod.exs,
-  # ensuring no data is ever sent via http, always redirecting to https:
-  #
-  #     config :mangocms, MangoCMSWeb.Endpoint,
-  #       force_ssl: [hsts: true]
-  #
-  # Check `Plug.SSL` for all available options in `force_ssl`.
-
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :mangocms, MangoCMS.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+    http: [ip: {0, 0, 0, 0, 0, 0, 0, 0}],
+    secret_key_base: env!("SECRET_KEY_BASE", :string!)
+else
+  # Dummy secret for local development
+  config :mangocms, MangoCMSWeb.Endpoint,
+    secret_key_base:
+      env!("SECRET_KEY_BASE", :string!, "dummy_secret_for_dev_c+p8n8gx2NRaoQ2NPkfeUnl8heoTLBzQvR")
 end
