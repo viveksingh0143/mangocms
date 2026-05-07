@@ -42,3 +42,5 @@ npm-debug.log
 .DS_Store
 
 .vscode/settings.json
+
+envs/.dev.env
