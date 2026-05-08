@@ -2,7 +2,9 @@ import Config
 
 config :mangocms, MangoCMS.Repo, pool: Ecto.Adapters.SQL.Sandbox
 
-config :mangocms, MangoCMSWeb.Endpoint, server: false
+config :mangocms, MangoCMSWeb.Endpoint,
+  secret_key_base: "4Bym+GrxQP/cMta5Jq5sk6X97Eyb2VDpzDYtxaeuk5Qbna6mcn4kaTUqEZ9O/9A0",
+  server: false
 
 config :mangocms, Oban, testing: :inline
 config :mangocms, MangoCMS.Mailer, adapter: Swoosh.Adapters.Test

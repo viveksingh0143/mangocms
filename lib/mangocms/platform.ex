@@ -173,6 +173,34 @@ defmodule MangoCMS.Platform do
     |> Repo.one()
   end
 
+  @doc "Resolves an active tenant by subdomain with `:plan` preloaded."
+  @spec get_tenant_by_subdomain_with_plan(String.t()) :: Tenant.t() | nil
+  def get_tenant_by_subdomain_with_plan(subdomain) do
+    Tenant
+    |> where([t], t.subdomain == ^subdomain and t.active == true)
+    |> preload(:plan)
+    |> Repo.one()
+  end
+
+  @doc """
+  Resolves an active tenant from an HTTP host.
+
+  Exact custom domain matches win first. If no domain matches, the host is
+  checked as a tenant subdomain and then against the configured
+  `:tenant_base_host` suffix, for example `acme.mangocms.local`.
+  """
+  @spec resolve_tenant_from_host(String.t() | nil) :: Tenant.t() | nil
+  def resolve_tenant_from_host(nil), do: nil
+
+  def resolve_tenant_from_host(host) when is_binary(host) do
+    host = normalize_host(host)
+
+    get_tenant_by_domain_with_plan(host) ||
+      host
+      |> subdomain_candidates()
+      |> Enum.find_value(&get_tenant_by_subdomain_with_plan/1)
+  end
+
   @doc """
   Creates a tenant and provisions its media storage directory on disk.
 
@@ -205,6 +233,12 @@ defmodule MangoCMS.Platform do
     tenant
     |> Tenant.changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc "Returns a changeset for tracking tenant changes."
+  @spec change_tenant_changeset(Tenant.t(), map()) :: Ecto.Changeset.t()
+  def change_tenant_changeset(%Tenant{} = tenant, attrs \\ %{}) do
+    Tenant.changeset(tenant, attrs)
   end
 
   @doc """
@@ -411,6 +445,47 @@ defmodule MangoCMS.Platform do
   end
 
   defp provision_tenant_storage(_), do: :ok
+
+  defp normalize_host(host) do
+    host
+    |> String.downcase()
+    |> String.trim()
+    |> String.trim_trailing(".")
+    |> String.split(":")
+    |> List.first()
+  end
+
+  defp subdomain_candidates(host) do
+    tenant_base_host =
+      :mangocms
+      |> Application.get_env(:tenant_base_host, "mangocms.local")
+      |> normalize_host()
+
+    [
+      host,
+      subdomain_for_base_host(host, tenant_base_host),
+      subdomain_for_base_host(host, "localhost")
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp subdomain_for_base_host(_host, ""), do: nil
+
+  defp subdomain_for_base_host(host, base_host) do
+    suffix = "." <> base_host
+
+    if String.ends_with?(host, suffix) do
+      case String.replace_suffix(host, suffix, "") do
+        candidate when candidate != "" -> subdomain_candidate(candidate)
+        _ -> nil
+      end
+    end
+  end
+
+  defp subdomain_candidate(candidate) do
+    if String.contains?(candidate, "."), do: nil, else: candidate
+  end
 
   # Loads the plan association efficiently.
   # If already loaded (e.g. from get_tenant_with_plan!/1), skips the DB call.

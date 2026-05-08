@@ -25,9 +25,15 @@ config :mangocms, :redis,
   host: env!("REDIS_HOST", :string!, "localhost"),
   port: env!("REDIS_PORT", :integer!, 6379)
 
-config :mangocms,
-       :tenant_data_root,
-       env!("TENANT_DATA_ROOT", :string!, Path.expand("../priv/data/tenants", __DIR__))
+tenant_data_root_default =
+  if config_env() == :test do
+    Path.expand("../tmp/tenants", __DIR__)
+  else
+    Path.expand("../priv/data/tenants", __DIR__)
+  end
+
+config :mangocms, :tenant_data_root, env!("TENANT_DATA_ROOT", :string!, tenant_data_root_default)
+config :mangocms, :tenant_base_host, env!("TENANT_BASE_HOST", :string!, "mangocms.local")
 
 # Database Runtime Routing
 database_adapter = Application.get_env(:mangocms, :database_adapter)
@@ -89,5 +95,9 @@ else
   # Dummy secret for local development
   config :mangocms, MangoCMSWeb.Endpoint,
     secret_key_base:
-      env!("SECRET_KEY_BASE", :string!, "dummy_secret_for_dev_c+p8n8gx2NRaoQ2NPkfeUnl8heoTLBzQvR")
+      env!(
+        "SECRET_KEY_BASE",
+        :string!,
+        "dummy_secret_for_local_dev_and_test_only_64_bytes_minimum_value_keep_private"
+      )
 end

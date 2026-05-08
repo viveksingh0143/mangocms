@@ -22,6 +22,13 @@ config :mangocms,
 
 config :mangocms, MangoCMS.Repo, adapter: repo_adapter
 
+config :mangocms, MangoCMS.TenantRepo,
+  pool_size: 1,
+  journal_mode: :wal,
+  cache_size: -64_000,
+  foreign_keys: :on,
+  busy_timeout: 5_000
+
 # Oban Adapter Selection
 oban_adapter_config =
   if repo_adapter == Ecto.Adapters.Postgres do

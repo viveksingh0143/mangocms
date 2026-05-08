@@ -29,6 +29,8 @@ defmodule MangoCMS.Platform.Tenant do
     storage_path
   )a
 
+  @type t :: %__MODULE__{}
+
   schema "tenants" do
     # ── Identity ─────────────────────────────────────────────────
     field :name, :string
