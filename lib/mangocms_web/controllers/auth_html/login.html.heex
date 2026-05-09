@@ -1,0 +1,33 @@
+<.admin_layout flash={@flash} title={@title} context={@context}>
+  <.auth_card>
+    <.form for={@form} action={@action} method="post" id="login-form">
+      <.input field={@form[:email]} type="email" label="Email" autocomplete="email" required />
+      <.input
+        field={@form[:password]}
+        type="password"
+        label="Password"
+        autocomplete="current-password"
+        required
+      />
+
+      <button
+        type="submit"
+        id="login-button"
+        class={email_button_class("mt-4")}
+      >
+        <.email_icon /> Login with Email
+      </button>
+    </.form>
+
+    <.auth_divider />
+
+    <.sso_buttons links={@sso_links} />
+
+    <p class="mt-6 text-center text-sm text-base-content/60">
+      Need an account?
+      <.link href={@register_path} class={auth_link_class()}>
+        Create one
+      </.link>
+    </p>
+  </.auth_card>
+</.admin_layout>

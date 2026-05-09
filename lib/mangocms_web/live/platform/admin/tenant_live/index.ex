@@ -48,16 +48,12 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.admin
+    <Layouts.platform_admin
       flash={@flash}
       title="Platform tenants"
       subtitle="Manage tenant domains, lifecycle state, and plan association."
-      nav_items={Layouts.platform_admin_nav(:tenants)}
-      brand_label="Platform Admin"
-      brand_href={~p"/platform/admin/plans"}
-      profile_name="Platform Admin"
-      profile_email="platform@mangocms.local"
-      profile_initials="PA"
+      current_user={@current_user}
+      active={:tenants}
     >
       <:actions>
         <.button id="new-tenant-button" patch={~p"/platform/admin/tenants/new"} variant="primary">
@@ -75,33 +71,36 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Index do
         patch={~p"/platform/admin/tenants"}
       />
 
-      <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div id="tenants" phx-update="stream" class="divide-y divide-slate-100">
-          <div id="tenants-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
+      <section class="mt-8 overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-sm transition-colors">
+        <div id="tenants" phx-update="stream" class="divide-y divide-base-300">
+          <div
+            id="tenants-empty"
+            class="hidden only:block p-10 text-center text-sm text-base-content/60"
+          >
             No tenants have been created yet.
           </div>
           <div
             :for={{id, tenant} <- @streams.tenants}
             id={id}
-            class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
+            class="grid gap-4 p-5 transition hover:bg-base-200 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
           >
             <div>
               <div class="flex flex-wrap items-center gap-2">
                 <.link
                   navigate={~p"/platform/admin/tenants/#{tenant}"}
-                  class="font-semibold text-slate-950 hover:text-orange-600"
+                  class="font-semibold text-base-content hover:text-primary"
                 >
                   {tenant.name}
                 </.link>
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                <span class="rounded-full bg-base-200 px-2 py-0.5 text-xs font-medium text-base-content/70">
                   {tenant.slug}
                 </span>
               </div>
-              <p class="mt-1 text-sm text-slate-500">{tenant.domain}</p>
+              <p class="mt-1 text-sm text-base-content/60">{tenant.domain}</p>
             </div>
 
-            <div class="text-sm text-slate-600">
-              <p class="font-medium text-slate-900">{plan_name(tenant)}</p>
+            <div class="text-sm text-base-content/70">
+              <p class="font-medium text-base-content/90">{plan_name(tenant)}</p>
               <p>{tenant.subdomain}.mangocms.local</p>
             </div>
 
@@ -141,7 +140,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Index do
           </div>
         </div>
       </section>
-    </Layouts.admin>
+    </Layouts.platform_admin>
     """
   end
 
@@ -157,23 +156,28 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Index do
   defp human_status(_), do: "Unknown"
 
   defp status_class("active"),
-    do: "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+    do:
+      "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
 
   defp status_class("trialing"),
-    do: "rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700"
+    do:
+      "rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
 
   defp status_class("past_due"),
-    do: "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
+    do:
+      "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300"
 
   defp status_class("suspended"),
-    do: "rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
+    do:
+      "rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300"
 
   defp status_class(_),
-    do: "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
 
   defp active_class(true),
-    do: "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+    do:
+      "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
 
   defp active_class(false),
-    do: "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
 end

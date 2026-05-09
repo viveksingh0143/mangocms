@@ -108,7 +108,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
   describe "tenant resolution" do
     test "resolves a tenant by custom domain and attaches it to tenant admin", %{conn: conn} do
       tenant = tenant_fixture()
-      conn = get(host_conn(conn, tenant.domain), ~p"/admin/products")
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      conn = get(conn, ~p"/admin/products")
 
       assert html_response(conn, 200) =~ tenant.name
       assert get_session(conn, :tenant_id) == tenant.id
@@ -118,7 +119,11 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
       tenant = tenant_fixture()
 
       conn =
-        get(host_conn(conn, "#{tenant.subdomain}.mangocms.local"), ~p"/admin/products")
+        conn
+        |> host_conn("#{tenant.subdomain}.mangocms.local")
+        |> register_and_log_in_tenant_user(tenant)
+        |> elem(0)
+        |> get(~p"/admin/products")
 
       assert html_response(conn, 200) =~ tenant.name
       assert get_session(conn, :tenant_id) == tenant.id
@@ -135,8 +140,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
     test "lists products from the current tenant database", %{conn: conn} do
       tenant = tenant_fixture()
       product = product_fixture(tenant)
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
 
-      {:ok, _index_live, html} = live(host_conn(conn, tenant.domain), ~p"/admin/products")
+      {:ok, _index_live, html} = live(conn, ~p"/admin/products")
 
       assert html =~ "Tenant products"
       assert html =~ tenant.name
@@ -145,7 +151,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
 
     test "saves new product in the tenant database", %{conn: conn} do
       tenant = tenant_fixture()
-      {:ok, index_live, _html} = live(host_conn(conn, tenant.domain), ~p"/admin/products")
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, index_live, _html} = live(conn, ~p"/admin/products")
 
       assert index_live |> element("#new-product-button") |> render_click() =~ "New product"
 
@@ -166,7 +173,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
     test "updates product in the current tenant database", %{conn: conn} do
       tenant = tenant_fixture()
       product = product_fixture(tenant)
-      {:ok, index_live, _html} = live(host_conn(conn, tenant.domain), ~p"/admin/products")
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, index_live, _html} = live(conn, ~p"/admin/products")
 
       assert index_live |> element("#edit-product-#{product.id}") |> render_click() =~
                "Edit product"
@@ -188,7 +196,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
     test "deletes product from listing", %{conn: conn} do
       tenant = tenant_fixture()
       product = product_fixture(tenant)
-      {:ok, index_live, _html} = live(host_conn(conn, tenant.domain), ~p"/admin/products")
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, index_live, _html} = live(conn, ~p"/admin/products")
 
       assert index_live |> element("#delete-product-#{product.id}") |> render_click()
       refute has_element?(index_live, "#products-#{product.id}")
@@ -199,8 +208,12 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
       other_tenant = tenant_fixture()
       product = product_fixture(tenant)
 
-      {:ok, _index_live, html} =
-        live(host_conn(conn, other_tenant.domain), ~p"/admin/products")
+      {conn, _user} =
+        conn
+        |> host_conn(other_tenant.domain)
+        |> register_and_log_in_tenant_user(other_tenant)
+
+      {:ok, _index_live, html} = live(conn, ~p"/admin/products")
 
       refute html =~ product.name
       assert TenantCatalog.list_products(other_tenant) == []
@@ -211,9 +224,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
     test "displays product", %{conn: conn} do
       tenant = tenant_fixture()
       product = product_fixture(tenant)
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
 
-      {:ok, _show_live, html} =
-        live(host_conn(conn, tenant.domain), ~p"/admin/products/#{product}")
+      {:ok, _show_live, html} = live(conn, ~p"/admin/products/#{product}")
 
       assert html =~ product.name
       assert html =~ "Inventory"
@@ -222,9 +235,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
     test "updates product within show", %{conn: conn} do
       tenant = tenant_fixture()
       product = product_fixture(tenant)
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
 
-      {:ok, show_live, _html} =
-        live(host_conn(conn, tenant.domain), ~p"/admin/products/#{product}")
+      {:ok, show_live, _html} = live(conn, ~p"/admin/products/#{product}")
 
       assert show_live |> element("#edit-product-button") |> render_click() =~ "Edit product"
 

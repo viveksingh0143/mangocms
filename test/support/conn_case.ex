@@ -28,6 +28,7 @@ defmodule MangoCMSWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import MangoCMSWeb.ConnCase
+      import MangoCMSWeb.AuthTestHelpers
     end
   end
 

@@ -1,0 +1,39 @@
+<.admin_layout flash={@flash} title={@title} context={@context}>
+  <.auth_card>
+    <.form for={@form} action={@action} method="post" id="registration-form">
+      <.input field={@form[:full_name]} type="text" label="Full name" autocomplete="name" />
+      <.input field={@form[:email]} type="email" label="Email" autocomplete="email" required />
+      <.input
+        field={@form[:password]}
+        type="password"
+        label="Password"
+        autocomplete="new-password"
+        required
+      />
+      <.input field={@form[:phone]} type="text" label="Phone" autocomplete="tel" />
+      <div class="grid gap-4 sm:grid-cols-2">
+        <.input field={@form[:locale]} type="text" label="Locale" placeholder="en" />
+        <.input field={@form[:timezone]} type="text" label="Timezone" placeholder="Asia/Kolkata" />
+      </div>
+
+      <button
+        type="submit"
+        id="register-button"
+        class={email_button_class("mt-4")}
+      >
+        <.email_icon /> Create account with Email
+      </button>
+    </.form>
+
+    <.auth_divider />
+
+    <.sso_buttons links={@sso_links} />
+
+    <p class="mt-6 text-center text-sm text-base-content/60">
+      Already have an account?
+      <.link href={@login_path} class={auth_link_class()}>
+        Sign in
+      </.link>
+    </p>
+  </.auth_card>
+</.admin_layout>

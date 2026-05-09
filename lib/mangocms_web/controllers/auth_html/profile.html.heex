@@ -1,0 +1,62 @@
+<.profile_admin_layout
+  flash={@flash}
+  title={@title}
+  context={@context}
+  user={@user}
+  back_path={@back_path}
+  profile_action={@profile_action}
+>
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm shadow-base-content/5 transition-colors">
+      <.header>
+        Profile information
+        <:subtitle>These details are shown in admin surfaces and SSO-linked accounts.</:subtitle>
+      </.header>
+
+      <.form for={@profile_form} action={@profile_action} method="put" id="profile-form">
+        <.input field={@profile_form[:full_name]} type="text" label="Full name" />
+        <.input field={@profile_form[:email]} type="email" label="Email" required />
+        <.input field={@profile_form[:phone]} type="text" label="Phone" />
+        <.input field={@profile_form[:avatar_url]} type="text" label="Avatar URL" />
+        <div class="grid gap-4 sm:grid-cols-2">
+          <.input field={@profile_form[:locale]} type="text" label="Locale" />
+          <.input field={@profile_form[:timezone]} type="text" label="Timezone" />
+        </div>
+
+        <.button id="save-profile-button" variant="primary" class="btn-block mt-4">
+          Save profile
+        </.button>
+      </.form>
+    </section>
+
+    <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm shadow-base-content/5 transition-colors">
+      <.header>
+        Password
+        <:subtitle>Use a strong password for email/password access.</:subtitle>
+      </.header>
+
+      <.form for={@password_form} action={@password_action} method="put" id="password-form">
+        <.input
+          id="user_current_password"
+          name="user[current_password]"
+          type="password"
+          label="Current password"
+          value=""
+          autocomplete="current-password"
+          required
+        />
+        <.input
+          field={@password_form[:password]}
+          type="password"
+          label="New password"
+          autocomplete="new-password"
+          required
+        />
+
+        <.button id="save-password-button" variant="outline" class="btn-primary btn-block mt-4">
+          Change password
+        </.button>
+      </.form>
+    </section>
+  </div>
+</.profile_admin_layout>

@@ -87,6 +87,115 @@ defmodule MangoCMSWeb.Layouts do
     ]
   end
 
+  @doc "Renders the platform admin layout with platform defaults."
+  attr :id, :string, default: "platform-admin-layout"
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :current_user, :any, required: true
+  attr :active, :atom, default: nil
+  attr :nav_items, :list, default: nil
+  attr :brand_label, :string, default: nil
+  attr :brand_href, :string, default: nil
+  attr :profile_name, :string, default: nil
+  attr :profile_email, :string, default: nil
+  attr :profile_initials, :string, default: nil
+  attr :profile_href, :string, default: nil
+  attr :logout_href, :string, default: nil
+
+  slot :actions
+  slot :inner_block, required: true
+
+  def platform_admin(assigns) do
+    assigns =
+      assigns
+      |> assign(:nav_items, assigns.nav_items || platform_admin_nav(assigns.active))
+      |> assign(:brand_label, assigns.brand_label || "Platform Admin")
+      |> assign(:brand_href, assigns.brand_href || ~p"/platform/admin/plans")
+      |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
+      |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
+      |> assign(:profile_initials, assigns.profile_initials || "PA")
+      |> assign(:profile_href, assigns.profile_href || ~p"/platform/admin/profile")
+      |> assign(:logout_href, assigns.logout_href || ~p"/platform/admin/logout")
+
+    ~H"""
+    <.admin
+      id={@id}
+      flash={@flash}
+      title={@title}
+      subtitle={@subtitle}
+      nav_items={@nav_items}
+      brand_label={@brand_label}
+      brand_href={@brand_href}
+      profile_name={@profile_name}
+      profile_email={@profile_email}
+      profile_initials={@profile_initials}
+      profile_href={@profile_href}
+      logout_href={@logout_href}
+    >
+      <:actions :for={action <- @actions}>
+        {render_slot(action)}
+      </:actions>
+      {render_slot(@inner_block)}
+    </.admin>
+    """
+  end
+
+  @doc "Renders the tenant admin layout with tenant defaults."
+  attr :id, :string, default: "tenant-admin-layout"
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :current_user, :any, required: true
+  attr :current_tenant, :any, required: true
+  attr :active, :atom, default: nil
+  attr :nav_items, :list, default: nil
+  attr :brand_label, :string, default: nil
+  attr :brand_href, :string, default: nil
+  attr :profile_name, :string, default: nil
+  attr :profile_email, :string, default: nil
+  attr :profile_initials, :string, default: nil
+  attr :profile_href, :string, default: nil
+  attr :logout_href, :string, default: nil
+
+  slot :actions
+  slot :inner_block, required: true
+
+  def tenant_admin(assigns) do
+    assigns =
+      assigns
+      |> assign(:nav_items, assigns.nav_items || tenant_admin_nav(assigns.active))
+      |> assign(:brand_label, assigns.brand_label || assigns.current_tenant.name)
+      |> assign(:brand_href, assigns.brand_href || ~p"/admin/products")
+      |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
+      |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
+      |> assign(:profile_initials, assigns.profile_initials || "TA")
+      |> assign(:profile_href, assigns.profile_href || ~p"/admin/profile")
+      |> assign(:logout_href, assigns.logout_href || ~p"/admin/logout")
+
+    ~H"""
+    <.admin
+      id={@id}
+      flash={@flash}
+      title={@title}
+      subtitle={@subtitle}
+      nav_items={@nav_items}
+      brand_label={@brand_label}
+      brand_href={@brand_href}
+      profile_name={@profile_name}
+      profile_email={@profile_email}
+      profile_initials={@profile_initials}
+      profile_href={@profile_href}
+      logout_href={@logout_href}
+    >
+      <:actions :for={action <- @actions}>
+        {render_slot(action)}
+      </:actions>
+      {render_slot(@inner_block)}
+    </.admin>
+    """
+  end
+
   @doc """
   Renders the stacked admin layout used by platform and tenant admin areas.
 
@@ -104,6 +213,8 @@ defmodule MangoCMSWeb.Layouts do
   attr :profile_name, :string, default: "Admin"
   attr :profile_email, :string, default: "admin@mangocms.local"
   attr :profile_initials, :string, default: "MC"
+  attr :profile_href, :string, default: nil
+  attr :logout_href, :string, default: nil
 
   slot :actions
   slot :inner_block, required: true
@@ -117,7 +228,7 @@ defmodule MangoCMSWeb.Layouts do
       |> assign(:profile_menu_selector, "##{assigns.id}-profile-menu")
 
     ~H"""
-    <div id={@id} class="min-h-full bg-gray-100 dark:bg-gray-900">
+    <div id={@id} class="min-h-full bg-base-200 text-base-content transition-colors">
       <nav class="bg-gray-800 dark:bg-gray-800/50">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div class="flex h-16 items-center justify-between">
@@ -146,6 +257,8 @@ defmodule MangoCMSWeb.Layouts do
 
             <div class="hidden md:block">
               <div class="ml-4 flex items-center md:ml-6">
+                <.theme_toggle />
+
                 <button
                   type="button"
                   class="relative rounded-full p-1 text-gray-400 transition hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500"
@@ -172,26 +285,30 @@ defmodule MangoCMSWeb.Layouts do
                   <div
                     id={@profile_menu_id}
                     phx-click-away={JS.hide(to: @profile_menu_selector)}
-                    class="absolute right-0 z-10 mt-2 hidden w-48 origin-top-right rounded-md bg-white py-1 shadow-lg outline-1 outline-black/5 dark:bg-gray-800 dark:shadow-none dark:-outline-offset-1 dark:outline-white/10"
+                    class="absolute right-0 z-10 mt-2 hidden w-48 origin-top-right rounded-md bg-base-100 py-1 text-base-content shadow-lg shadow-base-content/10 outline-1 outline-base-300 transition-colors"
                   >
-                    <a
-                      href="#"
-                      class="block px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 focus:bg-gray-100 focus:outline-hidden dark:text-gray-300 dark:hover:bg-white/5 dark:focus:bg-white/5"
+                    <.link
+                      :if={@profile_href}
+                      navigate={@profile_href}
+                      class="block px-4 py-2 text-sm text-base-content/80 transition hover:bg-base-200 hover:text-base-content focus:bg-base-200 focus:text-base-content focus:outline-hidden"
                     >
                       Your profile
-                    </a>
-                    <a
-                      href="#"
-                      class="block px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 focus:bg-gray-100 focus:outline-hidden dark:text-gray-300 dark:hover:bg-white/5 dark:focus:bg-white/5"
+                    </.link>
+                    <.link
+                      :if={@profile_href}
+                      navigate={@profile_href}
+                      class="block px-4 py-2 text-sm text-base-content/80 transition hover:bg-base-200 hover:text-base-content focus:bg-base-200 focus:text-base-content focus:outline-hidden"
                     >
                       Settings
-                    </a>
-                    <a
-                      href="#"
-                      class="block px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 focus:bg-gray-100 focus:outline-hidden dark:text-gray-300 dark:hover:bg-white/5 dark:focus:bg-white/5"
+                    </.link>
+                    <.link
+                      :if={@logout_href}
+                      href={@logout_href}
+                      method="delete"
+                      class="block px-4 py-2 text-sm text-base-content/80 transition hover:bg-base-200 hover:text-base-content focus:bg-base-200 focus:text-base-content focus:outline-hidden"
                     >
                       Sign out
-                    </a>
+                    </.link>
                   </div>
                 </div>
               </div>
@@ -244,34 +361,38 @@ defmodule MangoCMSWeb.Layouts do
               </button>
             </div>
             <div class="mt-3 space-y-1 px-2">
-              <a
-                href="#"
+              <.link
+                :if={@profile_href}
+                navigate={@profile_href}
                 class="block rounded-md px-3 py-2 text-base font-medium text-gray-400 transition hover:bg-white/5 hover:text-white"
               >
                 Your profile
-              </a>
-              <a
-                href="#"
+              </.link>
+              <.link
+                :if={@profile_href}
+                navigate={@profile_href}
                 class="block rounded-md px-3 py-2 text-base font-medium text-gray-400 transition hover:bg-white/5 hover:text-white"
               >
                 Settings
-              </a>
-              <a
-                href="#"
+              </.link>
+              <.link
+                :if={@logout_href}
+                href={@logout_href}
+                method="delete"
                 class="block rounded-md px-3 py-2 text-base font-medium text-gray-400 transition hover:bg-white/5 hover:text-white"
               >
                 Sign out
-              </a>
+              </.link>
             </div>
           </div>
         </div>
       </nav>
 
-      <header class="relative bg-white shadow-sm dark:bg-gray-800 dark:shadow-none dark:after:pointer-events-none dark:after:absolute dark:after:inset-x-0 dark:after:inset-y-0 dark:after:bottom-0 dark:after:border-y dark:after:border-white/10">
+      <header class="relative border-y border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition-colors">
         <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
           <div>
-            <h1 class="text-lg/6 font-semibold text-gray-900 dark:text-white">{@title}</h1>
-            <p :if={@subtitle} class="mt-1 text-sm text-gray-500 dark:text-gray-400">{@subtitle}</p>
+            <h1 class="text-lg/6 font-semibold text-base-content">{@title}</h1>
+            <p :if={@subtitle} class="mt-1 text-sm text-base-content/60">{@subtitle}</p>
           </div>
           <div :if={@actions != []} class="flex items-center gap-3">
             {render_slot(@actions)}
@@ -293,6 +414,8 @@ defmodule MangoCMSWeb.Layouts do
   defp nav_label(item), do: Map.fetch!(item, :label)
   defp nav_href(item), do: Map.fetch!(item, :href)
   defp nav_current?(item), do: Map.get(item, :current, false)
+
+  defp user_display_name(user), do: user.full_name || user.email
 
   defp admin_nav_class(true, :desktop),
     do: "rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:bg-gray-950/50"

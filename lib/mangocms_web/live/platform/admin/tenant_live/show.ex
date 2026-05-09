@@ -26,16 +26,12 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Show do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.admin
+    <Layouts.platform_admin
       flash={@flash}
       title={@tenant.name}
       subtitle={@tenant.domain}
-      nav_items={Layouts.platform_admin_nav(:tenants)}
-      brand_label="Platform Admin"
-      brand_href={~p"/platform/admin/plans"}
-      profile_name="Platform Admin"
-      profile_email="platform@mangocms.local"
-      profile_initials="PA"
+      current_user={@current_user}
+      active={:tenants}
     >
       <:actions>
         <.button
@@ -65,59 +61,59 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Show do
       />
 
       <section id="tenant-detail" class="mt-8 grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Plan</h2>
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Plan</h2>
           <dl class="mt-4 grid gap-4">
             <div>
-              <dt class="text-sm text-slate-500">Current plan</dt>
-              <dd class="text-lg font-semibold text-slate-950">{plan_name(@tenant)}</dd>
+              <dt class="text-sm text-base-content/60">Current plan</dt>
+              <dd class="text-lg font-semibold text-base-content">{plan_name(@tenant)}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Status</dt>
-              <dd class="font-medium text-slate-900">{human_status(@tenant.status)}</dd>
+              <dt class="text-sm text-base-content/60">Status</dt>
+              <dd class="font-medium text-base-content/90">{human_status(@tenant.status)}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Billing cycle</dt>
-              <dd class="font-medium text-slate-900">{@tenant.billing_cycle || "None"}</dd>
+              <dt class="text-sm text-base-content/60">Billing cycle</dt>
+              <dd class="font-medium text-base-content/90">{@tenant.billing_cycle || "None"}</dd>
             </div>
           </dl>
         </div>
 
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Identity</h2>
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Identity</h2>
           <dl class="mt-4 grid gap-4">
             <div>
-              <dt class="text-sm text-slate-500">Slug</dt>
-              <dd class="font-semibold text-slate-950">{@tenant.slug}</dd>
+              <dt class="text-sm text-base-content/60">Slug</dt>
+              <dd class="font-semibold text-base-content">{@tenant.slug}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Subdomain</dt>
-              <dd class="font-medium text-slate-900">{@tenant.subdomain}</dd>
+              <dt class="text-sm text-base-content/60">Subdomain</dt>
+              <dd class="font-medium text-base-content/90">{@tenant.subdomain}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Access</dt>
-              <dd class="font-medium text-slate-900">
+              <dt class="text-sm text-base-content/60">Access</dt>
+              <dd class="font-medium text-base-content/90">
                 {if(@tenant.active, do: "Active", else: "Inactive")}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Storage</h2>
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors md:col-span-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Storage</h2>
           <dl class="mt-4 grid gap-4">
             <div>
-              <dt class="text-sm text-slate-500">Database path</dt>
-              <dd class="break-all font-mono text-sm text-slate-900">{@tenant.db_path}</dd>
+              <dt class="text-sm text-base-content/60">Database path</dt>
+              <dd class="break-all font-mono text-sm text-base-content/90">{@tenant.db_path}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Media path</dt>
-              <dd class="break-all font-mono text-sm text-slate-900">{@tenant.storage_path}</dd>
+              <dt class="text-sm text-base-content/60">Media path</dt>
+              <dd class="break-all font-mono text-sm text-base-content/90">{@tenant.storage_path}</dd>
             </div>
           </dl>
         </div>
       </section>
-    </Layouts.admin>
+    </Layouts.platform_admin>
     """
   end
 

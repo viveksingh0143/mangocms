@@ -19,7 +19,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
       <.header>
         {@title}
         <:subtitle>
@@ -76,7 +76,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.FormComponent do
           />
         </div>
 
-        <div class="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-6 grid gap-3 rounded-lg border border-base-300 bg-base-200 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <.input field={@form[:active]} type="checkbox" label="Active tenant" />
           <.input field={@form[:trial_used]} type="checkbox" label="Trial used" />
         </div>

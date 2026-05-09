@@ -21,7 +21,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
       <.header>
         {@title}
         <:subtitle>Products are stored inside the isolated tenant database.</:subtitle>
@@ -58,7 +58,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
           placeholder="Short product description."
         />
 
-        <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div class="mt-6 rounded-lg border border-base-300 bg-base-200 p-4">
           <.input field={@form[:active]} type="checkbox" label="Visible in tenant catalog" />
         </div>
 

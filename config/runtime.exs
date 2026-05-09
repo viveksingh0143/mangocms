@@ -35,6 +35,33 @@ tenant_data_root_default =
 config :mangocms, :tenant_data_root, env!("TENANT_DATA_ROOT", :string!, tenant_data_root_default)
 config :mangocms, :tenant_base_host, env!("TENANT_BASE_HOST", :string!, "mangocms.local")
 
+config :mangocms, :sso,
+  google: [
+    client_id: env!("GOOGLE_CLIENT_ID", :string?, nil),
+    client_secret: env!("GOOGLE_CLIENT_SECRET", :string?, nil),
+    authorization_url: "https://accounts.google.com/o/oauth2/v2/auth",
+    token_url: "https://oauth2.googleapis.com/token",
+    userinfo_url: "https://openidconnect.googleapis.com/v1/userinfo",
+    scopes: ~w(openid email profile)
+  ],
+  outlook: [
+    client_id: env!("MICROSOFT_CLIENT_ID", :string?, nil),
+    client_secret: env!("MICROSOFT_CLIENT_SECRET", :string?, nil),
+    authorization_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    userinfo_url: "https://graph.microsoft.com/oidc/userinfo",
+    scopes: ~w(openid email profile)
+  ],
+  apple: [
+    client_id: env!("APPLE_CLIENT_ID", :string?, nil),
+    client_secret: env!("APPLE_CLIENT_SECRET", :string?, nil),
+    authorization_url: "https://appleid.apple.com/auth/authorize",
+    token_url: "https://appleid.apple.com/auth/token",
+    userinfo_url: nil,
+    response_mode: "form_post",
+    scopes: ~w(name email)
+  ]
+
 # Database Runtime Routing
 database_adapter = Application.get_env(:mangocms, :database_adapter)
 

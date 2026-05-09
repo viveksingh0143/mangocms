@@ -50,6 +50,7 @@ defmodule MangoCMSWeb.Plugs.RequirePlatformHostTest do
   defp host_conn(conn, host), do: %{conn | host: host}
 
   test "allows platform routes on a non-tenant host", %{conn: conn} do
+    {conn, _user} = register_and_log_in_platform_user(conn)
     conn = get(host_conn(conn, "localhost"), ~p"/platform/admin/plans")
 
     assert html_response(conn, 200) =~ "Platform plans"

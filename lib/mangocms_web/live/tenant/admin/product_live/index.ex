@@ -50,16 +50,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.admin
+    <Layouts.tenant_admin
       flash={@flash}
       title="Tenant products"
       subtitle={"#{@current_tenant.name} uses #{plan_name(@current_plan)}"}
-      nav_items={Layouts.tenant_admin_nav(:products)}
-      brand_label={@current_tenant.name}
-      brand_href={~p"/admin/products"}
-      profile_name={@current_tenant.name}
-      profile_email={@current_tenant.domain}
-      profile_initials="TA"
+      current_user={@current_user}
+      current_tenant={@current_tenant}
+      active={:products}
     >
       <:actions>
         <.button id="new-product-button" patch={~p"/admin/products/new"} variant="primary">
@@ -78,33 +75,36 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
         patch={~p"/admin/products"}
       />
 
-      <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div id="products" phx-update="stream" class="divide-y divide-slate-100">
-          <div id="products-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
+      <section class="mt-8 overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-sm transition-colors">
+        <div id="products" phx-update="stream" class="divide-y divide-base-300">
+          <div
+            id="products-empty"
+            class="hidden only:block p-10 text-center text-sm text-base-content/60"
+          >
             No products have been created for this tenant.
           </div>
           <div
             :for={{id, product} <- @streams.products}
             id={id}
-            class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto] lg:items-center"
+            class="grid gap-4 p-5 transition hover:bg-base-200 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto] lg:items-center"
           >
             <div>
               <div class="flex flex-wrap items-center gap-2">
                 <.link
                   navigate={~p"/admin/products/#{product}"}
-                  class="font-semibold text-slate-950 hover:text-orange-600"
+                  class="font-semibold text-base-content hover:text-primary"
                 >
                   {product.name}
                 </.link>
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                <span class="rounded-full bg-base-200 px-2 py-0.5 text-xs font-medium text-base-content/70">
                   {product.slug}
                 </span>
               </div>
-              <p class="mt-1 text-sm text-slate-500">{product.sku || "No SKU"}</p>
+              <p class="mt-1 text-sm text-base-content/60">{product.sku || "No SKU"}</p>
             </div>
 
-            <div class="text-sm text-slate-600">
-              <p class="font-medium text-slate-900">{format_price(product)}</p>
+            <div class="text-sm text-base-content/70">
+              <p class="font-medium text-base-content/90">{format_price(product)}</p>
               <p>{product.stock_quantity} in stock</p>
             </div>
 
@@ -144,7 +144,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
           </div>
         </div>
       </section>
-    </Layouts.admin>
+    </Layouts.tenant_admin>
     """
   end
 
@@ -162,20 +162,23 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
   end
 
   defp status_class("active"),
-    do: "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+    do:
+      "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
 
   defp status_class("draft"),
-    do: "rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700"
+    do:
+      "rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
 
   defp status_class("archived"),
-    do: "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
 
   defp status_class(_),
-    do: "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
 
   defp active_class(true),
-    do: "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+    do:
+      "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
 
   defp active_class(false),
-    do: "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
 end

@@ -90,11 +90,20 @@ defmodule MangoCMSWeb.CoreComponents do
   """
   attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
   attr :class, :any
-  attr :variant, :string, values: ~w(primary)
+  attr :variant, :string, values: ~w(primary outline)
   slot :inner_block, required: true
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    variants = %{
+      "primary" => "btn-primary",
+      "outline" => "btn-outline"
+    }
+
+    # 2. Determine the specific variant class or the default fallback
+    variant_class = Map.get(variants, assigns[:variant])
+
+    # 3. Merge them into a list. HEEx handles [string, string, nil] perfectly.
+    assigns = assign(assigns, :class, ["btn", variant_class, assigns[:class]])
 
     assigns =
       assign_new(assigns, :class, fn ->

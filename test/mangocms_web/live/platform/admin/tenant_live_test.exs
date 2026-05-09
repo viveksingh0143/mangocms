@@ -70,6 +70,11 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLiveTest do
     Platform.get_tenant_with_plan!(tenant.id)
   end
 
+  setup %{conn: conn} do
+    {conn, user} = register_and_log_in_platform_user(conn)
+    %{conn: conn, platform_user: user}
+  end
+
   describe "Index" do
     test "lists all tenants with their plans", %{conn: conn} do
       tenant = tenant_fixture()

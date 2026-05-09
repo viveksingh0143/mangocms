@@ -62,6 +62,11 @@ defmodule MangoCMSWeb.Platform.Admin.PlanLiveTest do
     plan
   end
 
+  setup %{conn: conn} do
+    {conn, user} = register_and_log_in_platform_user(conn)
+    %{conn: conn, platform_user: user}
+  end
+
   describe "Index" do
     test "lists all plans", %{conn: conn} do
       plan = plan_fixture()

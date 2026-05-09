@@ -26,16 +26,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.admin
+    <Layouts.tenant_admin
       flash={@flash}
       title={@product.name}
       subtitle={"#{@current_tenant.name} tenant product"}
-      nav_items={Layouts.tenant_admin_nav(:products)}
-      brand_label={@current_tenant.name}
-      brand_href={~p"/admin/products"}
-      profile_name={@current_tenant.name}
-      profile_email={@current_tenant.domain}
-      profile_initials="TA"
+      current_user={@current_user}
+      current_tenant={@current_tenant}
+      active={:products}
     >
       <:actions>
         <.button id="back-to-products-button" navigate={~p"/admin/products"} class="btn btn-ghost">
@@ -62,54 +59,58 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
       />
 
       <section id="product-detail" class="mt-8 grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Catalog</h2>
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Catalog</h2>
           <dl class="mt-4 grid gap-4">
             <div>
-              <dt class="text-sm text-slate-500">Slug</dt>
-              <dd class="font-semibold text-slate-950">{@product.slug}</dd>
+              <dt class="text-sm text-base-content/60">Slug</dt>
+              <dd class="font-semibold text-base-content">{@product.slug}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">SKU</dt>
-              <dd class="font-medium text-slate-900">{@product.sku || "None"}</dd>
+              <dt class="text-sm text-base-content/60">SKU</dt>
+              <dd class="font-medium text-base-content/90">{@product.sku || "None"}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Status</dt>
-              <dd class="font-medium text-slate-900">{human_status(@product.status)}</dd>
+              <dt class="text-sm text-base-content/60">Status</dt>
+              <dd class="font-medium text-base-content/90">{human_status(@product.status)}</dd>
             </div>
           </dl>
         </div>
 
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Inventory</h2>
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">
+            Inventory
+          </h2>
           <dl class="mt-4 grid gap-4">
             <div>
-              <dt class="text-sm text-slate-500">Price</dt>
-              <dd class="text-lg font-semibold text-slate-950">
+              <dt class="text-sm text-base-content/60">Price</dt>
+              <dd class="text-lg font-semibold text-base-content">
                 {@product.currency} {@product.price}
               </dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Stock</dt>
-              <dd class="font-medium text-slate-900">{@product.stock_quantity}</dd>
+              <dt class="text-sm text-base-content/60">Stock</dt>
+              <dd class="font-medium text-base-content/90">{@product.stock_quantity}</dd>
             </div>
             <div>
-              <dt class="text-sm text-slate-500">Visibility</dt>
-              <dd class="font-medium text-slate-900">
+              <dt class="text-sm text-base-content/60">Visibility</dt>
+              <dd class="font-medium text-base-content/90">
                 {if(@product.active, do: "Visible", else: "Hidden")}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Description</h2>
-          <p class="mt-4 text-sm leading-6 text-slate-700">
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors md:col-span-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">
+            Description
+          </h2>
+          <p class="mt-4 text-sm leading-6 text-base-content/80">
             {@product.description || "No description"}
           </p>
         </div>
       </section>
-    </Layouts.admin>
+    </Layouts.tenant_admin>
     """
   end
 
