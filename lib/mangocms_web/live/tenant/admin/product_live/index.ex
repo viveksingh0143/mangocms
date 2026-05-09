@@ -50,100 +50,101 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto w-full max-w-6xl">
-        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <.header>
-            Tenant products
-            <:subtitle>
-              {@current_tenant.name} uses {plan_name(@current_plan)} and stores products in its own DB.
-            </:subtitle>
-          </.header>
+    <Layouts.admin
+      flash={@flash}
+      title="Tenant products"
+      subtitle={"#{@current_tenant.name} uses #{plan_name(@current_plan)}"}
+      nav_items={Layouts.tenant_admin_nav(:products)}
+      brand_label={@current_tenant.name}
+      brand_href={~p"/admin/products"}
+      profile_name={@current_tenant.name}
+      profile_email={@current_tenant.domain}
+      profile_initials="TA"
+    >
+      <:actions>
+        <.button id="new-product-button" patch={~p"/admin/products/new"} variant="primary">
+          <.icon name="hero-plus" class="size-4" /> New product
+        </.button>
+      </:actions>
 
-          <.button id="new-product-button" patch={~p"/admin/products/new"} variant="primary">
-            <.icon name="hero-plus" class="size-4" /> New product
-          </.button>
-        </div>
+      <.live_component
+        :if={@live_action in [:new, :edit]}
+        module={MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent}
+        id={@product.id || :new}
+        title={@page_title}
+        action={@live_action}
+        tenant={@current_tenant}
+        product={@product}
+        patch={~p"/admin/products"}
+      />
 
-        <.live_component
-          :if={@live_action in [:new, :edit]}
-          module={MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent}
-          id={@product.id || :new}
-          title={@page_title}
-          action={@live_action}
-          tenant={@current_tenant}
-          product={@product}
-          patch={~p"/admin/products"}
-        />
-
-        <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div id="products" phx-update="stream" class="divide-y divide-slate-100">
-            <div id="products-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
-              No products have been created for this tenant.
-            </div>
-            <div
-              :for={{id, product} <- @streams.products}
-              id={id}
-              class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto] lg:items-center"
-            >
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <.link
-                    navigate={~p"/admin/products/#{product}"}
-                    class="font-semibold text-slate-950 hover:text-orange-600"
-                  >
-                    {product.name}
-                  </.link>
-                  <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {product.slug}
-                  </span>
-                </div>
-                <p class="mt-1 text-sm text-slate-500">{product.sku || "No SKU"}</p>
-              </div>
-
-              <div class="text-sm text-slate-600">
-                <p class="font-medium text-slate-900">{format_price(product)}</p>
-                <p>{product.stock_quantity} in stock</p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <span class={status_class(product.status)}>{human_status(product.status)}</span>
-                <span class={active_class(product.active)}>
-                  {if(product.active, do: "Visible", else: "Hidden")}
+      <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div id="products" phx-update="stream" class="divide-y divide-slate-100">
+          <div id="products-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
+            No products have been created for this tenant.
+          </div>
+          <div
+            :for={{id, product} <- @streams.products}
+            id={id}
+            class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto] lg:items-center"
+          >
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <.link
+                  navigate={~p"/admin/products/#{product}"}
+                  class="font-semibold text-slate-950 hover:text-orange-600"
+                >
+                  {product.name}
+                </.link>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {product.slug}
                 </span>
               </div>
+              <p class="mt-1 text-sm text-slate-500">{product.sku || "No SKU"}</p>
+            </div>
 
-              <div class="flex items-center gap-3 lg:justify-end">
-                <.link
-                  id={"show-product-#{product.id}"}
-                  navigate={~p"/admin/products/#{product}"}
-                  class="btn btn-sm btn-ghost"
-                >
-                  View
-                </.link>
-                <.link
-                  id={"edit-product-#{product.id}"}
-                  patch={~p"/admin/products/#{product}/edit"}
-                  class="btn btn-sm btn-ghost"
-                >
-                  Edit
-                </.link>
-                <button
-                  id={"delete-product-#{product.id}"}
-                  type="button"
-                  phx-click="delete"
-                  phx-value-id={product.id}
-                  data-confirm="Delete this product?"
-                  class="btn btn-sm btn-ghost text-error"
-                >
-                  Delete
-                </button>
-              </div>
+            <div class="text-sm text-slate-600">
+              <p class="font-medium text-slate-900">{format_price(product)}</p>
+              <p>{product.stock_quantity} in stock</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <span class={status_class(product.status)}>{human_status(product.status)}</span>
+              <span class={active_class(product.active)}>
+                {if(product.active, do: "Visible", else: "Hidden")}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-3 lg:justify-end">
+              <.link
+                id={"show-product-#{product.id}"}
+                navigate={~p"/admin/products/#{product}"}
+                class="btn btn-sm btn-ghost"
+              >
+                View
+              </.link>
+              <.link
+                id={"edit-product-#{product.id}"}
+                patch={~p"/admin/products/#{product}/edit"}
+                class="btn btn-sm btn-ghost"
+              >
+                Edit
+              </.link>
+              <button
+                id={"delete-product-#{product.id}"}
+                type="button"
+                phx-click="delete"
+                phx-value-id={product.id}
+                data-confirm="Delete this product?"
+                class="btn btn-sm btn-ghost text-error"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </section>
-      </div>
-    </Layouts.app>
+        </div>
+      </section>
+    </Layouts.admin>
     """
   end
 

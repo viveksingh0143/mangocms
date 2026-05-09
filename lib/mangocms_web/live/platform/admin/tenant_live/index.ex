@@ -48,97 +48,100 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto w-full max-w-6xl">
-        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <.header>
-            Platform tenants
-            <:subtitle>Manage tenant domains, lifecycle state, and plan association.</:subtitle>
-          </.header>
+    <Layouts.admin
+      flash={@flash}
+      title="Platform tenants"
+      subtitle="Manage tenant domains, lifecycle state, and plan association."
+      nav_items={Layouts.platform_admin_nav(:tenants)}
+      brand_label="Platform Admin"
+      brand_href={~p"/platform/admin/plans"}
+      profile_name="Platform Admin"
+      profile_email="platform@mangocms.local"
+      profile_initials="PA"
+    >
+      <:actions>
+        <.button id="new-tenant-button" patch={~p"/platform/admin/tenants/new"} variant="primary">
+          <.icon name="hero-plus" class="size-4" /> New tenant
+        </.button>
+      </:actions>
 
-          <.button id="new-tenant-button" patch={~p"/platform/admin/tenants/new"} variant="primary">
-            <.icon name="hero-plus" class="size-4" /> New tenant
-          </.button>
-        </div>
+      <.live_component
+        :if={@live_action in [:new, :edit]}
+        module={MangoCMSWeb.Platform.Admin.TenantLive.FormComponent}
+        id={@tenant.id || :new}
+        title={@page_title}
+        action={@live_action}
+        tenant={@tenant}
+        patch={~p"/platform/admin/tenants"}
+      />
 
-        <.live_component
-          :if={@live_action in [:new, :edit]}
-          module={MangoCMSWeb.Platform.Admin.TenantLive.FormComponent}
-          id={@tenant.id || :new}
-          title={@page_title}
-          action={@live_action}
-          tenant={@tenant}
-          patch={~p"/platform/admin/tenants"}
-        />
-
-        <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div id="tenants" phx-update="stream" class="divide-y divide-slate-100">
-            <div id="tenants-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
-              No tenants have been created yet.
-            </div>
-            <div
-              :for={{id, tenant} <- @streams.tenants}
-              id={id}
-              class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
-            >
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <.link
-                    navigate={~p"/platform/admin/tenants/#{tenant}"}
-                    class="font-semibold text-slate-950 hover:text-orange-600"
-                  >
-                    {tenant.name}
-                  </.link>
-                  <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {tenant.slug}
-                  </span>
-                </div>
-                <p class="mt-1 text-sm text-slate-500">{tenant.domain}</p>
-              </div>
-
-              <div class="text-sm text-slate-600">
-                <p class="font-medium text-slate-900">{plan_name(tenant)}</p>
-                <p>{tenant.subdomain}.mangocms.local</p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <span class={status_class(tenant.status)}>{human_status(tenant.status)}</span>
-                <span class={active_class(tenant.active)}>
-                  {if(tenant.active, do: "Active", else: "Inactive")}
+      <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div id="tenants" phx-update="stream" class="divide-y divide-slate-100">
+          <div id="tenants-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
+            No tenants have been created yet.
+          </div>
+          <div
+            :for={{id, tenant} <- @streams.tenants}
+            id={id}
+            class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
+          >
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <.link
+                  navigate={~p"/platform/admin/tenants/#{tenant}"}
+                  class="font-semibold text-slate-950 hover:text-orange-600"
+                >
+                  {tenant.name}
+                </.link>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {tenant.slug}
                 </span>
               </div>
+              <p class="mt-1 text-sm text-slate-500">{tenant.domain}</p>
+            </div>
 
-              <div class="flex items-center gap-3 lg:justify-end">
-                <.link
-                  id={"show-tenant-#{tenant.id}"}
-                  navigate={~p"/platform/admin/tenants/#{tenant}"}
-                  class="btn btn-sm btn-ghost"
-                >
-                  View
-                </.link>
-                <.link
-                  id={"edit-tenant-#{tenant.id}"}
-                  patch={~p"/platform/admin/tenants/#{tenant}/edit"}
-                  class="btn btn-sm btn-ghost"
-                >
-                  Edit
-                </.link>
-                <button
-                  id={"delete-tenant-#{tenant.id}"}
-                  type="button"
-                  phx-click="delete"
-                  phx-value-id={tenant.id}
-                  data-confirm="Delete this tenant?"
-                  class="btn btn-sm btn-ghost text-error"
-                >
-                  Delete
-                </button>
-              </div>
+            <div class="text-sm text-slate-600">
+              <p class="font-medium text-slate-900">{plan_name(tenant)}</p>
+              <p>{tenant.subdomain}.mangocms.local</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <span class={status_class(tenant.status)}>{human_status(tenant.status)}</span>
+              <span class={active_class(tenant.active)}>
+                {if(tenant.active, do: "Active", else: "Inactive")}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-3 lg:justify-end">
+              <.link
+                id={"show-tenant-#{tenant.id}"}
+                navigate={~p"/platform/admin/tenants/#{tenant}"}
+                class="btn btn-sm btn-ghost"
+              >
+                View
+              </.link>
+              <.link
+                id={"edit-tenant-#{tenant.id}"}
+                patch={~p"/platform/admin/tenants/#{tenant}/edit"}
+                class="btn btn-sm btn-ghost"
+              >
+                Edit
+              </.link>
+              <button
+                id={"delete-tenant-#{tenant.id}"}
+                type="button"
+                phx-click="delete"
+                phx-value-id={tenant.id}
+                data-confirm="Delete this tenant?"
+                class="btn btn-sm btn-ghost text-error"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </section>
-      </div>
-    </Layouts.app>
+        </div>
+      </section>
+    </Layouts.admin>
     """
   end
 

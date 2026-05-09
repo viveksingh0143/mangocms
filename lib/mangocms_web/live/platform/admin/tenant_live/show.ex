@@ -26,97 +26,98 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Show do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto w-full max-w-5xl">
-        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <.header>
-            {@tenant.name}
-            <:subtitle>{@tenant.domain}</:subtitle>
-          </.header>
+    <Layouts.admin
+      flash={@flash}
+      title={@tenant.name}
+      subtitle={@tenant.domain}
+      nav_items={Layouts.platform_admin_nav(:tenants)}
+      brand_label="Platform Admin"
+      brand_href={~p"/platform/admin/plans"}
+      profile_name="Platform Admin"
+      profile_email="platform@mangocms.local"
+      profile_initials="PA"
+    >
+      <:actions>
+        <.button
+          id="back-to-tenants-button"
+          navigate={~p"/platform/admin/tenants"}
+          class="btn btn-ghost"
+        >
+          Back
+        </.button>
+        <.button
+          id="edit-tenant-button"
+          patch={~p"/platform/admin/tenants/#{@tenant}/show/edit"}
+          variant="primary"
+        >
+          <.icon name="hero-pencil-square" class="size-4" /> Edit
+        </.button>
+      </:actions>
 
-          <div class="flex gap-3">
-            <.button
-              id="back-to-tenants-button"
-              navigate={~p"/platform/admin/tenants"}
-              class="btn btn-ghost"
-            >
-              Back
-            </.button>
-            <.button
-              id="edit-tenant-button"
-              patch={~p"/platform/admin/tenants/#{@tenant}/show/edit"}
-              variant="primary"
-            >
-              <.icon name="hero-pencil-square" class="size-4" /> Edit
-            </.button>
-          </div>
+      <.live_component
+        :if={@live_action == :edit}
+        module={MangoCMSWeb.Platform.Admin.TenantLive.FormComponent}
+        id={@tenant.id}
+        title={@page_title}
+        action={@live_action}
+        tenant={@tenant}
+        patch={~p"/platform/admin/tenants/#{@tenant}"}
+      />
+
+      <section id="tenant-detail" class="mt-8 grid gap-4 md:grid-cols-2">
+        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Plan</h2>
+          <dl class="mt-4 grid gap-4">
+            <div>
+              <dt class="text-sm text-slate-500">Current plan</dt>
+              <dd class="text-lg font-semibold text-slate-950">{plan_name(@tenant)}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Status</dt>
+              <dd class="font-medium text-slate-900">{human_status(@tenant.status)}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Billing cycle</dt>
+              <dd class="font-medium text-slate-900">{@tenant.billing_cycle || "None"}</dd>
+            </div>
+          </dl>
         </div>
 
-        <.live_component
-          :if={@live_action == :edit}
-          module={MangoCMSWeb.Platform.Admin.TenantLive.FormComponent}
-          id={@tenant.id}
-          title={@page_title}
-          action={@live_action}
-          tenant={@tenant}
-          patch={~p"/platform/admin/tenants/#{@tenant}"}
-        />
+        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Identity</h2>
+          <dl class="mt-4 grid gap-4">
+            <div>
+              <dt class="text-sm text-slate-500">Slug</dt>
+              <dd class="font-semibold text-slate-950">{@tenant.slug}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Subdomain</dt>
+              <dd class="font-medium text-slate-900">{@tenant.subdomain}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Access</dt>
+              <dd class="font-medium text-slate-900">
+                {if(@tenant.active, do: "Active", else: "Inactive")}
+              </dd>
+            </div>
+          </dl>
+        </div>
 
-        <section id="tenant-detail" class="mt-8 grid gap-4 md:grid-cols-2">
-          <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Plan</h2>
-            <dl class="mt-4 grid gap-4">
-              <div>
-                <dt class="text-sm text-slate-500">Current plan</dt>
-                <dd class="text-lg font-semibold text-slate-950">{plan_name(@tenant)}</dd>
-              </div>
-              <div>
-                <dt class="text-sm text-slate-500">Status</dt>
-                <dd class="font-medium text-slate-900">{human_status(@tenant.status)}</dd>
-              </div>
-              <div>
-                <dt class="text-sm text-slate-500">Billing cycle</dt>
-                <dd class="font-medium text-slate-900">{@tenant.billing_cycle || "None"}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Identity</h2>
-            <dl class="mt-4 grid gap-4">
-              <div>
-                <dt class="text-sm text-slate-500">Slug</dt>
-                <dd class="font-semibold text-slate-950">{@tenant.slug}</dd>
-              </div>
-              <div>
-                <dt class="text-sm text-slate-500">Subdomain</dt>
-                <dd class="font-medium text-slate-900">{@tenant.subdomain}</dd>
-              </div>
-              <div>
-                <dt class="text-sm text-slate-500">Access</dt>
-                <dd class="font-medium text-slate-900">
-                  {if(@tenant.active, do: "Active", else: "Inactive")}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Storage</h2>
-            <dl class="mt-4 grid gap-4">
-              <div>
-                <dt class="text-sm text-slate-500">Database path</dt>
-                <dd class="break-all font-mono text-sm text-slate-900">{@tenant.db_path}</dd>
-              </div>
-              <div>
-                <dt class="text-sm text-slate-500">Media path</dt>
-                <dd class="break-all font-mono text-sm text-slate-900">{@tenant.storage_path}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-      </div>
-    </Layouts.app>
+        <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Storage</h2>
+          <dl class="mt-4 grid gap-4">
+            <div>
+              <dt class="text-sm text-slate-500">Database path</dt>
+              <dd class="break-all font-mono text-sm text-slate-900">{@tenant.db_path}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Media path</dt>
+              <dd class="break-all font-mono text-sm text-slate-900">{@tenant.storage_path}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </Layouts.admin>
     """
   end
 

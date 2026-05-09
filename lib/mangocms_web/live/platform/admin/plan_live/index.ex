@@ -48,101 +48,104 @@ defmodule MangoCMSWeb.Platform.Admin.PlanLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto w-full max-w-6xl">
-        <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <.header>
-            Platform plans
-            <:subtitle>Administer billing plans, resource limits, and rollout visibility.</:subtitle>
-          </.header>
+    <Layouts.admin
+      flash={@flash}
+      title="Platform plans"
+      subtitle="Administer billing plans, resource limits, and rollout visibility."
+      nav_items={Layouts.platform_admin_nav(:plans)}
+      brand_label="Platform Admin"
+      brand_href={~p"/platform/admin/plans"}
+      profile_name="Platform Admin"
+      profile_email="platform@mangocms.local"
+      profile_initials="PA"
+    >
+      <:actions>
+        <.button id="new-plan-button" patch={~p"/platform/admin/plans/new"} variant="primary">
+          <.icon name="hero-plus" class="size-4" /> New plan
+        </.button>
+      </:actions>
 
-          <.button id="new-plan-button" patch={~p"/platform/admin/plans/new"} variant="primary">
-            <.icon name="hero-plus" class="size-4" /> New plan
-          </.button>
-        </div>
+      <.live_component
+        :if={@live_action in [:new, :edit]}
+        module={MangoCMSWeb.Platform.Admin.PlanLive.FormComponent}
+        id={@plan.id || :new}
+        title={@page_title}
+        action={@live_action}
+        plan={@plan}
+        patch={~p"/platform/admin/plans"}
+      />
 
-        <.live_component
-          :if={@live_action in [:new, :edit]}
-          module={MangoCMSWeb.Platform.Admin.PlanLive.FormComponent}
-          id={@plan.id || :new}
-          title={@page_title}
-          action={@live_action}
-          plan={@plan}
-          patch={~p"/platform/admin/plans"}
-        />
-
-        <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div id="plans" phx-update="stream" class="divide-y divide-slate-100">
-            <div id="plans-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
-              No plans have been created yet.
-            </div>
-            <div
-              :for={{id, plan} <- @streams.plans}
-              id={id}
-              class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
-            >
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <.link
-                    navigate={~p"/platform/admin/plans/#{plan}"}
-                    class="font-semibold text-slate-950 hover:text-orange-600"
-                  >
-                    {plan.display_name}
-                  </.link>
-                  <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {plan.name}
-                  </span>
-                </div>
-                <p class="mt-1 line-clamp-2 text-sm text-slate-500">{plan.description}</p>
-              </div>
-
-              <div class="text-sm text-slate-600">
-                <p class="font-medium text-slate-900">
-                  {money(plan.price_monthly, plan.currency)} monthly
-                </p>
-                <p>{money(plan.price_yearly, plan.currency)} yearly</p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <span class={status_class(plan.active)}>
-                  {if(plan.active, do: "Active", else: "Inactive")}
-                </span>
-                <span class={status_class(plan.is_public)}>
-                  {if(plan.is_public, do: "Public", else: "Private")}
-                </span>
-              </div>
-
-              <div class="flex items-center gap-3 lg:justify-end">
+      <section class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div id="plans" phx-update="stream" class="divide-y divide-slate-100">
+          <div id="plans-empty" class="hidden only:block p-10 text-center text-sm text-slate-500">
+            No plans have been created yet.
+          </div>
+          <div
+            :for={{id, plan} <- @streams.plans}
+            id={id}
+            class="grid gap-4 p-5 transition hover:bg-slate-50 lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center"
+          >
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
                 <.link
-                  id={"show-plan-#{plan.id}"}
                   navigate={~p"/platform/admin/plans/#{plan}"}
-                  class="btn btn-sm btn-ghost"
+                  class="font-semibold text-slate-950 hover:text-orange-600"
                 >
-                  View
+                  {plan.display_name}
                 </.link>
-                <.link
-                  id={"edit-plan-#{plan.id}"}
-                  patch={~p"/platform/admin/plans/#{plan}/edit"}
-                  class="btn btn-sm btn-ghost"
-                >
-                  Edit
-                </.link>
-                <button
-                  id={"delete-plan-#{plan.id}"}
-                  type="button"
-                  phx-click="delete"
-                  phx-value-id={plan.id}
-                  data-confirm="Delete this plan?"
-                  class="btn btn-sm btn-ghost text-error"
-                >
-                  Delete
-                </button>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {plan.name}
+                </span>
               </div>
+              <p class="mt-1 line-clamp-2 text-sm text-slate-500">{plan.description}</p>
+            </div>
+
+            <div class="text-sm text-slate-600">
+              <p class="font-medium text-slate-900">
+                {money(plan.price_monthly, plan.currency)} monthly
+              </p>
+              <p>{money(plan.price_yearly, plan.currency)} yearly</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <span class={status_class(plan.active)}>
+                {if(plan.active, do: "Active", else: "Inactive")}
+              </span>
+              <span class={status_class(plan.is_public)}>
+                {if(plan.is_public, do: "Public", else: "Private")}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-3 lg:justify-end">
+              <.link
+                id={"show-plan-#{plan.id}"}
+                navigate={~p"/platform/admin/plans/#{plan}"}
+                class="btn btn-sm btn-ghost"
+              >
+                View
+              </.link>
+              <.link
+                id={"edit-plan-#{plan.id}"}
+                patch={~p"/platform/admin/plans/#{plan}/edit"}
+                class="btn btn-sm btn-ghost"
+              >
+                Edit
+              </.link>
+              <button
+                id={"delete-plan-#{plan.id}"}
+                type="button"
+                phx-click="delete"
+                phx-value-id={plan.id}
+                data-confirm="Delete this plan?"
+                class="btn btn-sm btn-ghost text-error"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </section>
-      </div>
-    </Layouts.app>
+        </div>
+      </section>
+    </Layouts.admin>
     """
   end
 
