@@ -6,6 +6,7 @@ defmodule MangoCMS.Accounts do
   alias MangoCMS.Accounts.{Password, User, UserIdentity, UserToken}
   alias MangoCMS.Platform.Tenant
   alias MangoCMS.Repo
+  alias MangoCMS.TenantAccounts
 
   def change_registration(attrs \\ %{}, opts) do
     %User{}
@@ -16,13 +17,13 @@ defmodule MangoCMS.Accounts do
   def register_platform_user(attrs), do: register_user("platform", nil, attrs)
 
   def register_tenant_user(%Tenant{} = tenant, attrs),
-    do: register_user("tenant", tenant.id, attrs)
+    do: TenantAccounts.register_admin_user(tenant, attrs)
 
   def authenticate_platform_user(email, password),
     do: authenticate_user("platform", nil, email, password)
 
   def authenticate_tenant_user(%Tenant{} = tenant, email, password) do
-    authenticate_user("tenant", tenant.id, email, password)
+    TenantAccounts.authenticate_admin_user(tenant, email, password)
   end
 
   def get_user!(id), do: Repo.get!(User, id)
@@ -82,9 +83,8 @@ defmodule MangoCMS.Accounts do
   def upsert_platform_sso_user(provider_profile),
     do: upsert_sso_user("platform", nil, provider_profile)
 
-  def upsert_tenant_sso_user(%Tenant{} = tenant, provider_profile) do
-    upsert_sso_user("tenant", tenant.id, provider_profile)
-  end
+  def upsert_tenant_sso_user(%Tenant{}, _provider_profile),
+    do: {:error, :tenant_sso_not_supported}
 
   defp register_user(scope, tenant_id, attrs) do
     %User{}

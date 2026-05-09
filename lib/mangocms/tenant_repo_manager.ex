@@ -102,6 +102,51 @@ defmodule MangoCMS.TenantRepoManager do
 
       TenantRepo.query!("CREATE INDEX IF NOT EXISTS products_status_index ON products(status)")
       TenantRepo.query!("CREATE INDEX IF NOT EXISTS products_active_index ON products(active)")
+
+      TenantRepo.query!("""
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        identity_key TEXT NOT NULL,
+        email TEXT NOT NULL,
+        hashed_password TEXT,
+        full_name TEXT,
+        phone TEXT,
+        avatar_url TEXT,
+        locale TEXT NOT NULL DEFAULT 'en',
+        timezone TEXT NOT NULL DEFAULT 'UTC',
+        role TEXT NOT NULL DEFAULT 'member',
+        confirmed_at TEXT,
+        disabled_at TEXT,
+        inserted_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      """)
+
+      TenantRepo.query!(
+        "CREATE UNIQUE INDEX IF NOT EXISTS users_identity_key_index ON users(identity_key)"
+      )
+
+      TenantRepo.query!("CREATE INDEX IF NOT EXISTS users_email_index ON users(email)")
+      TenantRepo.query!("CREATE INDEX IF NOT EXISTS users_role_index ON users(role)")
+
+      TenantRepo.query!("""
+      CREATE TABLE IF NOT EXISTS user_tokens (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token BLOB NOT NULL,
+        context TEXT NOT NULL,
+        inserted_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+      """)
+
+      TenantRepo.query!(
+        "CREATE UNIQUE INDEX IF NOT EXISTS user_tokens_token_context_index ON user_tokens(token, context)"
+      )
+
+      TenantRepo.query!(
+        "CREATE INDEX IF NOT EXISTS user_tokens_user_id_index ON user_tokens(user_id)"
+      )
     after
       TenantRepo.put_dynamic_repo(previous_repo)
     end

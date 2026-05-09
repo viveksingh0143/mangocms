@@ -81,6 +81,23 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.FormComponent do
           <.input field={@form[:trial_used]} type="checkbox" label="Trial used" />
         </div>
 
+        <div class="mt-6 rounded-lg border border-base-300 bg-base-200 p-4">
+          <h3 class="text-sm font-semibold text-base-content">Initial tenant owner</h3>
+          <p class="mt-1 text-sm text-base-content/60">
+            Optional on edit. When filled during creation, this creates the first owner inside the tenant database.
+          </p>
+          <div class="mt-4 grid gap-5 md:grid-cols-3">
+            <.input field={@form[:owner_full_name]} type="text" label="Owner name" />
+            <.input field={@form[:owner_email]} type="email" label="Owner email" />
+            <.input
+              field={@form[:owner_password]}
+              type="password"
+              label="Owner password"
+              autocomplete="new-password"
+            />
+          </div>
+        </div>
+
         <div class="mt-6 flex items-center justify-end gap-3">
           <.button navigate={@patch} class="btn btn-ghost">Cancel</.button>
           <.button id="save-tenant-button" variant="primary" phx-disable-with="Saving...">

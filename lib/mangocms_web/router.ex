@@ -25,12 +25,20 @@ defmodule MangoCMSWeb.Router do
     plug :require_tenant_user
   end
 
+  pipeline :require_tenant_member_auth do
+    plug :require_tenant_member_user
+  end
+
   pipeline :redirect_platform_authenticated do
     plug :redirect_if_platform_user
   end
 
   pipeline :redirect_tenant_authenticated do
     plug :redirect_if_tenant_user
+  end
+
+  pipeline :redirect_tenant_member_authenticated do
+    plug :redirect_if_tenant_member_user
   end
 
   pipeline :require_platform_host do
@@ -95,9 +103,16 @@ defmodule MangoCMSWeb.Router do
     post "/login", AuthController, :create
     get "/register", AuthController, :register
     post "/register", AuthController, :create_registration
-    get "/auth/:provider", OAuthController, :request
-    get "/auth/:provider/callback", OAuthController, :callback
-    post "/auth/:provider/callback", OAuthController, :callback
+    get "/forgot-password", AuthController, :forgot_password
+    post "/forgot-password", AuthController, :send_reset_password
+    get "/reset-password/:token", AuthController, :reset_password
+    put "/reset-password/:token", AuthController, :update_reset_password
+  end
+
+  scope "/admin", MangoCMSWeb do
+    pipe_through [:browser, :require_tenant]
+
+    get "/confirm/:token", AuthController, :confirm
   end
 
   scope "/admin", MangoCMSWeb do
@@ -124,6 +139,34 @@ defmodule MangoCMSWeb.Router do
       live "/products/:id", ProductLive.Show, :show
       live "/products/:id/show/edit", ProductLive.Show, :edit
     end
+  end
+
+  scope "/", MangoCMSWeb do
+    pipe_through [:browser, :require_tenant, :redirect_tenant_member_authenticated]
+
+    get "/login", AuthController, :new
+    post "/login", AuthController, :create
+    get "/register", AuthController, :register
+    post "/register", AuthController, :create_registration
+    get "/forgot-password", AuthController, :forgot_password
+    post "/forgot-password", AuthController, :send_reset_password
+    get "/reset-password/:token", AuthController, :reset_password
+    put "/reset-password/:token", AuthController, :update_reset_password
+  end
+
+  scope "/", MangoCMSWeb do
+    pipe_through [:browser, :require_tenant]
+
+    get "/confirm/:token", AuthController, :confirm
+  end
+
+  scope "/", MangoCMSWeb do
+    pipe_through [:browser, :require_tenant, :require_tenant_member_auth]
+
+    get "/profile", AuthController, :edit_profile
+    put "/profile", AuthController, :update_profile
+    put "/profile/password", AuthController, :update_password
+    delete "/logout", AuthController, :delete
   end
 
   # Other scopes may use custom stacks.

@@ -4,6 +4,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLiveTest do
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
+  alias MangoCMS.TenantAccounts
 
   @plan_attrs %{
     name: "growth",
@@ -88,6 +89,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLiveTest do
     test "saves new tenant with a plan association", %{conn: conn} do
       plan = plan_fixture()
       {:ok, index_live, _html} = live(conn, ~p"/platform/admin/tenants")
+      owner_email = "owner@acme.example"
 
       assert index_live |> element("#new-tenant-button") |> render_click() =~ "New tenant"
 
@@ -95,14 +97,29 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLiveTest do
              |> form("#tenant-form", tenant: @invalid_attrs)
              |> render_change() =~ "can&#39;t be blank"
 
+      tenant_attrs =
+        @tenant_attrs
+        |> Map.put(:plan_id, plan.id)
+        |> Map.merge(%{
+          owner_full_name: "Acme Owner",
+          owner_email: owner_email,
+          owner_password: "super-secret-password"
+        })
+
       assert index_live
-             |> form("#tenant-form", tenant: Map.put(@tenant_attrs, :plan_id, plan.id))
+             |> form("#tenant-form", tenant: tenant_attrs)
              |> render_submit()
 
       assert_patch(index_live, ~p"/platform/admin/tenants")
       html = render(index_live)
       assert html =~ "Acme Publishing"
       assert html =~ "Growth"
+
+      tenant = Platform.get_tenant_by_subdomain_with_plan("acme")
+      owner = TenantAccounts.get_user_by_email(tenant, owner_email)
+
+      assert owner.full_name == "Acme Owner"
+      assert owner.role == "owner"
     end
 
     test "updates tenant and switches its plan", %{conn: conn} do

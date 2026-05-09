@@ -53,7 +53,24 @@
           v{Application.spec(:phoenix, :vsn)}
         </small>
       </h1>
-      <Layouts.theme_toggle />
+      <div class="flex items-center gap-3">
+        <%= if @current_user do %>
+          <.link
+            href={if(@current_tenant, do: ~p"/profile", else: ~p"/platform/admin/plans")}
+            class="btn btn-sm btn-primary"
+          >
+            Account
+          </.link>
+        <% else %>
+          <.link
+            href={if(@current_tenant, do: ~p"/login", else: ~p"/platform/admin/login")}
+            class="btn btn-sm btn-primary"
+          >
+            Login
+          </.link>
+        <% end %>
+        <Layouts.theme_toggle />
+      </div>
     </div>
 
     <p class="text-[2rem] mt-4 font-semibold leading-10 tracking-tighter text-balance">

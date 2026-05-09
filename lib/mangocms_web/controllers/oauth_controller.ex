@@ -89,15 +89,14 @@ defmodule MangoCMSWeb.OAuthController do
   defp upsert_sso_user(:platform, profile), do: Accounts.upsert_platform_sso_user(profile)
   defp upsert_sso_user({:tenant, nil}, _profile), do: {:error, :tenant_mismatch}
 
-  defp upsert_sso_user({:tenant, tenant}, profile),
-    do: Accounts.upsert_tenant_sso_user(tenant, profile)
+  defp upsert_sso_user({:tenant, _tenant}, _profile), do: {:error, :tenant_sso_not_supported}
 
   defp callback_url(conn, :platform, provider) do
     request_base_url(conn) <> ~p"/platform/admin/auth/#{provider}/callback"
   end
 
   defp callback_url(conn, {:tenant, _tenant}, provider) do
-    request_base_url(conn) <> ~p"/admin/auth/#{provider}/callback"
+    request_base_url(conn) <> "/admin/auth/#{provider}/callback"
   end
 
   defp request_base_url(conn) do

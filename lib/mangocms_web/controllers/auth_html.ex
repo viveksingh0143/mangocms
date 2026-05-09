@@ -51,8 +51,18 @@ defmodule MangoCMSWeb.AuthHTML do
     """
   end
 
-  def profile_admin_layout(%{context: {:tenant, tenant}} = assigns) do
-    assigns = assign(assigns, :tenant, tenant)
+  def profile_admin_layout(%{context: {tenant_context, tenant}} = assigns)
+      when tenant_context in [:tenant_admin, :tenant_member] do
+    logout_href =
+      case tenant_context do
+        :tenant_admin -> ~p"/admin/logout"
+        :tenant_member -> ~p"/logout"
+      end
+
+    assigns =
+      assigns
+      |> assign(:tenant, tenant)
+      |> assign(:logout_href, logout_href)
 
     ~H"""
     <Layouts.tenant_admin
@@ -65,6 +75,7 @@ defmodule MangoCMSWeb.AuthHTML do
       brand_href={@back_path}
       profile_initials="ME"
       profile_href={@profile_action}
+      logout_href={@logout_href}
     >
       <:actions>
         <.button navigate={@back_path} class="btn btn-ghost">Back</.button>
@@ -201,23 +212,27 @@ defmodule MangoCMSWeb.AuthHTML do
   end
 
   defp auth_subtitle(:platform), do: "Secure access for platform operators."
-  defp auth_subtitle({:tenant, tenant}), do: "Secure access for #{tenant.name}."
+  defp auth_subtitle({:tenant_admin, tenant}), do: "Secure admin access for #{tenant.name}."
+  defp auth_subtitle({:tenant_member, tenant}), do: "Secure access for #{tenant.name}."
 
   defp auth_brand(:platform), do: "Platform Admin"
-  defp auth_brand({:tenant, tenant}), do: tenant.name
+  defp auth_brand({:tenant_admin, tenant}), do: "#{tenant.name} Admin"
+  defp auth_brand({:tenant_member, tenant}), do: tenant.name
 
   defp auth_brand_href(:platform), do: ~p"/platform/admin/login"
-  defp auth_brand_href({:tenant, _tenant}), do: ~p"/admin/login"
+  defp auth_brand_href({:tenant_admin, _tenant}), do: ~p"/admin/login"
+  defp auth_brand_href({:tenant_member, _tenant}), do: ~p"/login"
 
   defp auth_profile_email(:platform), do: "platform@mangocms.local"
-  defp auth_profile_email({:tenant, tenant}), do: tenant.domain
+  defp auth_profile_email({_tenant_context, tenant}), do: tenant.domain
 
   defp auth_initials(:platform), do: "PA"
-  defp auth_initials({:tenant, _tenant}), do: "TA"
+  defp auth_initials({:tenant_admin, _tenant}), do: "TA"
+  defp auth_initials({:tenant_member, _tenant}), do: "ME"
 
   def email_button_class(extra_class \\ nil) do
     [
-      "btn w-full border-base-300 bg-base-100 text-base-content transition hover:bg-base-200",
+      "btn btn-primary w-full transition hover:bg-base-200",
       extra_class
     ]
   end

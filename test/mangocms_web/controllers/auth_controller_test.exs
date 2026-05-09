@@ -3,6 +3,7 @@ defmodule MangoCMSWeb.AuthControllerTest do
 
   alias MangoCMS.Accounts
   alias MangoCMS.Platform
+  alias MangoCMS.TenantAccounts
 
   @password "valid-password-123"
 
@@ -141,7 +142,75 @@ defmodule MangoCMSWeb.AuthControllerTest do
         )
 
       assert redirected_to(conn) == ~p"/admin/profile"
-      assert Accounts.get_user!(user.id).full_name == "Updated Tenant"
+      assert TenantAccounts.get_user!(tenant, user.id).full_name == "Updated Tenant"
+    end
+
+    test "registers and logs into a tenant member", %{conn: conn} do
+      tenant = tenant_fixture()
+      suffix = unique_suffix()
+
+      conn =
+        conn
+        |> host_conn(tenant.domain)
+        |> post(~p"/register",
+          user: %{
+            email: "tenant-member-#{suffix}@example.com",
+            password: @password,
+            full_name: "Tenant Member",
+            timezone: "UTC",
+            locale: "en"
+          }
+        )
+
+      assert redirected_to(conn) == ~p"/profile"
+      assert get_session(conn, :user_token)
+      assert get_session(conn, :tenant_id) == tenant.id
+    end
+
+    test "resets tenant member password", %{conn: conn} do
+      tenant = tenant_fixture()
+      suffix = unique_suffix()
+
+      {:ok, user} =
+        TenantAccounts.register_member_user(tenant, %{
+          email: "reset-member-#{suffix}@example.com",
+          password: @password,
+          full_name: "Reset Member"
+        })
+
+      token = TenantAccounts.generate_reset_password_token(tenant, user)
+
+      conn =
+        conn
+        |> host_conn(tenant.domain)
+        |> put(~p"/reset-password/#{token}", user: %{password: "changed-password-123"})
+
+      assert redirected_to(conn) == ~p"/login"
+
+      assert {:ok, _user} =
+               TenantAccounts.authenticate_user(tenant, user.email, "changed-password-123")
+    end
+
+    test "confirms tenant member email", %{conn: conn} do
+      tenant = tenant_fixture()
+      suffix = unique_suffix()
+
+      {:ok, user} =
+        TenantAccounts.register_member_user(tenant, %{
+          email: "confirm-member-#{suffix}@example.com",
+          password: @password,
+          full_name: "Confirm Member"
+        })
+
+      token = TenantAccounts.generate_confirmation_token(tenant, user)
+
+      conn =
+        conn
+        |> host_conn(tenant.domain)
+        |> get(~p"/confirm/#{token}")
+
+      assert redirected_to(conn) == ~p"/login"
+      assert TenantAccounts.get_user!(tenant, user.id).confirmed_at
     end
   end
 

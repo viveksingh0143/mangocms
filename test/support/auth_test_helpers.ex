@@ -4,6 +4,7 @@ defmodule MangoCMSWeb.AuthTestHelpers do
 
   alias MangoCMS.Accounts
   alias MangoCMS.Platform.Tenant
+  alias MangoCMS.TenantAccounts
 
   @password "valid-password-123"
 
@@ -37,16 +38,25 @@ defmodule MangoCMSWeb.AuthTestHelpers do
         locale: "en"
       })
 
-    {:ok, user} = Accounts.register_tenant_user(tenant, attrs)
+    {:ok, user} = TenantAccounts.register_admin_user(tenant, attrs)
     user
   end
 
-  def log_in_user(conn, user) do
+  def log_in_user(conn, %MangoCMS.Accounts.User{} = user) do
     token = Accounts.generate_user_session_token(user)
 
     conn
     |> init_test_session(%{})
     |> put_session(:user_token, token)
+  end
+
+  def log_in_tenant_user(conn, %Tenant{} = tenant, user) do
+    token = TenantAccounts.generate_user_session_token(tenant, user)
+
+    conn
+    |> init_test_session(%{})
+    |> put_session(:user_token, token)
+    |> put_session(:tenant_id, tenant.id)
   end
 
   def register_and_log_in_platform_user(conn, attrs \\ %{}) do
@@ -59,8 +69,7 @@ defmodule MangoCMSWeb.AuthTestHelpers do
 
     conn =
       conn
-      |> log_in_user(user)
-      |> put_session(:tenant_id, tenant.id)
+      |> log_in_tenant_user(tenant, user)
 
     {conn, user}
   end

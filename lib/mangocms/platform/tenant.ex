@@ -29,6 +29,8 @@ defmodule MangoCMS.Platform.Tenant do
     storage_path
   )a
 
+  @owner_fields ~w(owner_email owner_password owner_full_name)a
+
   @type t :: %__MODULE__{}
 
   schema "tenants" do
@@ -78,6 +80,10 @@ defmodule MangoCMS.Platform.Tenant do
     # "data/tenants/{slug}/media/"
     field :storage_path, :string
 
+    field :owner_email, :string, virtual: true
+    field :owner_password, :string, virtual: true, redact: true
+    field :owner_full_name, :string, virtual: true
+
     timestamps()
   end
 
@@ -88,7 +94,7 @@ defmodule MangoCMS.Platform.Tenant do
   @doc "Used when creating a new tenant — derives paths from slug automatically."
   def changeset(tenant, attrs) do
     tenant
-    |> cast(attrs, @required_fields ++ @optional_fields)
+    |> cast(attrs, @required_fields ++ @optional_fields ++ @owner_fields)
     |> validate_required(@required_fields)
     |> validate_length(:name, min: 2, max: 100)
     |> validate_format(:domain, ~r/^[a-z0-9.-]+\.[a-z]{2,}$/,
@@ -102,6 +108,7 @@ defmodule MangoCMS.Platform.Tenant do
     )
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_billing_cycle()
+    |> validate_owner_fields()
     |> unique_constraint(:domain)
     |> unique_constraint(:subdomain)
     |> unique_constraint(:slug)
@@ -204,6 +211,26 @@ defmodule MangoCMS.Platform.Tenant do
       _cycle -> validate_inclusion(changeset, :billing_cycle, @valid_billing)
     end
   end
+
+  defp validate_owner_fields(changeset) do
+    owner_email = get_field(changeset, :owner_email)
+    owner_password = get_field(changeset, :owner_password)
+
+    if present?(owner_email) or present?(owner_password) do
+      changeset
+      |> validate_required([:owner_email, :owner_password])
+      |> validate_format(:owner_email, ~r/^[^\s]+@[^\s]+$/,
+        message: "must have the @ sign and no spaces"
+      )
+      |> validate_length(:owner_email, max: 160)
+      |> validate_length(:owner_password, min: 8, max: 72)
+      |> validate_length(:owner_full_name, max: 120)
+    else
+      changeset
+    end
+  end
+
+  defp present?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp validate_trial_not_reused(changeset) do
     # Prevents a tenant from starting a second trial

@@ -25,6 +25,7 @@ defmodule MangoCMS.Platform do
 
   alias MangoCMS.Repo
   alias MangoCMS.Platform.{Plan, Tenant}
+  alias MangoCMS.TenantAccounts
 
   require Logger
 
@@ -218,6 +219,7 @@ defmodule MangoCMS.Platform do
     |> case do
       {:ok, tenant} = result ->
         provision_tenant_storage(tenant)
+        maybe_create_tenant_owner(tenant, attrs)
         Logger.info("[Platform] Tenant created: #{tenant.name} (#{tenant.slug})")
         result
 
@@ -445,6 +447,43 @@ defmodule MangoCMS.Platform do
   end
 
   defp provision_tenant_storage(_), do: :ok
+
+  defp maybe_create_tenant_owner(%Tenant{} = tenant, attrs) do
+    attrs = normalize_attrs(attrs)
+    owner_email = trimmed_value(Map.get(attrs, "owner_email"))
+    owner_password = trimmed_value(Map.get(attrs, "owner_password"))
+
+    if present?(owner_email) and present?(owner_password) do
+      owner_attrs = %{
+        email: owner_email,
+        password: owner_password,
+        full_name: trimmed_value(Map.get(attrs, "owner_full_name")),
+        timezone: "UTC",
+        locale: "en"
+      }
+
+      case TenantAccounts.register_owner_user(tenant, owner_attrs) do
+        {:ok, _user} ->
+          :ok
+
+        {:error, changeset} ->
+          Logger.error("[Platform] Tenant owner creation failed: #{inspect(changeset.errors)}")
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  defp normalize_attrs(attrs) when is_map(attrs) do
+    Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+  end
+
+  defp trimmed_value(value) when is_binary(value), do: String.trim(value)
+  defp trimmed_value(value), do: value
+
+  defp present?(value) when is_binary(value), do: value != ""
+  defp present?(_), do: false
 
   defp normalize_host(host) do
     host

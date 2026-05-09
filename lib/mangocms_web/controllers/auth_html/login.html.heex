@@ -19,9 +19,16 @@
       </button>
     </.form>
 
-    <.auth_divider />
+    <p class="mt-4 text-right text-sm">
+      <.link href={@forgot_password_path} class={auth_link_class()}>
+        Forgot password?
+      </.link>
+    </p>
 
-    <.sso_buttons links={@sso_links} />
+    <%= if @sso_links != [] do %>
+      <.auth_divider />
+      <.sso_buttons links={@sso_links} />
+    <% end %>
 
     <p class="mt-6 text-center text-sm text-base-content/60">
       Need an account?
