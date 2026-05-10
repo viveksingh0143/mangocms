@@ -92,9 +92,6 @@ defmodule MangoCMS.TenantRepoManager do
           {:error, :already_up} ->
             :ok
 
-          {:error, {:already_up, _}} ->
-            :ok
-
           {:error, reason} ->
             raise "could not create tenant postgres database: #{inspect(reason)}"
         end

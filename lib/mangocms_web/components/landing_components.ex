@@ -11,10 +11,14 @@ defmodule MangoCMSWeb.LandingComponents do
   def landing_navbar(assigns) do
     assigns =
       assigns
-      |> assign(:account_href, account_href(assigns.current_tenant, assigns.current_user))
       |> assign(:login_href, login_href(assigns.current_tenant))
       |> assign(:register_href, register_href(assigns.current_tenant))
       |> assign(:account_label, account_label(assigns.current_user))
+      |> assign(:account_initials, account_initials(assigns.current_user))
+      |> assign(:account_avatar_url, account_avatar_url(assigns.current_user))
+      |> assign(:dashboard_href, dashboard_href(assigns.current_tenant, assigns.current_user))
+      |> assign(:profile_href, profile_href(assigns.current_tenant, assigns.current_user))
+      |> assign(:logout_href, logout_href(assigns.current_tenant, assigns.current_user))
 
     ~H"""
     <div
@@ -47,13 +51,40 @@ defmodule MangoCMSWeb.LandingComponents do
 
       <div class="navbar-end gap-2">
         <Layouts.theme_toggle />
-        <.link
-          :if={@current_user}
-          href={@account_href}
-          class="btn btn-primary btn-sm"
-        >
-          {@account_label}
-        </.link>
+        <details :if={@current_user} id="landing-account-menu" class="dropdown dropdown-end">
+          <summary
+            id="landing-account-menu-button"
+            class="btn btn-primary btn-sm list-none gap-2"
+          >
+            <img
+              :if={@account_avatar_url}
+              id="landing-account-avatar"
+              src={@account_avatar_url}
+              alt={@account_label}
+              class="size-5 rounded-full object-cover"
+            />
+            <span
+              :if={!@account_avatar_url}
+              id="landing-account-initials"
+              class="grid size-5 place-items-center rounded-full bg-primary-content/20 text-[0.65rem] font-bold"
+            >
+              {@account_initials}
+            </span>
+            <span class="hidden sm:inline">{@account_label}</span>
+            <.icon name="hero-chevron-down-micro" class="size-4" />
+          </summary>
+          <ul class="menu dropdown-content z-50 mt-2 w-48 rounded-box border border-base-300 bg-base-100 p-2 text-base-content shadow-lg">
+            <li>
+              <.link id="landing-dashboard-link" href={@dashboard_href}>Dashboard</.link>
+            </li>
+            <li>
+              <.link id="landing-profile-link" href={@profile_href}>Profile</.link>
+            </li>
+            <li>
+              <.link id="landing-logout-link" href={@logout_href} method="delete">Logout</.link>
+            </li>
+          </ul>
+        </details>
         <.link
           :if={!@current_user}
           href={@login_href}
@@ -315,7 +346,7 @@ defmodule MangoCMSWeb.LandingComponents do
             class="rounded-box border border-base-300 bg-base-200 p-3 text-sm"
           >
             <span class="font-semibold">{question.label}</span>
-            <span class="text-base-content/60"> —             {question.text}</span>
+            <span class="text-base-content/60"> —                    {question.text}</span>
           </div>
         </div>
       </div>
@@ -619,7 +650,7 @@ defmodule MangoCMSWeb.LandingComponents do
     """
   end
 
-  defp account_href(nil, %MangoCMS.Accounts.User{} = user) do
+  defp dashboard_href(nil, %MangoCMS.Accounts.User{} = user) do
     if MangoCMS.Accounts.User.platform_admin?(user) do
       ~p"/platform/admin/dashboard"
     else
@@ -627,7 +658,7 @@ defmodule MangoCMSWeb.LandingComponents do
     end
   end
 
-  defp account_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+  defp dashboard_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
     if MangoCMS.TenantAccounts.User.admin_role?(user) do
       ~p"/admin/dashboard"
     else
@@ -635,7 +666,43 @@ defmodule MangoCMSWeb.LandingComponents do
     end
   end
 
-  defp account_href(_tenant, _user), do: ~p"/dashboard"
+  defp dashboard_href(_tenant, _user), do: ~p"/dashboard"
+
+  defp profile_href(nil, %MangoCMS.Accounts.User{} = user) do
+    if MangoCMS.Accounts.User.platform_admin?(user) do
+      ~p"/platform/admin/profile"
+    else
+      ~p"/platform/profile"
+    end
+  end
+
+  defp profile_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+      ~p"/admin/profile"
+    else
+      ~p"/profile"
+    end
+  end
+
+  defp profile_href(_tenant, _user), do: ~p"/profile"
+
+  defp logout_href(nil, %MangoCMS.Accounts.User{} = user) do
+    if MangoCMS.Accounts.User.platform_admin?(user) do
+      ~p"/platform/admin/logout"
+    else
+      ~p"/platform/logout"
+    end
+  end
+
+  defp logout_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+      ~p"/admin/logout"
+    else
+      ~p"/logout"
+    end
+  end
+
+  defp logout_href(_tenant, _user), do: ~p"/logout"
 
   defp login_href(nil), do: ~p"/platform/login"
   defp login_href(_tenant), do: ~p"/login"
@@ -643,9 +710,12 @@ defmodule MangoCMSWeb.LandingComponents do
   defp register_href(nil), do: ~p"/platform/register"
   defp register_href(_tenant), do: ~p"/register"
 
-  defp account_label(%{full_name: full_name}) when is_binary(full_name) and full_name != "",
-    do: full_name
+  defp account_initials(nil), do: nil
+  defp account_initials(user), do: Layouts.user_initials(user)
 
-  defp account_label(%{email: email}) when is_binary(email), do: email
-  defp account_label(_user), do: "Account"
+  defp account_avatar_url(nil), do: nil
+  defp account_avatar_url(user), do: Layouts.user_avatar_url(user)
+
+  defp account_label(nil), do: "Account"
+  defp account_label(user), do: Layouts.user_display_name(user)
 end

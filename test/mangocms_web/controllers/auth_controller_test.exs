@@ -65,6 +65,26 @@ defmodule MangoCMSWeb.AuthControllerTest do
   end
 
   describe "platform auth" do
+    test "shows login and register links on platform login and register headers", %{conn: conn} do
+      login_conn = get(conn, ~p"/platform/login")
+      login_html = html_response(login_conn, 200)
+
+      assert login_html =~ "id=\"admin-login-link\""
+      assert login_html =~ "id=\"admin-register-link\""
+      assert login_html =~ ~p"/platform/login"
+      assert login_html =~ ~p"/platform/register"
+      assert login_html =~ "href=\"/\""
+
+      register_conn = get(conn, ~p"/platform/register")
+      register_html = html_response(register_conn, 200)
+
+      assert register_html =~ "id=\"admin-login-link\""
+      assert register_html =~ "id=\"admin-register-link\""
+      assert register_html =~ ~p"/platform/login"
+      assert register_html =~ ~p"/platform/register"
+      assert register_html =~ "href=\"/\""
+    end
+
     test "blocks platform admin registration by default", %{conn: conn} do
       conn =
         post(conn, ~p"/platform/admin/register",
@@ -201,6 +221,30 @@ defmodule MangoCMSWeb.AuthControllerTest do
   end
 
   describe "tenant auth" do
+    test "shows login and register links on tenant member login and register headers", %{
+      conn: conn
+    } do
+      tenant = tenant_fixture()
+
+      login_conn = conn |> host_conn(tenant.domain) |> get(~p"/login")
+      login_html = html_response(login_conn, 200)
+
+      assert login_html =~ "id=\"admin-login-link\""
+      assert login_html =~ "id=\"admin-register-link\""
+      assert login_html =~ ~p"/login"
+      assert login_html =~ ~p"/register"
+      assert login_html =~ "href=\"/\""
+
+      register_conn = conn |> host_conn(tenant.domain) |> get(~p"/register")
+      register_html = html_response(register_conn, 200)
+
+      assert register_html =~ "id=\"admin-login-link\""
+      assert register_html =~ "id=\"admin-register-link\""
+      assert register_html =~ ~p"/login"
+      assert register_html =~ ~p"/register"
+      assert register_html =~ "href=\"/\""
+    end
+
     test "does not expose tenant admin registration", %{conn: conn} do
       tenant = tenant_fixture()
 

@@ -248,6 +248,8 @@ defmodule MangoCMSWeb.Layouts do
   attr :profile_avatar_url, :string, default: nil
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
+  attr :login_href, :string, default: nil
+  attr :register_href, :string, default: nil
 
   slot :actions
   slot :inner_block, required: true
@@ -255,6 +257,10 @@ defmodule MangoCMSWeb.Layouts do
   def admin(assigns) do
     assigns =
       assigns
+      |> assign(
+        :show_auth_links,
+        not is_nil(assigns.login_href) or not is_nil(assigns.register_href)
+      )
       |> assign(:profile_avatar_url, normalize_avatar_url(assigns.profile_avatar_url))
       |> assign(:mobile_menu_id, "#{assigns.id}-mobile-menu")
       |> assign(:mobile_menu_selector, "##{assigns.id}-mobile-menu")
@@ -294,7 +300,27 @@ defmodule MangoCMSWeb.Layouts do
               </div>
             </div>
 
-            <div class="hidden md:block">
+            <div :if={@show_auth_links} class="flex items-center gap-2">
+              <.theme_toggle />
+              <.link
+                :if={@login_href}
+                id="admin-login-link"
+                href={@login_href}
+                class="btn btn-ghost btn-sm text-gray-200 hover:bg-white/5 hover:text-white"
+              >
+                Login
+              </.link>
+              <.link
+                :if={@register_href}
+                id="admin-register-link"
+                href={@register_href}
+                class="btn btn-primary btn-sm"
+              >
+                Register
+              </.link>
+            </div>
+
+            <div :if={!@show_auth_links} class="hidden md:block">
               <div class="ml-4 flex items-center md:ml-6">
                 <.theme_toggle />
 
@@ -362,7 +388,7 @@ defmodule MangoCMSWeb.Layouts do
               </div>
             </div>
 
-            <div class="-mr-2 flex md:hidden">
+            <div :if={!@show_auth_links} class="-mr-2 flex md:hidden">
               <button
                 type="button"
                 id="admin-mobile-menu-button"
@@ -527,8 +553,6 @@ defmodule MangoCMSWeb.Layouts do
 
     if initials == "", do: "U", else: initials
   end
-
-  defp initials_from_text(_text), do: "U"
 
   defp normalize_avatar_url(avatar_url) when is_binary(avatar_url) do
     case String.trim(avatar_url) do

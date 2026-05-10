@@ -11,10 +11,12 @@ defmodule MangoCMSWeb.AuthHTML do
       subtitle={auth_subtitle(@context)}
       nav_items={[]}
       brand_label={auth_brand(@context)}
-      brand_href={auth_brand_href(@context)}
+      brand_href={~p"/"}
       profile_name={auth_brand(@context)}
       profile_email={auth_profile_email(@context)}
       profile_initials={auth_initials(@context)}
+      login_href={auth_login_href(@context)}
+      register_href={auth_register_href(@context)}
     >
       {render_slot(@inner_block)}
     </Layouts.admin>
@@ -246,10 +248,18 @@ defmodule MangoCMSWeb.AuthHTML do
   defp auth_brand({:tenant_admin, tenant}), do: "#{tenant.name} Admin"
   defp auth_brand({:tenant_member, tenant}), do: tenant.name
 
-  defp auth_brand_href(:platform), do: ~p"/platform/admin/login"
-  defp auth_brand_href(:platform_account), do: ~p"/platform/login"
-  defp auth_brand_href({:tenant_admin, _tenant}), do: ~p"/admin/login"
-  defp auth_brand_href({:tenant_member, _tenant}), do: ~p"/login"
+  defp auth_login_href(:platform), do: ~p"/platform/admin/login"
+  defp auth_login_href(:platform_account), do: ~p"/platform/login"
+  defp auth_login_href({:tenant_admin, _tenant}), do: ~p"/admin/login"
+  defp auth_login_href({:tenant_member, _tenant}), do: ~p"/login"
+
+  defp auth_register_href(:platform) do
+    if MangoCMSWeb.PlatformRegistration.enabled?(), do: ~p"/platform/admin/register"
+  end
+
+  defp auth_register_href(:platform_account), do: ~p"/platform/register"
+  defp auth_register_href({:tenant_admin, _tenant}), do: nil
+  defp auth_register_href({:tenant_member, _tenant}), do: ~p"/register"
 
   defp auth_profile_email(:platform), do: MangoCMSWeb.Brand.platform_profile_email()
   defp auth_profile_email(:platform_account), do: MangoCMSWeb.Brand.platform_profile_email()
