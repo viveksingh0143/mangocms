@@ -198,10 +198,24 @@ defmodule MangoCMS.Platform.Tenant do
 
       slug ->
         root = Application.get_env(:mangocms, :tenant_data_root, "data/tenants")
+        db_path = tenant_db_path(slug, root)
 
         changeset
-        |> put_change(:db_path, "#{root}/#{slug}/tenant.db")
+        |> put_change(:db_path, db_path)
         |> put_change(:storage_path, "#{root}/#{slug}/media/")
+    end
+  end
+
+  defp tenant_db_path(slug, root) do
+    case Application.get_env(:mangocms, :tenant_database_adapter, :sqlite3) do
+      :postgres ->
+        prefix =
+          Application.get_env(:mangocms, :tenant_postgres_database_prefix, "mangocms_tenant_")
+
+        prefix <> slug
+
+      _sqlite ->
+        "#{root}/#{slug}/tenant.db"
     end
   end
 

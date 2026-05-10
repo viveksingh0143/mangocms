@@ -35,6 +35,10 @@ tenant_data_root_default =
 config :mangocms, :tenant_data_root, env!("TENANT_DATA_ROOT", :string!, tenant_data_root_default)
 config :mangocms, :tenant_base_host, env!("TENANT_BASE_HOST", :string!, "mangocms.local")
 
+config :mangocms,
+       :tenant_postgres_database_prefix,
+       env!("TENANT_POSTGRES_DATABASE_PREFIX", :string!, "mangocms_tenant_")
+
 config :mangocms, :sso,
   google: [
     client_id: env!("GOOGLE_CLIENT_ID", :string?, nil),
@@ -106,6 +110,39 @@ repo_config =
   end
 
 config :mangocms, MangoCMS.Repo, repo_config
+
+tenant_database_adapter = Application.get_env(:mangocms, :tenant_database_adapter, :sqlite3)
+
+tenant_repo_config =
+  if tenant_database_adapter == :postgres do
+    maybe_ipv6 = if env!("TENANT_POSTGRES_IPV6", :boolean, false), do: [:inet6], else: []
+
+    [
+      username:
+        env!("TENANT_POSTGRES_USER", :string!, env!("POSTGRES_USER", :string!, "postgres")),
+      password:
+        env!(
+          "TENANT_POSTGRES_PASSWORD",
+          :string!,
+          env!("POSTGRES_PASSWORD", :string!, "postgres")
+        ),
+      hostname:
+        env!("TENANT_POSTGRES_HOST", :string!, env!("POSTGRES_HOST", :string!, "localhost")),
+      port: env!("TENANT_POSTGRES_PORT", :integer!, env!("POSTGRES_PORT", :integer!, 5432)),
+      pool_size: env!("TENANT_POOL_SIZE", :integer!, 1),
+      socket_options: maybe_ipv6
+    ]
+  else
+    [
+      pool_size: env!("TENANT_POOL_SIZE", :integer!, 1),
+      journal_mode: :wal,
+      cache_size: -64_000,
+      foreign_keys: :on,
+      busy_timeout: 5_000
+    ]
+  end
+
+config :mangocms, MangoCMS.TenantRepo, tenant_repo_config
 
 # Production Hard Requirements
 if config_env() == :prod do

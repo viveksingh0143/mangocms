@@ -26,6 +26,7 @@ defmodule MangoCMS.Platform do
   alias MangoCMS.Repo
   alias MangoCMS.Platform.{Plan, Tenant}
   alias MangoCMS.TenantAccounts
+  alias MangoCMS.TenantMigrator
 
   require Logger
 
@@ -219,6 +220,7 @@ defmodule MangoCMS.Platform do
     |> case do
       {:ok, tenant} = result ->
         provision_tenant_storage(tenant)
+        TenantMigrator.migrate_tenant!(tenant)
         maybe_create_tenant_owner(tenant, attrs)
         Logger.info("[Platform] Tenant created: #{tenant.name} (#{tenant.slug})")
         result

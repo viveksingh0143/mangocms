@@ -4,18 +4,30 @@ import Config
 # We use native System.get_env here to ensure this runs before dependencies are downloaded.
 database_adapter_name = System.get_env("MANGO_DB", "postgres") |> String.downcase()
 
-repo_adapter =
-  case database_adapter_name do
-    "postgres" -> Ecto.Adapters.Postgres
-    "postgresql" -> Ecto.Adapters.Postgres
-    "sqlite" -> Ecto.Adapters.SQLite3
-    "sqlite3" -> Ecto.Adapters.SQLite3
-    other -> raise "Unsupported MANGO_DB=#{inspect(other)}. Use sqlite3 or postgres."
-  end
+tenant_database_adapter_name =
+  System.get_env("MANGO_TENANT_DB", "sqlite3") |> String.downcase()
+
+adapter_from_name = fn
+  "postgres" -> Ecto.Adapters.Postgres
+  "postgresql" -> Ecto.Adapters.Postgres
+  "sqlite" -> Ecto.Adapters.SQLite3
+  "sqlite3" -> Ecto.Adapters.SQLite3
+  other -> raise "Unsupported database adapter #{inspect(other)}. Use sqlite3 or postgres."
+end
+
+repo_adapter = adapter_from_name.(database_adapter_name)
+tenant_repo_adapter = adapter_from_name.(tenant_database_adapter_name)
+
+adapter_key = fn
+  Ecto.Adapters.Postgres -> :postgres
+  Ecto.Adapters.SQLite3 -> :sqlite3
+end
 
 config :mangocms,
-  database_adapter: if(repo_adapter == Ecto.Adapters.Postgres, do: :postgres, else: :sqlite3),
+  database_adapter: adapter_key.(repo_adapter),
+  tenant_database_adapter: adapter_key.(tenant_repo_adapter),
   repo_adapter: repo_adapter,
+  tenant_repo_adapter: tenant_repo_adapter,
   namespace: MangoCMS,
   ecto_repos: [MangoCMS.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
@@ -29,12 +41,22 @@ config :mangocms, MangoCMSWeb.Brand,
 
 config :mangocms, MangoCMS.Repo, adapter: repo_adapter
 
-config :mangocms, MangoCMS.TenantRepo,
-  pool_size: 1,
-  journal_mode: :wal,
-  cache_size: -64_000,
-  foreign_keys: :on,
-  busy_timeout: 5_000
+tenant_repo_config =
+  case tenant_repo_adapter do
+    Ecto.Adapters.Postgres ->
+      [pool_size: 1]
+
+    Ecto.Adapters.SQLite3 ->
+      [
+        pool_size: 1,
+        journal_mode: :wal,
+        cache_size: -64_000,
+        foreign_keys: :on,
+        busy_timeout: 5_000
+      ]
+  end
+
+config :mangocms, MangoCMS.TenantRepo, tenant_repo_config
 
 # Oban Adapter Selection
 oban_adapter_config =
