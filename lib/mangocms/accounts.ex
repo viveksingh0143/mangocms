@@ -14,7 +14,10 @@ defmodule MangoCMS.Accounts do
     |> Map.put(:action, nil)
   end
 
-  def register_platform_user(attrs), do: register_user("platform", nil, attrs)
+  def register_platform_user(attrs), do: register_user("platform", nil, attrs, role: "admin")
+
+  def register_platform_customer_user(attrs),
+    do: register_user("platform", nil, attrs, role: "customer")
 
   def register_tenant_user(%Tenant{} = tenant, attrs),
     do: TenantAccounts.register_admin_user(tenant, attrs)
@@ -86,9 +89,12 @@ defmodule MangoCMS.Accounts do
   def upsert_tenant_sso_user(%Tenant{}, _provider_profile),
     do: {:error, :tenant_sso_not_supported}
 
-  defp register_user(scope, tenant_id, attrs) do
+  defp register_user(scope, tenant_id, attrs, opts) do
     %User{}
-    |> User.registration_changeset(attrs, scope: scope, tenant_id: tenant_id)
+    |> User.registration_changeset(
+      attrs,
+      Keyword.merge([scope: scope, tenant_id: tenant_id], opts)
+    )
     |> Repo.insert()
   end
 

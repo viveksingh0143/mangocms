@@ -1,0 +1,48 @@
+<Layouts.tenant_admin
+  flash={@flash}
+  title={@title}
+  subtitle="Manage tenant products and account settings."
+  current_user={@current_user}
+  current_tenant={@current_tenant}
+  active={:dashboard}
+>
+  <div id="tenant-admin-dashboard" class="grid gap-4 md:grid-cols-2">
+    <.link
+      id="dashboard-products-link"
+      navigate={~p"/admin/products"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <.icon name="hero-cube" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Products</h2>
+            <p class="text-sm text-base-content/60">Create and update tenant products.</p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <.link
+      id="dashboard-profile-link"
+      navigate={~p"/admin/profile"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-accent/10 text-accent">
+            <.icon name="hero-user-circle" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Profile</h2>
+            <p class="text-sm text-base-content/60">
+              Update your tenant admin profile and password.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
+  </div>
+</Layouts.tenant_admin>

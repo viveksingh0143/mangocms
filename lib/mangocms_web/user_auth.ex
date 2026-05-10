@@ -21,12 +21,23 @@ defmodule MangoCMSWeb.UserAuth do
   end
 
   def require_platform_user(conn, _opts) do
-    if platform_user?(conn.assigns[:current_user]) do
+    if platform_admin_user?(conn.assigns[:current_user]) do
       conn
     else
       conn
       |> put_flash(:error, "You must sign in to access platform admin.")
       |> redirect(to: ~p"/platform/admin/login")
+      |> halt()
+    end
+  end
+
+  def require_platform_account_user(conn, _opts) do
+    if platform_account_user?(conn.assigns[:current_user]) do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must sign in to access your platform account.")
+      |> redirect(to: ~p"/platform/login")
       |> halt()
     end
   end
@@ -58,9 +69,28 @@ defmodule MangoCMSWeb.UserAuth do
   end
 
   def redirect_if_platform_user(conn, _opts) do
-    if platform_user?(conn.assigns[:current_user]) do
+    if platform_admin_user?(conn.assigns[:current_user]) do
       conn
-      |> redirect(to: ~p"/platform/admin/plans")
+      |> redirect(to: ~p"/platform/admin/dashboard")
+      |> halt()
+    else
+      conn
+    end
+  end
+
+  def redirect_if_platform_account_user(conn, _opts) do
+    current_user = conn.assigns[:current_user]
+
+    if platform_account_user?(current_user) do
+      redirect_path =
+        if platform_admin_user?(current_user) do
+          ~p"/platform/admin/dashboard"
+        else
+          ~p"/platform/dashboard"
+        end
+
+      conn
+      |> redirect(to: redirect_path)
       |> halt()
     else
       conn
@@ -128,7 +158,7 @@ defmodule MangoCMSWeb.UserAuth do
   def on_mount(:require_platform_user, _params, session, socket) do
     user = platform_user_from_session(session)
 
-    if platform_user?(user) do
+    if platform_admin_user?(user) do
       {:cont, Phoenix.Component.assign(socket, :current_user, user)}
     else
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/platform/admin/login")}
@@ -146,7 +176,17 @@ defmodule MangoCMSWeb.UserAuth do
     end
   end
 
-  def platform_user?(%User{} = user), do: User.platform?(user) and not User.disabled?(user)
+  def platform_admin_user?(%User{} = user),
+    do: User.platform_admin?(user) and not User.disabled?(user)
+
+  def platform_admin_user?(_), do: false
+
+  def platform_account_user?(%User{} = user),
+    do: User.platform?(user) and not User.disabled?(user)
+
+  def platform_account_user?(_), do: false
+
+  def platform_user?(%User{} = user), do: platform_admin_user?(user)
   def platform_user?(_), do: false
 
   def tenant_admin_user?(%TenantUser{} = user), do: TenantAccounts.admin_user?(user)
@@ -164,6 +204,9 @@ defmodule MangoCMSWeb.UserAuth do
 
       {false, %Tenant{} = tenant} ->
         TenantAccounts.get_user_by_session_token(tenant, user_token)
+
+      {false, nil} ->
+        Accounts.get_user_by_session_token(user_token)
 
       _ ->
         nil
@@ -196,7 +239,7 @@ defmodule MangoCMSWeb.UserAuth do
     end
   end
 
-  defp platform_path?(path), do: String.starts_with?(path, "/platform/admin")
+  defp platform_path?(path), do: String.starts_with?(path, "/platform")
 
   defp renew_session(conn) do
     conn

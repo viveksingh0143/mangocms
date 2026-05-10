@@ -39,6 +39,8 @@ config :mangocms, MangoCMSWeb.Brand,
   admin_profile_email: "admin@mangocms.local",
   email_from: {"MangoCMS", "noreply@mangocms.local"}
 
+config :mangocms, :platform_admin_registration, enabled: false
+
 config :mangocms, MangoCMS.Repo, adapter: repo_adapter
 
 tenant_repo_config =

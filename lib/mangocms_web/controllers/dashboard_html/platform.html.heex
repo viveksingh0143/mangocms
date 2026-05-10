@@ -1,0 +1,52 @@
+<Layouts.admin
+  flash={@flash}
+  title={@title}
+  subtitle="Manage your MangoCMS account and website requests."
+  nav_items={[
+    %{label: "Dashboard", href: ~p"/platform/dashboard", current: true}
+  ]}
+  brand_label={MangoCMSWeb.Brand.name()}
+  brand_href={~p"/platform/dashboard"}
+  profile_name={Layouts.user_display_name(@current_user)}
+  profile_email={@current_user.email}
+  profile_initials={Layouts.user_initials(@current_user)}
+  profile_avatar_url={Layouts.user_avatar_url(@current_user)}
+  profile_href={~p"/platform/profile"}
+  logout_href={~p"/platform/logout"}
+>
+  <div id="platform-dashboard" class="grid gap-4 md:grid-cols-2">
+    <.link
+      id="dashboard-profile-link"
+      navigate={~p"/platform/profile"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <.icon name="hero-user-circle" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Profile</h2>
+            <p class="text-sm text-base-content/60">Update account details and password.</p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <div class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5">
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-secondary/10 text-secondary">
+            <.icon name="hero-sparkles" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Website Services</h2>
+            <p class="text-sm text-base-content/60">
+              Company profile, blog, product site, resume, and AI chat setup requests.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layouts.admin>

@@ -39,7 +39,6 @@ defmodule MangoCMSWeb.AuthHTML do
       current_user={@user}
       nav_items={[]}
       brand_href={@back_path}
-      profile_initials="ME"
       profile_href={@profile_action}
     >
       <:actions>
@@ -48,6 +47,33 @@ defmodule MangoCMSWeb.AuthHTML do
 
       {render_slot(@inner_block)}
     </Layouts.platform_admin>
+    """
+  end
+
+  def profile_admin_layout(%{context: :platform_account} = assigns) do
+    ~H"""
+    <Layouts.admin
+      flash={@flash}
+      title={@title}
+      subtitle="Update profile information, account details, and password."
+      nav_items={[
+        %{label: "Dashboard", href: ~p"/platform/dashboard", current: false}
+      ]}
+      brand_label={MangoCMSWeb.Brand.name()}
+      brand_href={@back_path}
+      profile_name={Layouts.user_display_name(@user)}
+      profile_email={@user.email}
+      profile_initials={Layouts.user_initials(@user)}
+      profile_avatar_url={Layouts.user_avatar_url(@user)}
+      profile_href={@profile_action}
+      logout_href={~p"/platform/logout"}
+    >
+      <:actions>
+        <.button navigate={@back_path} class="btn btn-ghost">Back</.button>
+      </:actions>
+
+      {render_slot(@inner_block)}
+    </Layouts.admin>
     """
   end
 
@@ -73,7 +99,6 @@ defmodule MangoCMSWeb.AuthHTML do
       current_tenant={@tenant}
       nav_items={[]}
       brand_href={@back_path}
-      profile_initials="ME"
       profile_href={@profile_action}
       logout_href={@logout_href}
     >
@@ -212,23 +237,30 @@ defmodule MangoCMSWeb.AuthHTML do
   end
 
   defp auth_subtitle(:platform), do: "Secure access for platform operators."
+  defp auth_subtitle(:platform_account), do: "Create and manage your website account."
   defp auth_subtitle({:tenant_admin, tenant}), do: "Secure admin access for #{tenant.name}."
   defp auth_subtitle({:tenant_member, tenant}), do: "Secure access for #{tenant.name}."
 
   defp auth_brand(:platform), do: "Platform Admin"
+  defp auth_brand(:platform_account), do: MangoCMSWeb.Brand.name()
   defp auth_brand({:tenant_admin, tenant}), do: "#{tenant.name} Admin"
   defp auth_brand({:tenant_member, tenant}), do: tenant.name
 
   defp auth_brand_href(:platform), do: ~p"/platform/admin/login"
+  defp auth_brand_href(:platform_account), do: ~p"/platform/login"
   defp auth_brand_href({:tenant_admin, _tenant}), do: ~p"/admin/login"
   defp auth_brand_href({:tenant_member, _tenant}), do: ~p"/login"
 
   defp auth_profile_email(:platform), do: MangoCMSWeb.Brand.platform_profile_email()
+  defp auth_profile_email(:platform_account), do: MangoCMSWeb.Brand.platform_profile_email()
   defp auth_profile_email({_tenant_context, tenant}), do: tenant.domain
 
-  defp auth_initials(:platform), do: "PA"
-  defp auth_initials({:tenant_admin, _tenant}), do: "TA"
-  defp auth_initials({:tenant_member, _tenant}), do: "ME"
+  defp auth_initials(context) do
+    Layouts.user_initials(%{
+      full_name: auth_brand(context),
+      email: auth_profile_email(context)
+    })
+  end
 
   def email_button_class(extra_class \\ nil) do
     [

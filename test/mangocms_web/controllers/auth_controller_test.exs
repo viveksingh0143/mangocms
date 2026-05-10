@@ -53,23 +53,75 @@ defmodule MangoCMSWeb.AuthControllerTest do
 
   defp host_conn(conn, host), do: %{conn | host: host}
 
-  describe "platform auth" do
-    test "registers a platform admin", %{conn: conn} do
-      suffix = unique_suffix()
+  defp with_platform_registration_enabled(fun) do
+    previous = Application.get_env(:mangocms, :platform_admin_registration, [])
+    Application.put_env(:mangocms, :platform_admin_registration, enabled: true)
 
+    try do
+      fun.()
+    after
+      Application.put_env(:mangocms, :platform_admin_registration, previous)
+    end
+  end
+
+  describe "platform auth" do
+    test "blocks platform admin registration by default", %{conn: conn} do
       conn =
         post(conn, ~p"/platform/admin/register",
           user: %{
-            email: "platform-register-#{suffix}@example.com",
+            email: "blocked-platform@example.com",
             password: @password,
-            full_name: "Platform Register",
+            full_name: "Blocked Platform"
+          }
+        )
+
+      assert text_response(conn, 404) == "Not found"
+    end
+
+    test "registers a platform admin when explicitly enabled", %{conn: conn} do
+      suffix = unique_suffix()
+
+      with_platform_registration_enabled(fn ->
+        conn =
+          post(conn, ~p"/platform/admin/register",
+            user: %{
+              email: "platform-register-#{suffix}@example.com",
+              password: @password,
+              full_name: "Platform Register",
+              timezone: "UTC",
+              locale: "en"
+            }
+          )
+
+        assert redirected_to(conn) == ~p"/platform/admin/dashboard"
+        assert get_session(conn, :user_token)
+      end)
+    end
+
+    test "registers a platform customer account", %{conn: conn} do
+      suffix = unique_suffix()
+
+      conn =
+        post(conn, ~p"/platform/register",
+          user: %{
+            email: "platform-customer-#{suffix}@example.com",
+            password: @password,
+            full_name: "Platform Customer",
             timezone: "UTC",
             locale: "en"
           }
         )
 
-      assert redirected_to(conn) == ~p"/platform/admin/plans"
+      assert redirected_to(conn) == ~p"/platform/dashboard"
       assert get_session(conn, :user_token)
+
+      assert {:ok, user} =
+               Accounts.authenticate_platform_user(
+                 "platform-customer-#{suffix}@example.com",
+                 @password
+               )
+
+      assert user.role == "customer"
     end
 
     test "logs in a platform admin", %{conn: conn} do
@@ -78,8 +130,47 @@ defmodule MangoCMSWeb.AuthControllerTest do
       conn =
         post(conn, ~p"/platform/admin/login", user: %{email: user.email, password: @password})
 
-      assert redirected_to(conn) == ~p"/platform/admin/plans"
+      assert redirected_to(conn) == ~p"/platform/admin/dashboard"
       assert get_session(conn, :user_token)
+    end
+
+    test "shows platform admin dashboard with CRUD options and current user", %{conn: conn} do
+      {conn, user} = register_and_log_in_platform_user(conn)
+
+      {:ok, user} =
+        Accounts.update_user_profile(user, %{
+          email: user.email,
+          full_name: "Vivek Kumar Singh"
+        })
+
+      conn = get(conn, ~p"/platform/admin/dashboard")
+      html = html_response(conn, 200)
+
+      assert html =~ "id=\"platform-admin-dashboard\""
+      assert html =~ "id=\"dashboard-plans-link\""
+      assert html =~ "id=\"dashboard-tenants-link\""
+      assert html =~ user.email
+      assert html =~ "Vivek Kumar Singh"
+      assert html =~ "VK"
+    end
+
+    test "does not allow platform customers into platform admin", %{conn: conn} do
+      {conn, _user} = register_and_log_in_platform_customer(conn)
+
+      conn = get(conn, ~p"/platform/admin/plans")
+
+      assert redirected_to(conn) == ~p"/platform/admin/login"
+    end
+
+    test "shows platform customer dashboard with profile actions", %{conn: conn} do
+      {conn, _user} = register_and_log_in_platform_customer(conn)
+
+      conn = get(conn, ~p"/platform/dashboard")
+      html = html_response(conn, 200)
+
+      assert html =~ "id=\"platform-dashboard\""
+      assert html =~ "id=\"dashboard-profile-link\""
+      refute html =~ "id=\"dashboard-plans-link\""
     end
 
     test "updates platform profile and password", %{conn: conn} do
@@ -110,26 +201,21 @@ defmodule MangoCMSWeb.AuthControllerTest do
   end
 
   describe "tenant auth" do
-    test "registers and logs into a tenant admin", %{conn: conn} do
+    test "does not expose tenant admin registration", %{conn: conn} do
       tenant = tenant_fixture()
-      suffix = unique_suffix()
 
       conn =
         conn
         |> host_conn(tenant.domain)
-        |> post(~p"/admin/register",
+        |> post("/admin/register",
           user: %{
-            email: "tenant-register-#{suffix}@example.com",
+            email: "tenant-register@example.com",
             password: @password,
-            full_name: "Tenant Register",
-            timezone: "UTC",
-            locale: "en"
+            full_name: "Tenant Register"
           }
         )
 
-      assert redirected_to(conn) == ~p"/admin/products"
-      assert get_session(conn, :user_token)
-      assert get_session(conn, :tenant_id) == tenant.id
+      assert response(conn, 404)
     end
 
     test "updates tenant profile", %{conn: conn} do
@@ -143,6 +229,25 @@ defmodule MangoCMSWeb.AuthControllerTest do
 
       assert redirected_to(conn) == ~p"/admin/profile"
       assert TenantAccounts.get_user!(tenant, user.id).full_name == "Updated Tenant"
+    end
+
+    test "shows tenant admin dashboard with product CRUD option and current user", %{conn: conn} do
+      tenant = tenant_fixture()
+      {conn, user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+
+      {:ok, user} =
+        TenantAccounts.update_user_profile(tenant, user, %{
+          email: user.email,
+          avatar_url: "https://example.com/tenant-avatar.png"
+        })
+
+      conn = get(conn, ~p"/admin/dashboard")
+      html = html_response(conn, 200)
+
+      assert html =~ "id=\"tenant-admin-dashboard\""
+      assert html =~ "id=\"dashboard-products-link\""
+      assert html =~ user.email
+      assert html =~ "https://example.com/tenant-avatar.png"
     end
 
     test "registers and logs into a tenant member", %{conn: conn} do
@@ -162,7 +267,7 @@ defmodule MangoCMSWeb.AuthControllerTest do
           }
         )
 
-      assert redirected_to(conn) == ~p"/profile"
+      assert redirected_to(conn) == ~p"/dashboard"
       assert get_session(conn, :user_token)
       assert get_session(conn, :tenant_id) == tenant.id
     end

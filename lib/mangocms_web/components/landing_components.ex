@@ -6,12 +6,15 @@ defmodule MangoCMSWeb.LandingComponents do
   attr :id, :string, default: nil
   attr :current_user, :any, default: nil
   attr :current_tenant, :any, default: nil
+  attr :platform_registration_enabled, :boolean, default: false
 
   def landing_navbar(assigns) do
     assigns =
       assigns
-      |> assign(:account_href, account_href(assigns.current_tenant))
+      |> assign(:account_href, account_href(assigns.current_tenant, assigns.current_user))
       |> assign(:login_href, login_href(assigns.current_tenant))
+      |> assign(:register_href, register_href(assigns.current_tenant))
+      |> assign(:account_label, account_label(assigns.current_user))
 
     ~H"""
     <div
@@ -49,14 +52,21 @@ defmodule MangoCMSWeb.LandingComponents do
           href={@account_href}
           class="btn btn-primary btn-sm"
         >
-          Account
+          {@account_label}
         </.link>
         <.link
           :if={!@current_user}
           href={@login_href}
-          class="btn btn-primary btn-sm"
+          class="btn btn-ghost btn-sm"
         >
           Login
+        </.link>
+        <.link
+          :if={!@current_user && @register_href}
+          href={@register_href}
+          class="btn btn-primary btn-sm"
+        >
+          Register
         </.link>
       </div>
     </div>
@@ -305,7 +315,7 @@ defmodule MangoCMSWeb.LandingComponents do
             class="rounded-box border border-base-300 bg-base-200 p-3 text-sm"
           >
             <span class="font-semibold">{question.label}</span>
-            <span class="text-base-content/60"> —   {question.text}</span>
+            <span class="text-base-content/60"> —             {question.text}</span>
           </div>
         </div>
       </div>
@@ -609,9 +619,33 @@ defmodule MangoCMSWeb.LandingComponents do
     """
   end
 
-  defp account_href(nil), do: ~p"/platform/admin/plans"
-  defp account_href(_tenant), do: ~p"/profile"
+  defp account_href(nil, %MangoCMS.Accounts.User{} = user) do
+    if MangoCMS.Accounts.User.platform_admin?(user) do
+      ~p"/platform/admin/dashboard"
+    else
+      ~p"/platform/dashboard"
+    end
+  end
 
-  defp login_href(nil), do: ~p"/platform/admin/login"
+  defp account_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+      ~p"/admin/dashboard"
+    else
+      ~p"/dashboard"
+    end
+  end
+
+  defp account_href(_tenant, _user), do: ~p"/dashboard"
+
+  defp login_href(nil), do: ~p"/platform/login"
   defp login_href(_tenant), do: ~p"/login"
+
+  defp register_href(nil), do: ~p"/platform/register"
+  defp register_href(_tenant), do: ~p"/register"
+
+  defp account_label(%{full_name: full_name}) when is_binary(full_name) and full_name != "",
+    do: full_name
+
+  defp account_label(%{email: email}) when is_binary(email), do: email
+  defp account_label(_user), do: "Account"
 end

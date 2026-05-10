@@ -4,6 +4,7 @@
   id="navbar"
   current_user={assigns[:current_user]}
   current_tenant={assigns[:current_tenant]}
+  platform_registration_enabled={@platform_registration_enabled}
 />
 
 <.landing_main>
@@ -14,8 +15,8 @@
     subtitle="Create a company profile website, publish a blog, showcase product features, or build a resume site. Add an AI chat assistant that replies using the information already available on your website."
   >
     <:actions>
-      <.link href={~p"/platform/admin/register"} class="btn btn-primary btn-lg">
-        Create your website
+      <.link href={@platform_cta_path} class="btn btn-primary btn-lg">
+        {@platform_cta_label}
       </.link>
       <a href="#services" class="btn btn-outline btn-lg">
         Explore services
@@ -173,7 +174,7 @@
         period: "/site",
         description: "For resumes, small company profiles, and starter websites.",
         highlight: false,
-        href: ~p"/platform/admin/register",
+        href: @platform_cta_path,
         features: [
           "Company or resume website",
           "Core pages and contact section",
@@ -187,7 +188,7 @@
         period: "/site",
         description: "For blogs, product feature websites, and growing companies.",
         highlight: true,
-        href: ~p"/platform/admin/register",
+        href: @platform_cta_path,
         features: [
           "Blog and product feature sections",
           "Custom domain support",
@@ -202,7 +203,7 @@
         description:
           "For companies that need multiple sites, custom workflows, and deeper support.",
         highlight: false,
-        href: ~p"/platform/admin/register",
+        href: @platform_cta_path,
         features: [
           "Multiple company or product sites",
           "Advanced AI chat configuration",
@@ -287,8 +288,8 @@
     subtitle="Choose a company profile, blog, product feature site, or resume website, then add AI chat when you want visitors to get answers instantly."
   >
     <:actions>
-      <.link href={~p"/platform/admin/register"} class="btn btn-neutral btn-lg">
-        Get started
+      <.link href={@platform_cta_path} class="btn btn-neutral btn-lg">
+        {@platform_cta_label}
       </.link>
       <a
         href="#services"

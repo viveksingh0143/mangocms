@@ -87,6 +87,7 @@ defmodule MangoCMSWeb.Layouts do
   @doc "Navigation for the platform admin layout."
   def platform_admin_nav(active) do
     [
+      %{label: "Dashboard", href: ~p"/platform/admin/dashboard", current: active == :dashboard},
       %{label: "Plans", href: ~p"/platform/admin/plans", current: active == :plans},
       %{label: "Tenants", href: ~p"/platform/admin/tenants", current: active == :tenants}
     ]
@@ -95,6 +96,7 @@ defmodule MangoCMSWeb.Layouts do
   @doc "Navigation for the tenant admin layout."
   def tenant_admin_nav(active) do
     [
+      %{label: "Dashboard", href: ~p"/admin/dashboard", current: active == :dashboard},
       %{label: "Products", href: ~p"/admin/products", current: active == :products}
     ]
   end
@@ -112,6 +114,7 @@ defmodule MangoCMSWeb.Layouts do
   attr :profile_name, :string, default: nil
   attr :profile_email, :string, default: nil
   attr :profile_initials, :string, default: nil
+  attr :profile_avatar_url, :string, default: nil
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
 
@@ -123,10 +126,17 @@ defmodule MangoCMSWeb.Layouts do
       assigns
       |> assign(:nav_items, assigns.nav_items || platform_admin_nav(assigns.active))
       |> assign(:brand_label, assigns.brand_label || "Platform Admin")
-      |> assign(:brand_href, assigns.brand_href || ~p"/platform/admin/plans")
+      |> assign(:brand_href, assigns.brand_href || ~p"/platform/admin/dashboard")
       |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
       |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
-      |> assign(:profile_initials, assigns.profile_initials || "PA")
+      |> assign(
+        :profile_initials,
+        assigns.profile_initials || user_initials(assigns.current_user)
+      )
+      |> assign(
+        :profile_avatar_url,
+        assigns.profile_avatar_url || user_avatar_url(assigns.current_user)
+      )
       |> assign(:profile_href, assigns.profile_href || ~p"/platform/admin/profile")
       |> assign(:logout_href, assigns.logout_href || ~p"/platform/admin/logout")
 
@@ -142,6 +152,7 @@ defmodule MangoCMSWeb.Layouts do
       profile_name={@profile_name}
       profile_email={@profile_email}
       profile_initials={@profile_initials}
+      profile_avatar_url={@profile_avatar_url}
       profile_href={@profile_href}
       logout_href={@logout_href}
     >
@@ -167,6 +178,7 @@ defmodule MangoCMSWeb.Layouts do
   attr :profile_name, :string, default: nil
   attr :profile_email, :string, default: nil
   attr :profile_initials, :string, default: nil
+  attr :profile_avatar_url, :string, default: nil
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
 
@@ -178,10 +190,17 @@ defmodule MangoCMSWeb.Layouts do
       assigns
       |> assign(:nav_items, assigns.nav_items || tenant_admin_nav(assigns.active))
       |> assign(:brand_label, assigns.brand_label || assigns.current_tenant.name)
-      |> assign(:brand_href, assigns.brand_href || ~p"/admin/products")
+      |> assign(:brand_href, assigns.brand_href || ~p"/admin/dashboard")
       |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
       |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
-      |> assign(:profile_initials, assigns.profile_initials || "TA")
+      |> assign(
+        :profile_initials,
+        assigns.profile_initials || user_initials(assigns.current_user)
+      )
+      |> assign(
+        :profile_avatar_url,
+        assigns.profile_avatar_url || user_avatar_url(assigns.current_user)
+      )
       |> assign(:profile_href, assigns.profile_href || ~p"/admin/profile")
       |> assign(:logout_href, assigns.logout_href || ~p"/admin/logout")
 
@@ -197,6 +216,7 @@ defmodule MangoCMSWeb.Layouts do
       profile_name={@profile_name}
       profile_email={@profile_email}
       profile_initials={@profile_initials}
+      profile_avatar_url={@profile_avatar_url}
       profile_href={@profile_href}
       logout_href={@logout_href}
     >
@@ -225,6 +245,7 @@ defmodule MangoCMSWeb.Layouts do
   attr :profile_name, :string, default: "Admin"
   attr :profile_email, :string, default: @admin_profile_email
   attr :profile_initials, :string, default: "MC"
+  attr :profile_avatar_url, :string, default: nil
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
 
@@ -234,6 +255,7 @@ defmodule MangoCMSWeb.Layouts do
   def admin(assigns) do
     assigns =
       assigns
+      |> assign(:profile_avatar_url, normalize_avatar_url(assigns.profile_avatar_url))
       |> assign(:mobile_menu_id, "#{assigns.id}-mobile-menu")
       |> assign(:mobile_menu_selector, "##{assigns.id}-mobile-menu")
       |> assign(:profile_menu_id, "#{assigns.id}-profile-menu")
@@ -285,6 +307,11 @@ defmodule MangoCMSWeb.Layouts do
                   <.icon name="hero-bell" class="size-6" />
                 </button>
 
+                <div class="ml-4 hidden min-w-0 text-right lg:block">
+                  <div class="truncate text-sm font-medium text-white">{@profile_name}</div>
+                  <div class="truncate text-xs text-gray-400">{@profile_email}</div>
+                </div>
+
                 <div class="relative ml-3">
                   <button
                     type="button"
@@ -294,9 +321,13 @@ defmodule MangoCMSWeb.Layouts do
                   >
                     <span class="absolute -inset-1.5"></span>
                     <span class="sr-only">Open user menu</span>
-                    <span class="grid size-8 place-items-center rounded-full bg-indigo-500 text-xs font-semibold text-white outline -outline-offset-1 outline-white/10">
-                      {@profile_initials}
-                    </span>
+                    <.profile_avatar
+                      avatar_url={@profile_avatar_url}
+                      initials={@profile_initials}
+                      name={@profile_name}
+                      class="size-8"
+                      text_class="text-xs"
+                    />
                   </button>
 
                   <div
@@ -360,9 +391,13 @@ defmodule MangoCMSWeb.Layouts do
           <div class="border-t border-white/10 pt-4 pb-3">
             <div class="flex items-center px-5">
               <div class="shrink-0">
-                <span class="grid size-10 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white outline -outline-offset-1 outline-white/10">
-                  {@profile_initials}
-                </span>
+                <.profile_avatar
+                  avatar_url={@profile_avatar_url}
+                  initials={@profile_initials}
+                  name={@profile_name}
+                  class="size-10"
+                  text_class="text-sm"
+                />
               </div>
               <div class="ml-3 min-w-0">
                 <div class="truncate text-base font-medium text-white">{@profile_name}</div>
@@ -428,11 +463,81 @@ defmodule MangoCMSWeb.Layouts do
     """
   end
 
+  attr :avatar_url, :string, default: nil
+  attr :initials, :string, required: true
+  attr :name, :string, required: true
+  attr :class, :string, default: "size-8"
+  attr :text_class, :string, default: "text-xs"
+
+  defp profile_avatar(assigns) do
+    ~H"""
+    <img
+      :if={@avatar_url}
+      src={@avatar_url}
+      alt={@name}
+      class={["rounded-full object-cover outline -outline-offset-1 outline-white/10", @class]}
+    />
+    <span
+      :if={!@avatar_url}
+      class={[
+        "grid place-items-center rounded-full bg-indigo-500 font-semibold text-white outline -outline-offset-1 outline-white/10",
+        @class,
+        @text_class
+      ]}
+    >
+      {@initials}
+    </span>
+    """
+  end
+
   defp nav_label(item), do: Map.fetch!(item, :label)
   defp nav_href(item), do: Map.fetch!(item, :href)
   defp nav_current?(item), do: Map.get(item, :current, false)
 
-  defp user_display_name(user), do: user.full_name || user.email
+  def user_display_name(%{full_name: full_name} = user) when is_binary(full_name) do
+    case String.trim(full_name) do
+      "" -> user_email(user)
+      name -> name
+    end
+  end
+
+  def user_display_name(user), do: user_email(user)
+
+  def user_initials(user) do
+    user
+    |> user_display_name()
+    |> initials_from_text()
+  end
+
+  def user_avatar_url(%{avatar_url: avatar_url}), do: normalize_avatar_url(avatar_url)
+
+  def user_avatar_url(_user), do: nil
+
+  defp user_email(%{email: email}) when is_binary(email), do: email
+  defp user_email(_user), do: "User"
+
+  defp initials_from_text(text) when is_binary(text) do
+    initials =
+      text
+      |> String.trim()
+      |> String.split(~r/\s+/, trim: true)
+      |> Enum.take(2)
+      |> Enum.map_join("", &String.first/1)
+      |> String.upcase()
+
+    if initials == "", do: "U", else: initials
+  end
+
+  defp initials_from_text(_text), do: "U"
+
+  defp normalize_avatar_url(avatar_url) when is_binary(avatar_url) do
+    case String.trim(avatar_url) do
+      "" -> nil
+      url -> url
+    end
+  end
+
+  defp normalize_avatar_url(_avatar_url), do: nil
 
   defp admin_nav_class(true, :desktop),
     do: "rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:bg-gray-950/50"

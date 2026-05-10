@@ -23,7 +23,7 @@ defmodule MangoCMS.TenantRepoManager do
     end
   end
 
-  @doc "Ensures the tenant repo process exists and runs tenant migrations by default."
+  @doc "Ensures the tenant repo process exists. Tenant migrations run only when requested."
   @spec ensure_repo!(Tenant.t(), keyword()) :: pid()
   def ensure_repo!(%Tenant{id: tenant_id} = tenant, opts \\ []) when is_binary(tenant_id) do
     repo_opts = repo_opts(tenant)
@@ -52,7 +52,7 @@ defmodule MangoCMS.TenantRepoManager do
           raise "could not start tenant repo for #{tenant.slug}: #{inspect(reason)}"
       end
 
-    if Keyword.get(opts, :migrate, true) do
+    if Keyword.get(opts, :migrate, false) do
       TenantMigrator.migrate_repo!(repo_pid, :up, all: true)
     end
 

@@ -39,6 +39,10 @@ config :mangocms,
        :tenant_postgres_database_prefix,
        env!("TENANT_POSTGRES_DATABASE_PREFIX", :string!, "mangocms_tenant_")
 
+config :mangocms,
+       :platform_admin_registration,
+       enabled: env!("PLATFORM_ADMIN_REGISTRATION_ENABLED", :boolean!, false)
+
 config :mangocms, :sso,
   google: [
     client_id: env!("GOOGLE_CLIENT_ID", :string?, nil),

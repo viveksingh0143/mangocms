@@ -21,6 +21,10 @@ defmodule MangoCMSWeb.Router do
     plug :require_platform_user
   end
 
+  pipeline :require_platform_account_auth do
+    plug :require_platform_account_user
+  end
+
   pipeline :require_tenant_auth do
     plug :require_tenant_user
   end
@@ -31,6 +35,10 @@ defmodule MangoCMSWeb.Router do
 
   pipeline :redirect_platform_authenticated do
     plug :redirect_if_platform_user
+  end
+
+  pipeline :redirect_platform_account_authenticated do
+    plug :redirect_if_platform_account_user
   end
 
   pipeline :redirect_tenant_authenticated do
@@ -67,9 +75,29 @@ defmodule MangoCMSWeb.Router do
     post "/auth/:provider/callback", OAuthController, :callback
   end
 
+  scope "/platform", MangoCMSWeb do
+    pipe_through [:browser, :require_platform_host, :redirect_platform_account_authenticated]
+
+    get "/login", AuthController, :new
+    post "/login", AuthController, :create
+    get "/register", AuthController, :register
+    post "/register", AuthController, :create_registration
+  end
+
   scope "/platform/admin", MangoCMSWeb do
     pipe_through [:browser, :require_platform_host, :require_platform_auth]
 
+    get "/dashboard", DashboardController, :platform_admin
+    get "/profile", AuthController, :edit_profile
+    put "/profile", AuthController, :update_profile
+    put "/profile/password", AuthController, :update_password
+    delete "/logout", AuthController, :delete
+  end
+
+  scope "/platform", MangoCMSWeb do
+    pipe_through [:browser, :require_platform_host, :require_platform_account_auth]
+
+    get "/dashboard", DashboardController, :platform
     get "/profile", AuthController, :edit_profile
     put "/profile", AuthController, :update_profile
     put "/profile/password", AuthController, :update_password
@@ -101,8 +129,6 @@ defmodule MangoCMSWeb.Router do
 
     get "/login", AuthController, :new
     post "/login", AuthController, :create
-    get "/register", AuthController, :register
-    post "/register", AuthController, :create_registration
     get "/forgot-password", AuthController, :forgot_password
     post "/forgot-password", AuthController, :send_reset_password
     get "/reset-password/:token", AuthController, :reset_password
@@ -118,6 +144,7 @@ defmodule MangoCMSWeb.Router do
   scope "/admin", MangoCMSWeb do
     pipe_through [:browser, :require_tenant, :require_tenant_auth]
 
+    get "/dashboard", DashboardController, :tenant_admin
     get "/profile", AuthController, :edit_profile
     put "/profile", AuthController, :update_profile
     put "/profile/password", AuthController, :update_password
@@ -163,6 +190,7 @@ defmodule MangoCMSWeb.Router do
   scope "/", MangoCMSWeb do
     pipe_through [:browser, :require_tenant, :require_tenant_member_auth]
 
+    get "/dashboard", DashboardController, :tenant_member
     get "/profile", AuthController, :edit_profile
     put "/profile", AuthController, :update_profile
     put "/profile/password", AuthController, :update_password

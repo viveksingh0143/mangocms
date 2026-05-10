@@ -10,7 +10,7 @@ defmodule MangoCMS.Accounts.User do
   @timestamps_opts [type: :utc_datetime]
 
   @scopes ~w(platform tenant)
-  @roles ~w(admin owner editor viewer)
+  @roles ~w(admin owner editor viewer customer guest)
 
   @type t :: %__MODULE__{}
 
@@ -27,7 +27,7 @@ defmodule MangoCMS.Accounts.User do
     field :avatar_url, :string
     field :locale, :string, default: "en"
     field :timezone, :string, default: "UTC"
-    field :role, :string, default: "admin"
+    field :role, :string, default: "customer"
     field :confirmed_at, :utc_datetime
     field :disabled_at, :utc_datetime
 
@@ -38,13 +38,14 @@ defmodule MangoCMS.Accounts.User do
     user
     |> cast(attrs, [:email, :password, :full_name, :phone, :locale, :timezone])
     |> put_scope(opts)
+    |> put_role(opts)
     |> validate_email()
     |> validate_password()
     |> validate_profile()
     |> put_identity_key()
     |> put_password_hash()
     |> put_change(:confirmed_at, DateTime.utc_now(:second))
-    |> validate_required([:scope, :identity_key])
+    |> validate_required([:scope, :identity_key, :role])
     |> unique_constraint(:identity_key)
   end
 
@@ -52,11 +53,12 @@ defmodule MangoCMS.Accounts.User do
     user
     |> cast(attrs, [:email, :full_name, :avatar_url])
     |> put_scope(opts)
+    |> put_role(opts)
     |> validate_email()
     |> validate_profile()
     |> put_identity_key()
     |> put_change(:confirmed_at, DateTime.utc_now(:second))
-    |> validate_required([:scope, :identity_key])
+    |> validate_required([:scope, :identity_key, :role])
     |> unique_constraint(:identity_key)
   end
 
@@ -81,6 +83,12 @@ defmodule MangoCMS.Accounts.User do
 
   def platform?(%__MODULE__{scope: "platform", tenant_id: nil}), do: true
   def platform?(_), do: false
+
+  def platform_admin?(%__MODULE__{} = user), do: platform?(user) and admin_role?(user)
+  def platform_admin?(_), do: false
+
+  def admin_role?(%__MODULE__{role: role}), do: role in ~w(admin owner)
+  def admin_role?(_), do: false
 
   def tenant?(%__MODULE__{scope: "tenant", tenant_id: tenant_id}, tenant_id)
       when is_binary(tenant_id),
@@ -111,6 +119,16 @@ defmodule MangoCMS.Accounts.User do
     |> validate_inclusion(:scope, @scopes)
     |> validate_required(scope_required_fields(scope))
   end
+
+  defp put_role(changeset, opts) do
+    scope = get_field(changeset, :scope)
+    role = Keyword.get(opts, :role, default_role(scope))
+
+    put_change(changeset, :role, role)
+  end
+
+  defp default_role("platform"), do: "customer"
+  defp default_role(_scope), do: "customer"
 
   defp scope_required_fields("platform"), do: [:scope]
   defp scope_required_fields("tenant"), do: [:scope, :tenant_id]

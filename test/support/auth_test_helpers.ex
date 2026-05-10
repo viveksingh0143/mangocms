@@ -26,6 +26,22 @@ defmodule MangoCMSWeb.AuthTestHelpers do
     user
   end
 
+  def platform_customer_fixture(attrs \\ %{}) do
+    suffix = System.unique_integer([:positive])
+
+    attrs =
+      Enum.into(attrs, %{
+        email: "platform-customer-#{suffix}@example.com",
+        password: @password,
+        full_name: "Platform Customer #{suffix}",
+        timezone: "UTC",
+        locale: "en"
+      })
+
+    {:ok, user} = Accounts.register_platform_customer_user(attrs)
+    user
+  end
+
   def tenant_user_fixture(%Tenant{} = tenant, attrs \\ %{}) do
     suffix = System.unique_integer([:positive])
 
@@ -61,6 +77,11 @@ defmodule MangoCMSWeb.AuthTestHelpers do
 
   def register_and_log_in_platform_user(conn, attrs \\ %{}) do
     user = platform_user_fixture(attrs)
+    {log_in_user(conn, user), user}
+  end
+
+  def register_and_log_in_platform_customer(conn, attrs \\ %{}) do
+    user = platform_customer_fixture(attrs)
     {log_in_user(conn, user), user}
   end
 

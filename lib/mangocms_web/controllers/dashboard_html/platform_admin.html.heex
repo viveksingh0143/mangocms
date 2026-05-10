@@ -1,0 +1,67 @@
+<Layouts.platform_admin
+  flash={@flash}
+  title={@title}
+  subtitle="Manage platform plans, tenants, and account settings."
+  current_user={@current_user}
+  active={:dashboard}
+>
+  <div id="platform-admin-dashboard" class="grid gap-4 md:grid-cols-2">
+    <.link
+      id="dashboard-plans-link"
+      navigate={~p"/platform/admin/plans"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+            <.icon name="hero-rectangle-stack" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Plans</h2>
+            <p class="text-sm text-base-content/60">Create and update subscription plans.</p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <.link
+      id="dashboard-tenants-link"
+      navigate={~p"/platform/admin/tenants"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-secondary/10 text-secondary">
+            <.icon name="hero-building-office-2" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Tenants</h2>
+            <p class="text-sm text-base-content/60">
+              Provision tenant websites and database settings.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <.link
+      id="dashboard-profile-link"
+      navigate={~p"/platform/admin/profile"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-accent/10 text-accent">
+            <.icon name="hero-user-circle" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Profile</h2>
+            <p class="text-sm text-base-content/60">
+              Update your platform admin profile and password.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
+  </div>
+</Layouts.platform_admin>
