@@ -5,6 +5,9 @@ defmodule MangoCMSWeb.Layouts do
   """
   use MangoCMSWeb, :html
 
+  @brand_name MangoCMSWeb.Brand.name()
+  @admin_profile_email MangoCMSWeb.Brand.admin_profile_email()
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -38,7 +41,16 @@ defmodule MangoCMSWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.png"} />
+          <img
+            src={~p"/images/logo.png"}
+            alt={MangoCMSWeb.Brand.name()}
+            class="size-12 rounded-box object-contain dark:hidden"
+          />
+          <img
+            src={~p"/images/white-logo.png"}
+            alt={MangoCMSWeb.Brand.name()}
+            class="hidden size-12 rounded-box object-contain dark:block"
+          />
           <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
         </a>
       </div>
@@ -208,10 +220,10 @@ defmodule MangoCMSWeb.Layouts do
   attr :title, :string, required: true
   attr :subtitle, :string, default: nil
   attr :nav_items, :list, default: []
-  attr :brand_label, :string, default: "MangoCMS"
+  attr :brand_label, :string, default: @brand_name
   attr :brand_href, :string, default: "/"
   attr :profile_name, :string, default: "Admin"
-  attr :profile_email, :string, default: "admin@mangocms.local"
+  attr :profile_email, :string, default: @admin_profile_email
   attr :profile_initials, :string, default: "MC"
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
@@ -237,9 +249,14 @@ defmodule MangoCMSWeb.Layouts do
                 <img
                   src={~p"/images/logo.png"}
                   alt={@brand_label}
-                  class="h-12 rounded-md bg-white p-1"
+                  class="h-12 rounded-md bg-white p-1 dark:hidden"
                 />
-                <span class="hidden text-sm font-semibold text-white sm:block">{@brand_label}</span>
+                <img
+                  src={~p"/images/white-logo.png"}
+                  alt={@brand_label}
+                  class="hidden h-12 rounded-md bg-white p-1 dark:block"
+                />
+                <!-- <span class="hidden text-sm font-semibold text-white sm:block">{@brand_label}</span> -->
               </.link>
               <div class="hidden md:block">
                 <div class="ml-10 flex items-baseline space-x-4">

@@ -6,7 +6,7 @@ defmodule MangoCMS.TenantAccounts.UserNotifier do
   alias MangoCMS.Mailer
   alias MangoCMS.TenantAccounts.User
 
-  @from {"MangoCMS", "noreply@mangocms.local"}
+  @from MangoCMSWeb.Brand.email_from()
 
   def deliver_confirmation_instructions(%User{} = user, url) do
     user

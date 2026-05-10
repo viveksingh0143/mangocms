@@ -3,6 +3,12 @@ defmodule MangoCMSWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    html = html_response(conn, 200)
+
+    assert html =~ "Launch a polished website on #{MangoCMSWeb.Brand.name()}"
+    assert html =~ "Create your company profile website"
+    assert html =~ "Added AI chat feature"
+    assert html =~ "id=\"plans\""
+    assert html =~ "id=\"reviews\""
   end
 end

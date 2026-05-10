@@ -4,7 +4,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="MangoCMS" suffix=" · Phoenix Framework">
+    <link
+      rel="icon"
+      type="image/png"
+      href={~p"/favicon/favicon-96x96.png?v=20260510"}
+      sizes="96x96"
+    />
+    <link rel="icon" type="image/svg+xml" href={~p"/favicon/favicon.svg?v=20260510"} />
+    <link rel="shortcut icon" href={~p"/favicon/favicon.ico?v=20260510"} />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href={~p"/favicon/apple-touch-icon.png?v=20260510"}
+    />
+    <meta
+      name="apple-mobile-web-app-title"
+      content={MangoCMSWeb.Brand.apple_mobile_web_app_title()}
+    />
+    <link rel="manifest" href={~p"/favicon/site.webmanifest?v=20260510"} />
+    <.live_title default={MangoCMSWeb.Brand.name()} suffix={" · #{MangoCMSWeb.Brand.name()}"}>
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />

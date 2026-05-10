@@ -223,7 +223,7 @@ defmodule MangoCMSWeb.AuthHTML do
   defp auth_brand_href({:tenant_admin, _tenant}), do: ~p"/admin/login"
   defp auth_brand_href({:tenant_member, _tenant}), do: ~p"/login"
 
-  defp auth_profile_email(:platform), do: "platform@mangocms.local"
+  defp auth_profile_email(:platform), do: MangoCMSWeb.Brand.platform_profile_email()
   defp auth_profile_email({_tenant_context, tenant}), do: tenant.domain
 
   defp auth_initials(:platform), do: "PA"

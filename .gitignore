@@ -44,3 +44,5 @@ npm-debug.log
 .vscode/settings.json
 
 envs/.dev.env
+
+design-resources

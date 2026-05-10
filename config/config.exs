@@ -20,6 +20,13 @@ config :mangocms,
   ecto_repos: [MangoCMS.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :mangocms, MangoCMSWeb.Brand,
+  name: "MangoCMS",
+  apple_mobile_web_app_title: "Mango CMS",
+  platform_profile_email: "platform@mangocms.local",
+  admin_profile_email: "admin@mangocms.local",
+  email_from: {"MangoCMS", "noreply@mangocms.local"}
+
 config :mangocms, MangoCMS.Repo, adapter: repo_adapter
 
 config :mangocms, MangoCMS.TenantRepo,
