@@ -1,7 +1,7 @@
 defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
   use MangoCMSWeb, :live_view
 
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
   alias MangoCMSWeb.AdminGuard
 
   @impl true

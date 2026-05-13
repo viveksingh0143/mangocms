@@ -1,8 +1,8 @@
 defmodule MangoCMSWeb.OAuthController do
   use MangoCMSWeb, :controller
 
-  alias MangoCMS.Accounts
-  alias MangoCMS.Accounts.SSO
+  alias MangoCMS.Platform.Accounts
+  alias MangoCMS.Platform.Accounts.SSO
   alias MangoCMSWeb.UserAuth
 
   @salt "oauth-state"

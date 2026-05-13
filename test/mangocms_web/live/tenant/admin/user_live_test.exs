@@ -4,7 +4,7 @@ defmodule MangoCMSWeb.Tenant.Admin.UserLiveTest do
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   @create_attrs %{
     full_name: "Managed Tenant User",

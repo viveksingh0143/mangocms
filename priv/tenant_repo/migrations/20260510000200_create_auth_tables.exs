@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantRepo.Migrations.CreateAuthTables do
+defmodule MangoCMS.Tenant.Repo.Migrations.CreateAuthTables do
   use Ecto.Migration
 
   def up do

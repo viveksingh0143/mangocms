@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Tenant.Rollback do
   use Mix.Task
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantMigrator
+  alias MangoCMS.Tenant.Migrator, as: TenantMigrator
 
   @shortdoc "Rolls tenant migrations down"
   @requirements ["app.start"]

@@ -1,4 +1,4 @@
-defmodule MangoCMS.Accounts.Password do
+defmodule MangoCMS.Platform.Accounts.Password do
   @moduledoc false
 
   @algorithm "pbkdf2_sha256"

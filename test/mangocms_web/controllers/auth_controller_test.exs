@@ -1,9 +1,9 @@
 defmodule MangoCMSWeb.AuthControllerTest do
   use MangoCMSWeb.ConnCase
 
-  alias MangoCMS.Accounts
+  alias MangoCMS.Platform.Accounts
   alias MangoCMS.Platform
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   @password "valid-password-123"
 

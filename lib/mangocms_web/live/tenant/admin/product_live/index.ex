@@ -1,8 +1,8 @@
 defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
   use MangoCMSWeb, :live_view
 
-  alias MangoCMS.TenantCatalog
-  alias MangoCMS.TenantCatalog.Product
+  alias MangoCMS.Tenant.Catalog, as: TenantCatalog
+  alias MangoCMS.Tenant.Catalog.Product
   alias MangoCMSWeb.AdminGuard
 
   @impl true

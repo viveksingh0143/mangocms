@@ -1,7 +1,7 @@
 defmodule MangoCMSWeb.PageControllerTest do
   use MangoCMSWeb.ConnCase
 
-  alias MangoCMS.Accounts
+  alias MangoCMS.Platform.Accounts
   alias MangoCMS.Platform
 
   defp unique_suffix do

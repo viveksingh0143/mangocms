@@ -1,10 +1,10 @@
-defmodule MangoCMS.TenantAccounts.UserNotifier do
+defmodule MangoCMS.Tenant.Accounts.UserNotifier do
   @moduledoc "Tenant-local account notification emails."
 
   import Swoosh.Email
 
   alias MangoCMS.Mailer
-  alias MangoCMS.TenantAccounts.User
+  alias MangoCMS.Tenant.Accounts.User
 
   @from MangoCMSWeb.Brand.email_from()
 

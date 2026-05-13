@@ -1,7 +1,7 @@
 defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
   use MangoCMSWeb, :live_component
 
-  alias MangoCMS.TenantCatalog
+  alias MangoCMS.Tenant.Catalog, as: TenantCatalog
 
   @status_options [
     {"Draft", "draft"},

@@ -2,9 +2,9 @@ defmodule MangoCMSWeb.AuthTestHelpers do
   import Plug.Conn
   import Phoenix.ConnTest
 
-  alias MangoCMS.Accounts
+  alias MangoCMS.Platform.Accounts
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   @password "valid-password-123"
 
@@ -58,7 +58,7 @@ defmodule MangoCMSWeb.AuthTestHelpers do
     user
   end
 
-  def log_in_user(conn, %MangoCMS.Accounts.User{} = user) do
+  def log_in_user(conn, %MangoCMS.Platform.Accounts.User{} = user) do
     token = Accounts.generate_user_session_token(user)
 
     conn

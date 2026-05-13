@@ -1,13 +1,13 @@
-defmodule MangoCMS.TenantAccounts do
+defmodule MangoCMS.Tenant.Accounts do
   @moduledoc "Tenant-local users, sessions, password reset, and email verification."
 
   import Ecto.Changeset
   import Ecto.Query
 
-  alias MangoCMS.Accounts.Password
+  alias MangoCMS.Platform.Accounts.Password
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantAccounts.{User, UserNotifier, UserToken}
-  alias MangoCMS.TenantRepoManager
+  alias MangoCMS.Tenant.Accounts.{User, UserNotifier, UserToken}
+  alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 
   def change_admin_registration(attrs \\ %{}) do
     change_registration(attrs, role: "admin")

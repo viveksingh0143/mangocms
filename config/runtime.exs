@@ -146,7 +146,7 @@ tenant_repo_config =
     ]
   end
 
-config :mangocms, MangoCMS.TenantRepo, tenant_repo_config
+config :mangocms, MangoCMS.Tenant.Repo, tenant_repo_config
 
 # Production Hard Requirements
 if config_env() == :prod do

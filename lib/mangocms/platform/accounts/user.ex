@@ -1,9 +1,9 @@
-defmodule MangoCMS.Accounts.User do
+defmodule MangoCMS.Platform.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
   alias MangoCMS.Authorization
-  alias MangoCMS.Accounts.Password
+  alias MangoCMS.Platform.Accounts.Password
   alias MangoCMS.Platform.Tenant
 
   @primary_key {:id, :binary_id, autogenerate: true}

@@ -1,4 +1,4 @@
-defmodule MangoCMS.Accounts.SSO do
+defmodule MangoCMS.Platform.Accounts.SSO do
   @moduledoc """
   OAuth/OIDC provider helpers for Google, Microsoft Outlook, and Apple.
   """

@@ -1,13 +1,13 @@
-defmodule MangoCMS.Accounts do
+defmodule MangoCMS.Platform.Accounts do
   @moduledoc "User accounts, sessions, profile updates, and scoped SSO identities."
 
   import Ecto.Changeset
   import Ecto.Query
 
-  alias MangoCMS.Accounts.{Password, User, UserIdentity, UserToken}
+  alias MangoCMS.Platform.Accounts.{Password, User, UserIdentity, UserToken}
   alias MangoCMS.Platform.Tenant
   alias MangoCMS.Repo
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   def change_registration(attrs \\ %{}, opts) do
     %User{}

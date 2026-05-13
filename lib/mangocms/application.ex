@@ -15,8 +15,8 @@ defmodule MangoCMS.Application do
 
       # 2. Database (SQLite via Ecto)
       MangoCMS.Repo,
-      {Registry, keys: :unique, name: MangoCMS.TenantRepoRegistry},
-      {DynamicSupervisor, strategy: :one_for_one, name: MangoCMS.TenantRepoSupervisor},
+      {Registry, keys: :unique, name: MangoCMS.Tenant.RepoRegistry},
+      {DynamicSupervisor, strategy: :one_for_one, name: MangoCMS.Tenant.RepoSupervisor},
 
       # 3. Redis connection pool (named :redix)
       {Redix,

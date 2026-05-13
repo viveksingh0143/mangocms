@@ -1,7 +1,7 @@
 defmodule MangoCMSWeb.AuthHTML do
   use MangoCMSWeb, :html
 
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   embed_templates "auth_html/*"
 

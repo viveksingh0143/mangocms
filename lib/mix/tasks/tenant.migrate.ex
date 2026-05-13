@@ -13,7 +13,7 @@ defmodule Mix.Tasks.Tenant.Migrate do
   use Mix.Task
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantMigrator
+  alias MangoCMS.Tenant.Migrator, as: TenantMigrator
 
   @shortdoc "Runs tenant migrations up"
   @requirements ["app.start"]

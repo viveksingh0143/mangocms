@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantSettings.SiteSettings do
+defmodule MangoCMS.Tenant.Settings.SiteSettings do
   use Ecto.Schema
   import Ecto.Changeset
 

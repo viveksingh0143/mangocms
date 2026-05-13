@@ -4,7 +4,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLiveTest do
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantCatalog
+  alias MangoCMS.Tenant.Catalog, as: TenantCatalog
 
   @product_attrs %{
     name: "Editorial Pro",

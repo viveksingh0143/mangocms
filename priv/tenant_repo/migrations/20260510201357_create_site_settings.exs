@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantRepo.Migrations.CreateSiteSettings do
+defmodule MangoCMS.Tenant.Repo.Migrations.CreateSiteSettings do
   use Ecto.Migration
 
   def up do

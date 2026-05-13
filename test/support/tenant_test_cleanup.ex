@@ -1,7 +1,7 @@
 defmodule MangoCMS.TenantTestCleanup do
   @moduledoc false
 
-  @tenant_repo_supervisor MangoCMS.TenantRepoSupervisor
+  @tenant_repo_supervisor MangoCMS.Tenant.RepoSupervisor
 
   def cleanup! do
     stop_tenant_repos()

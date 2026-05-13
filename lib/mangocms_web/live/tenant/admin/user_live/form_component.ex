@@ -2,7 +2,7 @@ defmodule MangoCMSWeb.Tenant.Admin.UserLive.FormComponent do
   use MangoCMSWeb, :live_component
 
   alias MangoCMS.Authorization
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   @impl true
   def render(assigns) do

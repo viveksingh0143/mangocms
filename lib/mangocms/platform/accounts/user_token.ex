@@ -1,9 +1,9 @@
-defmodule MangoCMS.Accounts.UserToken do
+defmodule MangoCMS.Platform.Accounts.UserToken do
   use Ecto.Schema
 
   import Ecto.Query
 
-  alias MangoCMS.Accounts.User
+  alias MangoCMS.Platform.Accounts.User
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

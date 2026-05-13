@@ -4,7 +4,7 @@ defmodule MangoCMSWeb.TenantMount do
   import Phoenix.Component, only: [assign: 3]
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   def on_mount(:require_tenant, _params, %{"tenant_id" => tenant_id}, socket) do
     tenant = Platform.get_tenant_with_plan!(tenant_id)

@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantCatalog do
+defmodule MangoCMS.Tenant.Catalog do
   @moduledoc """
   Tenant-local catalog operations.
 
@@ -8,8 +8,8 @@ defmodule MangoCMS.TenantCatalog do
   import Ecto.Query
 
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantCatalog.Product
-  alias MangoCMS.TenantRepoManager
+  alias MangoCMS.Tenant.Catalog.Product
+  alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 
   @doc "Lists products from the tenant's isolated database."
   @spec list_products(Tenant.t()) :: [Product.t()]

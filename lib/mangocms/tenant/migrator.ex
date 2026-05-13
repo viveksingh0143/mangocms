@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantMigrator do
+defmodule MangoCMS.Tenant.Migrator do
   @moduledoc """
   Runs tenant-specific Ecto migrations against a tenant repo.
 
@@ -7,8 +7,8 @@ defmodule MangoCMS.TenantMigrator do
   """
 
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantRepo
-  alias MangoCMS.TenantRepoManager
+  alias MangoCMS.Tenant.Repo, as: TenantRepo
+  alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 
   @default_down_step 1
 

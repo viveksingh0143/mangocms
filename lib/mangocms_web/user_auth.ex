@@ -8,12 +8,12 @@ defmodule MangoCMSWeb.UserAuth do
   import Plug.Conn
   import Phoenix.Controller
 
-  alias MangoCMS.Accounts
-  alias MangoCMS.Accounts.User
+  alias MangoCMS.Platform.Accounts
+  alias MangoCMS.Platform.Accounts.User
   alias MangoCMS.Authorization
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantAccounts
-  alias MangoCMS.TenantAccounts.User, as: TenantUser
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
+  alias MangoCMS.Tenant.Accounts.User, as: TenantUser
 
   def fetch_current_user(conn, _opts) do
     user_token = get_session(conn, :user_token)

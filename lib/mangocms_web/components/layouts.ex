@@ -5,7 +5,8 @@ defmodule MangoCMSWeb.Layouts do
   """
   use MangoCMSWeb, :html
 
-  alias MangoCMS.{Authorization, TenantSettings}
+  alias MangoCMS.Authorization
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   @brand_name MangoCMSWeb.Brand.name()
   @admin_profile_email MangoCMSWeb.Brand.admin_profile_email()

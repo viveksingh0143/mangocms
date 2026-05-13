@@ -1,8 +1,8 @@
 defmodule MangoCMSWeb.Tenant.Admin.UserLive.Index do
   use MangoCMSWeb, :live_view
 
-  alias MangoCMS.TenantAccounts
-  alias MangoCMS.TenantAccounts.User
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
+  alias MangoCMS.Tenant.Accounts.User
   alias MangoCMSWeb.AdminGuard
 
   @impl true

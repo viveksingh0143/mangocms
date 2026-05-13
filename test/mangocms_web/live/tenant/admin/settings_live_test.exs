@@ -4,8 +4,8 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLiveTest do
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantAccounts
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   defp unique_suffix, do: System.unique_integer([:positive]) |> Integer.to_string()
 

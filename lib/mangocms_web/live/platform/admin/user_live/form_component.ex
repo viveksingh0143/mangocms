@@ -1,7 +1,7 @@
 defmodule MangoCMSWeb.Platform.Admin.UserLive.FormComponent do
   use MangoCMSWeb, :live_component
 
-  alias MangoCMS.Accounts
+  alias MangoCMS.Platform.Accounts
   alias MangoCMS.Authorization
 
   @impl true

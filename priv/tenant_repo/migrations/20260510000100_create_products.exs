@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantRepo.Migrations.CreateProducts do
+defmodule MangoCMS.Tenant.Repo.Migrations.CreateProducts do
   use Ecto.Migration
 
   def up do

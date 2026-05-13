@@ -1,16 +1,16 @@
-defmodule MangoCMS.TenantRepoManager do
+defmodule MangoCMS.Tenant.RepoManager do
   @moduledoc """
   Starts and prepares the configured repo that belongs to a single tenant.
   """
 
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantMigrator
-  alias MangoCMS.TenantRepo
+  alias MangoCMS.Tenant.Migrator, as: TenantMigrator
+  alias MangoCMS.Tenant.Repo, as: TenantRepo
 
-  @registry MangoCMS.TenantRepoRegistry
-  @supervisor MangoCMS.TenantRepoSupervisor
+  @registry MangoCMS.Tenant.RepoRegistry
+  @supervisor MangoCMS.Tenant.RepoSupervisor
 
-  @doc "Runs a function with `MangoCMS.TenantRepo` pointed at the tenant database."
+  @doc "Runs a function with `MangoCMS.Tenant.Repo` pointed at the tenant database."
   @spec with_repo(Tenant.t(), (module() -> result), keyword()) :: result when result: var
   def with_repo(%Tenant{} = tenant, fun, opts \\ []) when is_function(fun, 1) do
     repo_pid = ensure_repo!(tenant, opts)

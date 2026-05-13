@@ -58,7 +58,7 @@ tenant_repo_config =
       ]
   end
 
-config :mangocms, MangoCMS.TenantRepo, tenant_repo_config
+config :mangocms, MangoCMS.Tenant.Repo, tenant_repo_config
 
 # Oban Adapter Selection
 oban_adapter_config =

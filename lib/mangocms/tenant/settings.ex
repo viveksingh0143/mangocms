@@ -1,9 +1,9 @@
-defmodule MangoCMS.TenantSettings do
+defmodule MangoCMS.Tenant.Settings do
   @moduledoc "Tenant-local website settings used by tenant public and admin UI."
 
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantRepoManager
-  alias MangoCMS.TenantSettings.SiteSettings
+  alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
+  alias MangoCMS.Tenant.Settings.SiteSettings
 
   def get_site_settings(%Tenant{} = tenant) do
     TenantRepoManager.with_repo(tenant, fn repo ->

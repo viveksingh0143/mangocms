@@ -7,7 +7,7 @@ defmodule MangoCMSWeb.Plugs.TenantResolver do
 
   alias MangoCMS.Platform
   alias MangoCMS.Platform.Tenant
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   def init(opts), do: opts
 

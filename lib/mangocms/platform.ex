@@ -25,9 +25,9 @@ defmodule MangoCMS.Platform do
 
   alias MangoCMS.Repo
   alias MangoCMS.Platform.{Plan, Tenant}
-  alias MangoCMS.TenantAccounts
-  alias MangoCMS.TenantMigrator
-  alias MangoCMS.TenantSettings
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
+  alias MangoCMS.Tenant.Migrator, as: TenantMigrator
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   require Logger
 

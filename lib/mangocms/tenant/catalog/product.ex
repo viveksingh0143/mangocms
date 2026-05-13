@@ -1,4 +1,4 @@
-defmodule MangoCMS.TenantCatalog.Product do
+defmodule MangoCMS.Tenant.Catalog.Product do
   use Ecto.Schema
   import Ecto.Changeset
 

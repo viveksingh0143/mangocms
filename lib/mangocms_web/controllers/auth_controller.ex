@@ -2,9 +2,9 @@ defmodule MangoCMSWeb.AuthController do
   use MangoCMSWeb, :controller
   import Phoenix.Component, only: [to_form: 1, to_form: 2]
 
-  alias MangoCMS.Accounts
-  alias MangoCMS.Accounts.SSO
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Platform.Accounts
+  alias MangoCMS.Platform.Accounts.SSO
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
   alias MangoCMSWeb.PlatformRegistration
   alias MangoCMSWeb.UserAuth
 

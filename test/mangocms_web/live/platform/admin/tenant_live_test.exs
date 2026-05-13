@@ -4,7 +4,7 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLiveTest do
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
-  alias MangoCMS.TenantAccounts
+  alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 
   @plan_attrs %{
     name: "growth",

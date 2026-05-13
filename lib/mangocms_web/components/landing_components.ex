@@ -3,7 +3,8 @@ defmodule MangoCMSWeb.LandingComponents do
 
   use MangoCMSWeb, :html
 
-  alias MangoCMS.{Authorization, TenantSettings}
+  alias MangoCMS.Authorization
+  alias MangoCMS.Tenant.Settings, as: TenantSettings
 
   attr :id, :string, default: nil
   attr :current_user, :any, default: nil
@@ -358,7 +359,7 @@ defmodule MangoCMSWeb.LandingComponents do
             class="rounded-box border border-base-300 bg-base-200 p-3 text-sm"
           >
             <span class="font-semibold">{question.label}</span>
-            <span class="text-base-content/60"> —                      {question.text}</span>
+            <span class="text-base-content/60"> —                            {question.text}</span>
           </div>
         </div>
       </div>
@@ -676,7 +677,7 @@ defmodule MangoCMSWeb.LandingComponents do
     """
   end
 
-  defp dashboard_href(nil, %MangoCMS.Accounts.User{} = user) do
+  defp dashboard_href(nil, %MangoCMS.Platform.Accounts.User{} = user) do
     if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/dashboard"
     else
@@ -684,7 +685,7 @@ defmodule MangoCMSWeb.LandingComponents do
     end
   end
 
-  defp dashboard_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+  defp dashboard_href(_tenant, %MangoCMS.Tenant.Accounts.User{} = user) do
     if Authorization.tenant_admin_user?(user) do
       ~p"/admin/dashboard"
     else
@@ -694,7 +695,7 @@ defmodule MangoCMSWeb.LandingComponents do
 
   defp dashboard_href(_tenant, _user), do: ~p"/dashboard"
 
-  defp profile_href(nil, %MangoCMS.Accounts.User{} = user) do
+  defp profile_href(nil, %MangoCMS.Platform.Accounts.User{} = user) do
     if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/profile"
     else
@@ -702,7 +703,7 @@ defmodule MangoCMSWeb.LandingComponents do
     end
   end
 
-  defp profile_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+  defp profile_href(_tenant, %MangoCMS.Tenant.Accounts.User{} = user) do
     if Authorization.tenant_admin_user?(user) do
       ~p"/admin/profile"
     else
@@ -712,7 +713,7 @@ defmodule MangoCMSWeb.LandingComponents do
 
   defp profile_href(_tenant, _user), do: ~p"/profile"
 
-  defp logout_href(nil, %MangoCMS.Accounts.User{} = user) do
+  defp logout_href(nil, %MangoCMS.Platform.Accounts.User{} = user) do
     if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/logout"
     else
@@ -720,7 +721,7 @@ defmodule MangoCMSWeb.LandingComponents do
     end
   end
 
-  defp logout_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
+  defp logout_href(_tenant, %MangoCMS.Tenant.Accounts.User{} = user) do
     if Authorization.tenant_admin_user?(user) do
       ~p"/admin/logout"
     else

@@ -3,7 +3,7 @@ defmodule MangoCMSWeb.Platform.Admin.UserLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias MangoCMS.Accounts
+  alias MangoCMS.Platform.Accounts
 
   @create_attrs %{
     full_name: "Managed Platform User",
