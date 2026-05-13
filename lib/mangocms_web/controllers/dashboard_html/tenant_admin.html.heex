@@ -4,6 +4,7 @@
   subtitle="Manage tenant products and account settings."
   current_user={@current_user}
   current_tenant={@current_tenant}
+  current_tenant_settings={assigns[:current_tenant_settings]}
   active={:dashboard}
 >
   <div id="tenant-admin-dashboard" class="grid gap-4 md:grid-cols-2">
@@ -39,6 +40,46 @@
             <h2 class="card-title text-base">Profile</h2>
             <p class="text-sm text-base-content/60">
               Update your tenant admin profile and password.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <.link
+      id="dashboard-users-link"
+      navigate={~p"/admin/users"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-secondary/10 text-secondary">
+            <.icon name="hero-users" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Users</h2>
+            <p class="text-sm text-base-content/60">
+              Manage owners, admins, staff, customers, and members.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
+
+    <.link
+      id="dashboard-settings-link"
+      navigate={~p"/admin/settings"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-info/10 text-info">
+            <.icon name="hero-cog-6-tooth" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Settings</h2>
+            <p class="text-sm text-base-content/60">
+              Update website name, logos, and tenant-level defaults.
             </p>
           </div>
         </div>

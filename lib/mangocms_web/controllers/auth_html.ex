@@ -1,7 +1,15 @@
 defmodule MangoCMSWeb.AuthHTML do
   use MangoCMSWeb, :html
 
+  alias MangoCMS.TenantSettings
+
   embed_templates "auth_html/*"
+
+  attr :flash, :map, required: true
+  attr :title, :string, required: true
+  attr :context, :any, required: true
+  attr :current_tenant_settings, :any, default: nil
+  slot :inner_block, required: true
 
   def admin_layout(assigns) do
     ~H"""
@@ -10,8 +18,10 @@ defmodule MangoCMSWeb.AuthHTML do
       title={@title}
       subtitle={auth_subtitle(@context)}
       nav_items={[]}
-      brand_label={auth_brand(@context)}
+      brand_label={auth_brand(@context, @current_tenant_settings)}
       brand_href={~p"/"}
+      brand_logo_url={auth_logo_url(@context, @current_tenant_settings)}
+      brand_dark_logo_url={auth_dark_logo_url(@context, @current_tenant_settings)}
       profile_name={auth_brand(@context)}
       profile_email={auth_profile_email(@context)}
       profile_initials={auth_initials(@context)}
@@ -29,6 +39,7 @@ defmodule MangoCMSWeb.AuthHTML do
   attr :user, :any, required: true
   attr :back_path, :string, required: true
   attr :profile_action, :string, required: true
+  attr :current_tenant_settings, :any, default: nil
 
   slot :inner_block, required: true
 
@@ -99,6 +110,7 @@ defmodule MangoCMSWeb.AuthHTML do
       subtitle="Update profile information, account details, and password."
       current_user={@user}
       current_tenant={@tenant}
+      current_tenant_settings={@current_tenant_settings}
       nav_items={[]}
       brand_href={@back_path}
       profile_href={@profile_action}
@@ -247,6 +259,22 @@ defmodule MangoCMSWeb.AuthHTML do
   defp auth_brand(:platform_account), do: MangoCMSWeb.Brand.name()
   defp auth_brand({:tenant_admin, tenant}), do: "#{tenant.name} Admin"
   defp auth_brand({:tenant_member, tenant}), do: tenant.name
+
+  defp auth_brand({:tenant_admin, tenant}, settings),
+    do: "#{TenantSettings.site_name(settings, tenant)} Admin"
+
+  defp auth_brand({:tenant_member, tenant}, settings),
+    do: TenantSettings.site_name(settings, tenant)
+
+  defp auth_brand(context, _settings), do: auth_brand(context)
+
+  defp auth_logo_url({_tenant_context, _tenant}, settings), do: TenantSettings.logo_url(settings)
+  defp auth_logo_url(_context, _settings), do: nil
+
+  defp auth_dark_logo_url({_tenant_context, _tenant}, settings),
+    do: TenantSettings.dark_logo_url(settings)
+
+  defp auth_dark_logo_url(_context, _settings), do: nil
 
   defp auth_login_href(:platform), do: ~p"/platform/admin/login"
   defp auth_login_href(:platform_account), do: ~p"/platform/login"

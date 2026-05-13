@@ -3,14 +3,26 @@ defmodule MangoCMSWeb.LandingComponents do
 
   use MangoCMSWeb, :html
 
+  alias MangoCMS.{Authorization, TenantSettings}
+
   attr :id, :string, default: nil
   attr :current_user, :any, default: nil
   attr :current_tenant, :any, default: nil
+  attr :current_tenant_settings, :any, default: nil
   attr :platform_registration_enabled, :boolean, default: false
 
   def landing_navbar(assigns) do
     assigns =
       assigns
+      |> assign(
+        :brand_label,
+        brand_label(assigns.current_tenant, assigns.current_tenant_settings)
+      )
+      |> assign(:brand_logo_url, TenantSettings.logo_url(assigns.current_tenant_settings))
+      |> assign(
+        :brand_dark_logo_url,
+        TenantSettings.dark_logo_url(assigns.current_tenant_settings)
+      )
       |> assign(:login_href, login_href(assigns.current_tenant))
       |> assign(:register_href, register_href(assigns.current_tenant))
       |> assign(:account_label, account_label(assigns.current_user))
@@ -28,13 +40,13 @@ defmodule MangoCMSWeb.LandingComponents do
       <div class="navbar-start">
         <.link href={~p"/"} class="flex items-center gap-3">
           <img
-            src={~p"/images/logo.png"}
-            alt={MangoCMSWeb.Brand.name()}
+            src={@brand_logo_url || ~p"/images/logo.png"}
+            alt={@brand_label}
             class="rounded-box object-contain dark:hidden"
           />
           <img
-            src={~p"/images/white-logo.png"}
-            alt={MangoCMSWeb.Brand.name()}
+            src={@brand_dark_logo_url || @brand_logo_url || ~p"/images/white-logo.png"}
+            alt={@brand_label}
             class="hidden rounded-box object-contain dark:block"
           />
         </.link>
@@ -346,7 +358,7 @@ defmodule MangoCMSWeb.LandingComponents do
             class="rounded-box border border-base-300 bg-base-200 p-3 text-sm"
           >
             <span class="font-semibold">{question.label}</span>
-            <span class="text-base-content/60"> —                    {question.text}</span>
+            <span class="text-base-content/60"> —                      {question.text}</span>
           </div>
         </div>
       </div>
@@ -615,8 +627,22 @@ defmodule MangoCMSWeb.LandingComponents do
   end
 
   attr :id, :string, default: nil
+  attr :current_tenant, :any, default: nil
+  attr :current_tenant_settings, :any, default: nil
 
   def landing_footer(assigns) do
+    assigns =
+      assigns
+      |> assign(
+        :brand_label,
+        brand_label(assigns.current_tenant, assigns.current_tenant_settings)
+      )
+      |> assign(:brand_logo_url, TenantSettings.logo_url(assigns.current_tenant_settings))
+      |> assign(
+        :brand_dark_logo_url,
+        TenantSettings.dark_logo_url(assigns.current_tenant_settings)
+      )
+
     ~H"""
     <footer
       id={@id}
@@ -624,13 +650,13 @@ defmodule MangoCMSWeb.LandingComponents do
     >
       <aside>
         <img
-          src={~p"/images/logo.png"}
-          alt={MangoCMSWeb.Brand.name()}
+          src={@brand_logo_url || ~p"/images/logo.png"}
+          alt={@brand_label}
           class="h-18 rounded-box object-contain dark:hidden"
         />
         <img
-          src={~p"/images/white-logo.png"}
-          alt={MangoCMSWeb.Brand.name()}
+          src={@brand_dark_logo_url || @brand_logo_url || ~p"/images/white-logo.png"}
+          alt={@brand_label}
           class="hidden h-18 rounded-box object-contain dark:block"
         />
         <p class="max-w-xl text-base-content/60">
@@ -651,7 +677,7 @@ defmodule MangoCMSWeb.LandingComponents do
   end
 
   defp dashboard_href(nil, %MangoCMS.Accounts.User{} = user) do
-    if MangoCMS.Accounts.User.platform_admin?(user) do
+    if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/dashboard"
     else
       ~p"/platform/dashboard"
@@ -659,7 +685,7 @@ defmodule MangoCMSWeb.LandingComponents do
   end
 
   defp dashboard_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
-    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+    if Authorization.tenant_admin_user?(user) do
       ~p"/admin/dashboard"
     else
       ~p"/dashboard"
@@ -669,7 +695,7 @@ defmodule MangoCMSWeb.LandingComponents do
   defp dashboard_href(_tenant, _user), do: ~p"/dashboard"
 
   defp profile_href(nil, %MangoCMS.Accounts.User{} = user) do
-    if MangoCMS.Accounts.User.platform_admin?(user) do
+    if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/profile"
     else
       ~p"/platform/profile"
@@ -677,7 +703,7 @@ defmodule MangoCMSWeb.LandingComponents do
   end
 
   defp profile_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
-    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+    if Authorization.tenant_admin_user?(user) do
       ~p"/admin/profile"
     else
       ~p"/profile"
@@ -687,7 +713,7 @@ defmodule MangoCMSWeb.LandingComponents do
   defp profile_href(_tenant, _user), do: ~p"/profile"
 
   defp logout_href(nil, %MangoCMS.Accounts.User{} = user) do
-    if MangoCMS.Accounts.User.platform_admin?(user) do
+    if Authorization.platform_admin_user?(user) do
       ~p"/platform/admin/logout"
     else
       ~p"/platform/logout"
@@ -695,7 +721,7 @@ defmodule MangoCMSWeb.LandingComponents do
   end
 
   defp logout_href(_tenant, %MangoCMS.TenantAccounts.User{} = user) do
-    if MangoCMS.TenantAccounts.User.admin_role?(user) do
+    if Authorization.tenant_admin_user?(user) do
       ~p"/admin/logout"
     else
       ~p"/logout"
@@ -709,6 +735,9 @@ defmodule MangoCMSWeb.LandingComponents do
 
   defp register_href(nil), do: ~p"/platform/register"
   defp register_href(_tenant), do: ~p"/register"
+
+  defp brand_label(nil, _settings), do: MangoCMSWeb.Brand.name()
+  defp brand_label(tenant, settings), do: TenantSettings.site_name(settings, tenant)
 
   defp account_initials(nil), do: nil
   defp account_initials(user), do: Layouts.user_initials(user)

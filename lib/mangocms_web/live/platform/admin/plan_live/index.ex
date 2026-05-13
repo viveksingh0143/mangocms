@@ -3,10 +3,14 @@ defmodule MangoCMSWeb.Platform.Admin.PlanLive.Index do
 
   alias MangoCMS.Platform
   alias MangoCMS.Platform.Plan
+  alias MangoCMSWeb.AdminGuard
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, stream(socket, :plans, Platform.list_plans())}
+    case AdminGuard.authorize_platform(socket, :manage_plans) do
+      {:ok, socket} -> {:ok, stream(socket, :plans, Platform.list_plans())}
+      {:redirect, socket} -> {:ok, socket}
+    end
   end
 
   @impl true

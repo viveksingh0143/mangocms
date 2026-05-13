@@ -2,6 +2,7 @@ defmodule MangoCMS.TenantAccounts do
   @moduledoc "Tenant-local users, sessions, password reset, and email verification."
 
   import Ecto.Changeset
+  import Ecto.Query
 
   alias MangoCMS.Accounts.Password
   alias MangoCMS.Platform.Tenant
@@ -43,8 +44,38 @@ defmodule MangoCMS.TenantAccounts do
     end
   end
 
+  def list_users(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      User
+      |> order_by([u], desc: u.inserted_at)
+      |> repo.all()
+    end)
+  end
+
   def get_user!(%Tenant{} = tenant, id) do
     TenantRepoManager.with_repo(tenant, & &1.get!(User, id))
+  end
+
+  def change_user(%User{} = user, attrs \\ %{}), do: User.management_changeset(user, attrs)
+
+  def create_user(%Tenant{} = tenant, attrs) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      %User{}
+      |> User.management_changeset(attrs)
+      |> repo.insert()
+    end)
+  end
+
+  def update_user(%Tenant{} = tenant, %User{} = user, attrs) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      user
+      |> User.management_changeset(attrs)
+      |> repo.update()
+    end)
+  end
+
+  def delete_user(%Tenant{} = tenant, %User{} = user) do
+    TenantRepoManager.with_repo(tenant, fn repo -> repo.delete(user) end)
   end
 
   def get_user_by_email(%Tenant{} = tenant, email) do

@@ -10,6 +10,7 @@ defmodule MangoCMSWeb.UserAuth do
 
   alias MangoCMS.Accounts
   alias MangoCMS.Accounts.User
+  alias MangoCMS.Authorization
   alias MangoCMS.Platform.Tenant
   alias MangoCMS.TenantAccounts
   alias MangoCMS.TenantAccounts.User, as: TenantUser
@@ -177,22 +178,22 @@ defmodule MangoCMSWeb.UserAuth do
   end
 
   def platform_admin_user?(%User{} = user),
-    do: User.platform_admin?(user) and not User.disabled?(user)
+    do: Authorization.platform_admin_user?(user)
 
   def platform_admin_user?(_), do: false
 
   def platform_account_user?(%User{} = user),
-    do: User.platform?(user) and not User.disabled?(user)
+    do: Authorization.platform_active_user?(user)
 
   def platform_account_user?(_), do: false
 
   def platform_user?(%User{} = user), do: platform_admin_user?(user)
   def platform_user?(_), do: false
 
-  def tenant_admin_user?(%TenantUser{} = user), do: TenantAccounts.admin_user?(user)
+  def tenant_admin_user?(%TenantUser{} = user), do: Authorization.tenant_admin_user?(user)
   def tenant_admin_user?(_), do: false
 
-  def tenant_user?(%TenantUser{} = user), do: TenantAccounts.active_user?(user)
+  def tenant_user?(%TenantUser{} = user), do: Authorization.tenant_active_user?(user)
   def tenant_user?(_), do: false
 
   defp user_from_conn(_conn, nil), do: nil

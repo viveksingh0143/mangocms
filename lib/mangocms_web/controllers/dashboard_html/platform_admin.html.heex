@@ -63,5 +63,25 @@
         </div>
       </div>
     </.link>
+
+    <.link
+      id="dashboard-users-link"
+      navigate={~p"/platform/admin/users"}
+      class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div class="card-body">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 place-items-center rounded-lg bg-info/10 text-info">
+            <.icon name="hero-users" class="size-5" />
+          </span>
+          <div>
+            <h2 class="card-title text-base">Users</h2>
+            <p class="text-sm text-base-content/60">
+              Manage platform admins, operators, and customer accounts.
+            </p>
+          </div>
+        </div>
+      </div>
+    </.link>
   </div>
 </Layouts.platform_admin>

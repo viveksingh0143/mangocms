@@ -5,6 +5,8 @@ defmodule MangoCMSWeb.Layouts do
   """
   use MangoCMSWeb, :html
 
+  alias MangoCMS.{Authorization, TenantSettings}
+
   @brand_name MangoCMSWeb.Brand.name()
   @admin_profile_email MangoCMSWeb.Brand.admin_profile_email()
 
@@ -85,20 +87,79 @@ defmodule MangoCMSWeb.Layouts do
   end
 
   @doc "Navigation for the platform admin layout."
-  def platform_admin_nav(active) do
-    [
-      %{label: "Dashboard", href: ~p"/platform/admin/dashboard", current: active == :dashboard},
-      %{label: "Plans", href: ~p"/platform/admin/plans", current: active == :plans},
-      %{label: "Tenants", href: ~p"/platform/admin/tenants", current: active == :tenants}
-    ]
+  def platform_admin_nav(active, user \\ nil) do
+    visible_admin_nav(
+      [
+        %{
+          label: "Dashboard",
+          href: ~p"/platform/admin/dashboard",
+          current: active == :dashboard,
+          permission: :view_dashboard
+        },
+        %{
+          label: "Plans",
+          href: ~p"/platform/admin/plans",
+          current: active == :plans,
+          permission: :manage_plans
+        },
+        %{
+          label: "Tenants",
+          href: ~p"/platform/admin/tenants",
+          current: active == :tenants,
+          permission: :manage_tenants
+        },
+        %{
+          label: "Users",
+          href: ~p"/platform/admin/users",
+          current: active == :users,
+          permission: :manage_users
+        }
+      ],
+      :platform,
+      user
+    )
   end
 
   @doc "Navigation for the tenant admin layout."
-  def tenant_admin_nav(active) do
-    [
-      %{label: "Dashboard", href: ~p"/admin/dashboard", current: active == :dashboard},
-      %{label: "Products", href: ~p"/admin/products", current: active == :products}
-    ]
+  def tenant_admin_nav(active, user \\ nil) do
+    visible_admin_nav(
+      [
+        %{
+          label: "Dashboard",
+          href: ~p"/admin/dashboard",
+          current: active == :dashboard,
+          permission: :view_dashboard
+        },
+        %{
+          label: "Products",
+          href: ~p"/admin/products",
+          current: active == :products,
+          permission: :manage_products
+        },
+        %{
+          label: "Users",
+          href: ~p"/admin/users",
+          current: active == :users,
+          permission: :manage_users
+        },
+        %{
+          label: "Settings",
+          href: ~p"/admin/settings",
+          current: active == :settings,
+          permission: :manage_settings
+        }
+      ],
+      :tenant,
+      user
+    )
+  end
+
+  defp visible_admin_nav(items, _scope, nil), do: items
+
+  defp visible_admin_nav(items, scope, user) do
+    Enum.filter(items, fn item ->
+      Authorization.can?(user, scope, Map.fetch!(item, :permission))
+    end)
   end
 
   @doc "Renders the platform admin layout with platform defaults."
@@ -111,6 +172,8 @@ defmodule MangoCMSWeb.Layouts do
   attr :nav_items, :list, default: nil
   attr :brand_label, :string, default: nil
   attr :brand_href, :string, default: nil
+  attr :brand_logo_url, :string, default: nil
+  attr :brand_dark_logo_url, :string, default: nil
   attr :profile_name, :string, default: nil
   attr :profile_email, :string, default: nil
   attr :profile_initials, :string, default: nil
@@ -124,9 +187,14 @@ defmodule MangoCMSWeb.Layouts do
   def platform_admin(assigns) do
     assigns =
       assigns
-      |> assign(:nav_items, assigns.nav_items || platform_admin_nav(assigns.active))
+      |> assign(
+        :nav_items,
+        assigns.nav_items || platform_admin_nav(assigns.active, assigns.current_user)
+      )
       |> assign(:brand_label, assigns.brand_label || "Platform Admin")
       |> assign(:brand_href, assigns.brand_href || ~p"/platform/admin/dashboard")
+      |> assign(:brand_logo_url, assigns.brand_logo_url)
+      |> assign(:brand_dark_logo_url, assigns.brand_dark_logo_url)
       |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
       |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
       |> assign(
@@ -149,6 +217,8 @@ defmodule MangoCMSWeb.Layouts do
       nav_items={@nav_items}
       brand_label={@brand_label}
       brand_href={@brand_href}
+      brand_logo_url={@brand_logo_url}
+      brand_dark_logo_url={@brand_dark_logo_url}
       profile_name={@profile_name}
       profile_email={@profile_email}
       profile_initials={@profile_initials}
@@ -175,12 +245,15 @@ defmodule MangoCMSWeb.Layouts do
   attr :nav_items, :list, default: nil
   attr :brand_label, :string, default: nil
   attr :brand_href, :string, default: nil
+  attr :brand_logo_url, :string, default: nil
+  attr :brand_dark_logo_url, :string, default: nil
   attr :profile_name, :string, default: nil
   attr :profile_email, :string, default: nil
   attr :profile_initials, :string, default: nil
   attr :profile_avatar_url, :string, default: nil
   attr :profile_href, :string, default: nil
   attr :logout_href, :string, default: nil
+  attr :current_tenant_settings, :any, default: nil
 
   slot :actions
   slot :inner_block, required: true
@@ -188,9 +261,25 @@ defmodule MangoCMSWeb.Layouts do
   def tenant_admin(assigns) do
     assigns =
       assigns
-      |> assign(:nav_items, assigns.nav_items || tenant_admin_nav(assigns.active))
-      |> assign(:brand_label, assigns.brand_label || assigns.current_tenant.name)
+      |> assign(
+        :nav_items,
+        assigns.nav_items || tenant_admin_nav(assigns.active, assigns.current_user)
+      )
+      |> assign(
+        :brand_label,
+        assigns.brand_label ||
+          TenantSettings.site_name(assigns.current_tenant_settings, assigns.current_tenant)
+      )
       |> assign(:brand_href, assigns.brand_href || ~p"/admin/dashboard")
+      |> assign(
+        :brand_logo_url,
+        assigns.brand_logo_url || TenantSettings.logo_url(assigns.current_tenant_settings)
+      )
+      |> assign(
+        :brand_dark_logo_url,
+        assigns.brand_dark_logo_url ||
+          TenantSettings.dark_logo_url(assigns.current_tenant_settings)
+      )
       |> assign(:profile_name, assigns.profile_name || user_display_name(assigns.current_user))
       |> assign(:profile_email, assigns.profile_email || assigns.current_user.email)
       |> assign(
@@ -213,6 +302,8 @@ defmodule MangoCMSWeb.Layouts do
       nav_items={@nav_items}
       brand_label={@brand_label}
       brand_href={@brand_href}
+      brand_logo_url={@brand_logo_url}
+      brand_dark_logo_url={@brand_dark_logo_url}
       profile_name={@profile_name}
       profile_email={@profile_email}
       profile_initials={@profile_initials}
@@ -242,6 +333,8 @@ defmodule MangoCMSWeb.Layouts do
   attr :nav_items, :list, default: []
   attr :brand_label, :string, default: @brand_name
   attr :brand_href, :string, default: "/"
+  attr :brand_logo_url, :string, default: nil
+  attr :brand_dark_logo_url, :string, default: nil
   attr :profile_name, :string, default: "Admin"
   attr :profile_email, :string, default: @admin_profile_email
   attr :profile_initials, :string, default: "MC"
@@ -275,12 +368,12 @@ defmodule MangoCMSWeb.Layouts do
             <div class="flex items-center">
               <.link navigate={@brand_href} class="flex shrink-0 items-center gap-3">
                 <img
-                  src={~p"/images/logo.png"}
+                  src={@brand_logo_url || ~p"/images/logo.png"}
                   alt={@brand_label}
                   class="h-12 rounded-md bg-white p-1 dark:hidden"
                 />
                 <img
-                  src={~p"/images/white-logo.png"}
+                  src={@brand_dark_logo_url || @brand_logo_url || ~p"/images/white-logo.png"}
                   alt={@brand_label}
                   class="hidden h-12 rounded-md bg-white p-1 dark:block"
                 />

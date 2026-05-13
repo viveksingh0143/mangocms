@@ -121,6 +121,10 @@ defmodule MangoCMSWeb.Router do
       live "/tenants/:id/edit", TenantLive.Index, :edit
       live "/tenants/:id", TenantLive.Show, :show
       live "/tenants/:id/show/edit", TenantLive.Show, :edit
+
+      live "/users", UserLive.Index, :index
+      live "/users/new", UserLive.Index, :new
+      live "/users/:id/edit", UserLive.Index, :edit
     end
   end
 
@@ -165,6 +169,12 @@ defmodule MangoCMSWeb.Router do
       live "/products/:id/edit", ProductLive.Index, :edit
       live "/products/:id", ProductLive.Show, :show
       live "/products/:id/show/edit", ProductLive.Show, :edit
+
+      live "/users", UserLive.Index, :index
+      live "/users/new", UserLive.Index, :new
+      live "/users/:id/edit", UserLive.Index, :edit
+
+      live "/settings", SettingsLive.Edit, :edit
     end
   end
 

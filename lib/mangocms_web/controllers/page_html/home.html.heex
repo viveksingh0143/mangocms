@@ -4,6 +4,7 @@
   id="navbar"
   current_user={assigns[:current_user]}
   current_tenant={assigns[:current_tenant]}
+  current_tenant_settings={assigns[:current_tenant_settings]}
   platform_registration_enabled={@platform_registration_enabled}
 />
 
@@ -301,4 +302,8 @@
   </.cta_section>
 </.landing_main>
 
-<.landing_footer id="footer" />
+<.landing_footer
+  id="footer"
+  current_tenant={assigns[:current_tenant]}
+  current_tenant_settings={assigns[:current_tenant_settings]}
+/>

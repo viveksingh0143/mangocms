@@ -2,13 +2,12 @@ defmodule MangoCMS.TenantAccounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias MangoCMS.Authorization
   alias MangoCMS.Accounts.Password
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
-
-  @roles ~w(owner admin staff customer member)
 
   schema "users" do
     field :identity_key, :string
@@ -51,6 +50,19 @@ defmodule MangoCMS.TenantAccounts.User do
     |> unique_constraint(:identity_key)
   end
 
+  def management_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email, :password, :full_name, :phone, :avatar_url, :locale, :timezone, :role])
+    |> drop_blank_password()
+    |> validate_email()
+    |> validate_optional_password()
+    |> validate_profile()
+    |> put_identity_key()
+    |> put_password_hash()
+    |> validate_required([:identity_key, :role])
+    |> unique_constraint(:identity_key)
+  end
+
   def password_changeset(user, attrs) do
     user
     |> cast(attrs, [:password])
@@ -65,7 +77,7 @@ defmodule MangoCMS.TenantAccounts.User do
   def disabled?(%__MODULE__{disabled_at: nil}), do: false
   def disabled?(%__MODULE__{}), do: true
 
-  def admin_role?(%__MODULE__{role: role}), do: role in ~w(owner admin staff)
+  def admin_role?(%__MODULE__{role: role}), do: Authorization.tenant_admin_role?(role)
   def admin_role?(_), do: false
 
   def identity_key(email), do: normalize_email(email)
@@ -99,7 +111,27 @@ defmodule MangoCMS.TenantAccounts.User do
     |> validate_length(:avatar_url, max: 500)
     |> validate_length(:locale, max: 20)
     |> validate_length(:timezone, max: 80)
-    |> validate_inclusion(:role, @roles)
+    |> validate_inclusion(:role, Authorization.tenant_roles())
+  end
+
+  defp drop_blank_password(changeset) do
+    case get_change(changeset, :password) do
+      value when value in ["", nil] -> delete_change(changeset, :password)
+      _ -> changeset
+    end
+  end
+
+  defp validate_optional_password(changeset) do
+    cond do
+      get_change(changeset, :password) ->
+        validate_password(changeset)
+
+      is_nil(get_field(changeset, :hashed_password)) ->
+        validate_required(changeset, [:password])
+
+      true ->
+        changeset
+    end
   end
 
   defp put_identity_key(changeset) do

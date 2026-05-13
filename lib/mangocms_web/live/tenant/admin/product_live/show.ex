@@ -2,10 +2,14 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
   use MangoCMSWeb, :live_view
 
   alias MangoCMS.TenantCatalog
+  alias MangoCMSWeb.AdminGuard
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    case AdminGuard.authorize_tenant(socket, :manage_products) do
+      {:ok, socket} -> {:ok, socket}
+      {:redirect, socket} -> {:ok, socket}
+    end
   end
 
   @impl true
@@ -32,6 +36,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
       subtitle={"#{@current_tenant.name} tenant product"}
       current_user={@current_user}
       current_tenant={@current_tenant}
+      current_tenant_settings={@current_tenant_settings}
       active={:products}
     >
       <:actions>

@@ -2,6 +2,7 @@ defmodule MangoCMS.Accounts do
   @moduledoc "User accounts, sessions, profile updates, and scoped SSO identities."
 
   import Ecto.Changeset
+  import Ecto.Query
 
   alias MangoCMS.Accounts.{Password, User, UserIdentity, UserToken}
   alias MangoCMS.Platform.Tenant
@@ -29,7 +30,29 @@ defmodule MangoCMS.Accounts do
     TenantAccounts.authenticate_admin_user(tenant, email, password)
   end
 
+  def list_users do
+    User
+    |> order_by([u], desc: u.inserted_at)
+    |> Repo.all()
+  end
+
   def get_user!(id), do: Repo.get!(User, id)
+
+  def change_user(%User{} = user, attrs \\ %{}), do: User.management_changeset(user, attrs)
+
+  def create_user(attrs) do
+    %User{}
+    |> User.management_changeset(attrs, scope: "platform", tenant_id: nil)
+    |> Repo.insert()
+  end
+
+  def update_user(%User{} = user, attrs) do
+    user
+    |> User.management_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_user(%User{} = user), do: Repo.delete(user)
 
   def get_user_by_session_token(nil), do: nil
 

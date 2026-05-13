@@ -3,12 +3,19 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
 
   alias MangoCMS.TenantCatalog
   alias MangoCMS.TenantCatalog.Product
+  alias MangoCMSWeb.AdminGuard
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_tenant
+    case AdminGuard.authorize_tenant(socket, :manage_products) do
+      {:ok, socket} ->
+        tenant = socket.assigns.current_tenant
 
-    {:ok, stream(socket, :products, TenantCatalog.list_products(tenant))}
+        {:ok, stream(socket, :products, TenantCatalog.list_products(tenant))}
+
+      {:redirect, socket} ->
+        {:ok, socket}
+    end
   end
 
   @impl true
@@ -56,6 +63,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Index do
       subtitle={"#{@current_tenant.name} uses #{plan_name(@current_plan)}"}
       current_user={@current_user}
       current_tenant={@current_tenant}
+      current_tenant_settings={@current_tenant_settings}
       active={:products}
     >
       <:actions>

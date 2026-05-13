@@ -2,10 +2,14 @@ defmodule MangoCMSWeb.Platform.Admin.TenantLive.Show do
   use MangoCMSWeb, :live_view
 
   alias MangoCMS.Platform
+  alias MangoCMSWeb.AdminGuard
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    case AdminGuard.authorize_platform(socket, :manage_tenants) do
+      {:ok, socket} -> {:ok, socket}
+      {:redirect, socket} -> {:ok, socket}
+    end
   end
 
   @impl true

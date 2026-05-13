@@ -2,6 +2,7 @@ defmodule MangoCMS.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias MangoCMS.Authorization
   alias MangoCMS.Accounts.Password
   alias MangoCMS.Platform.Tenant
 
@@ -10,8 +11,6 @@ defmodule MangoCMS.Accounts.User do
   @timestamps_opts [type: :utc_datetime]
 
   @scopes ~w(platform tenant)
-  @roles ~w(admin owner editor viewer customer guest)
-
   @type t :: %__MODULE__{}
 
   schema "users" do
@@ -71,6 +70,20 @@ defmodule MangoCMS.Accounts.User do
     |> unique_constraint(:identity_key)
   end
 
+  def management_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email, :password, :full_name, :phone, :avatar_url, :locale, :timezone, :role])
+    |> put_scope_if_needed(opts)
+    |> drop_blank_password()
+    |> validate_email()
+    |> validate_optional_password()
+    |> validate_profile()
+    |> put_identity_key()
+    |> put_password_hash()
+    |> validate_required([:scope, :identity_key, :role])
+    |> unique_constraint(:identity_key)
+  end
+
   def password_changeset(user, attrs) do
     user
     |> cast(attrs, [:password])
@@ -84,10 +97,10 @@ defmodule MangoCMS.Accounts.User do
   def platform?(%__MODULE__{scope: "platform", tenant_id: nil}), do: true
   def platform?(_), do: false
 
-  def platform_admin?(%__MODULE__{} = user), do: platform?(user) and admin_role?(user)
+  def platform_admin?(%__MODULE__{} = user), do: Authorization.platform_admin_user?(user)
   def platform_admin?(_), do: false
 
-  def admin_role?(%__MODULE__{role: role}), do: role in ~w(admin owner)
+  def admin_role?(%__MODULE__{role: role}), do: Authorization.platform_admin_role?(role)
   def admin_role?(_), do: false
 
   def tenant?(%__MODULE__{scope: "tenant", tenant_id: tenant_id}, tenant_id)
@@ -118,6 +131,19 @@ defmodule MangoCMS.Accounts.User do
     |> put_change(:tenant_id, tenant_id)
     |> validate_inclusion(:scope, @scopes)
     |> validate_required(scope_required_fields(scope))
+  end
+
+  defp put_scope_if_needed(changeset, opts) do
+    cond do
+      get_field(changeset, :scope) in @scopes ->
+        changeset
+
+      Keyword.has_key?(opts, :scope) ->
+        put_scope(changeset, opts)
+
+      true ->
+        put_scope(changeset, scope: "platform", tenant_id: nil)
+    end
   end
 
   defp put_role(changeset, opts) do
@@ -155,7 +181,27 @@ defmodule MangoCMS.Accounts.User do
     |> validate_length(:avatar_url, max: 500)
     |> validate_length(:locale, max: 20)
     |> validate_length(:timezone, max: 80)
-    |> validate_inclusion(:role, @roles)
+    |> validate_inclusion(:role, Authorization.platform_roles())
+  end
+
+  defp drop_blank_password(changeset) do
+    case get_change(changeset, :password) do
+      value when value in ["", nil] -> delete_change(changeset, :password)
+      _ -> changeset
+    end
+  end
+
+  defp validate_optional_password(changeset) do
+    cond do
+      get_change(changeset, :password) ->
+        validate_password(changeset)
+
+      is_nil(get_field(changeset, :hashed_password)) ->
+        validate_required(changeset, [:password])
+
+      true ->
+        changeset
+    end
   end
 
   defp put_identity_key(changeset) do
