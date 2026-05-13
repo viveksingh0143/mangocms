@@ -1,0 +1,309 @@
+defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
+  use MangoCMSWeb, :live_component
+
+  alias MangoCMS.Tenant.ContentEngine
+  alias MangoCMS.Tenant.ContentEngine.{ContentEntry, ContentTypeField}
+  alias MangoCMSWeb.CoreComponents
+
+  @status_options ContentEntry.status_options()
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
+      <.header>
+        {@title}
+        <:subtitle>{@content_type.name} entries are validated against this tenant schema.</:subtitle>
+      </.header>
+
+      <.form
+        for={@form}
+        id="content-entry-form"
+        phx-target={@myself}
+        phx-change="validate"
+        phx-submit="save"
+      >
+        <div class="grid gap-5 md:grid-cols-3">
+          <.input field={@form[:title]} type="text" label="Title" placeholder="Budget Website" />
+          <.input field={@form[:slug]} type="text" label="Slug" placeholder="budget-website" />
+          <.input field={@form[:status]} type="select" label="Status" options={@status_options} />
+        </div>
+
+        <div class="mt-4 rounded-lg border border-base-300 bg-base-200 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-semibold text-base-content">Payload</h3>
+              <p class="text-sm text-base-content/60">
+                Inputs are generated from the fields on {@content_type.name}.
+              </p>
+            </div>
+            <span class="rounded-full bg-base-100 px-2.5 py-1 text-xs font-semibold text-base-content/70">
+              {length(@fields)} fields
+            </span>
+          </div>
+
+          <div
+            :if={@payload_errors != []}
+            id="content-entry-payload-errors"
+            class="mt-4 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
+          >
+            <p :for={error <- @payload_errors}>{error}</p>
+          </div>
+
+          <div class="mt-5 grid gap-5 md:grid-cols-2">
+            <.payload_input :for={field <- @fields} form={@form} field_def={field} />
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-end gap-3">
+          <.button navigate={@patch} class="btn btn-ghost">Cancel</.button>
+          <.button id="save-content-entry-button" variant="primary" phx-disable-with="Saving...">
+            Save entry
+          </.button>
+        </div>
+      </.form>
+    </section>
+    """
+  end
+
+  @impl true
+  def update(%{entry: entry} = assigns, socket) do
+    changeset = ContentEngine.change_entry(entry, assigns.fields)
+
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(:status_options, @status_options)
+     |> assign_form(changeset)}
+  end
+
+  @impl true
+  def handle_event("validate", %{"content_entry" => entry_params}, socket) do
+    params = normalize_entry_params(entry_params, socket.assigns.fields, socket.assigns.entry)
+
+    changeset =
+      socket.assigns.entry
+      |> ContentEngine.change_entry(socket.assigns.fields, params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("save", %{"content_entry" => entry_params}, socket) do
+    params = normalize_entry_params(entry_params, socket.assigns.fields, socket.assigns.entry)
+    save_entry(socket, socket.assigns.action, params)
+  end
+
+  defp save_entry(socket, :new, entry_params) do
+    case ContentEngine.create_entry(
+           socket.assigns.tenant,
+           socket.assigns.content_type,
+           entry_params
+         ) do
+      {:ok, entry} ->
+        notify_parent({:saved, entry})
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Content entry created successfully")
+         |> push_patch(to: socket.assigns.patch)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  defp save_entry(socket, :edit, entry_params) do
+    case ContentEngine.update_entry(socket.assigns.tenant, socket.assigns.entry, entry_params) do
+      {:ok, entry} ->
+        notify_parent({:saved, entry})
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Content entry updated successfully")
+         |> push_patch(to: socket.assigns.patch)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  defp payload_input(assigns) do
+    field = assigns.field_def
+
+    assigns =
+      assigns
+      |> assign(:field_key, field.field_key)
+      |> assign(:input_id, "content_entry_payload_#{field.field_key}")
+      |> assign(:input_name, "content_entry[payload][#{field.field_key}]")
+      |> assign(:input_type, payload_input_type(field))
+      |> assign(:input_value, payload_value(assigns.form, field))
+      |> assign(:input_label, payload_label(field))
+      |> assign(:input_options, select_options(field))
+
+    ~H"""
+    <div class={[@input_type == "textarea" && "md:col-span-2"]}>
+      <.input
+        :if={@input_type == "select"}
+        id={@input_id}
+        name={@input_name}
+        type="select"
+        label={@input_label}
+        value={@input_value}
+        options={@input_options}
+        prompt="Choose an option"
+      />
+
+      <.input
+        :if={@input_type == "textarea"}
+        id={@input_id}
+        name={@input_name}
+        type="textarea"
+        label={@input_label}
+        value={@input_value}
+        rows="4"
+      />
+
+      <.input
+        :if={@input_type == "checkbox"}
+        id={@input_id}
+        name={@input_name}
+        type="checkbox"
+        label={@input_label}
+        value={@input_value}
+      />
+
+      <.input
+        :if={@input_type not in ["select", "textarea", "checkbox"]}
+        id={@input_id}
+        name={@input_name}
+        type={@input_type}
+        label={@input_label}
+        value={@input_value}
+        step={if(@input_type == "number", do: "any", else: nil)}
+      />
+    </div>
+    """
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    socket
+    |> assign(:form, to_form(changeset))
+    |> assign(:payload_errors, payload_errors(changeset))
+  end
+
+  defp payload_errors(%Ecto.Changeset{} = changeset) do
+    changeset.errors
+    |> Keyword.get_values(:payload)
+    |> Enum.map(&CoreComponents.translate_error/1)
+  end
+
+  defp normalize_entry_params(params, fields, %ContentEntry{} = entry) do
+    payload = Map.get(params, "payload", %{})
+
+    normalized_payload =
+      fields
+      |> Enum.map(fn field ->
+        {field.field_key, coerce_payload_value(field, Map.get(payload, field.field_key))}
+      end)
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    params
+    |> Map.put("payload", normalized_payload)
+    |> maybe_put_published_at(entry)
+  end
+
+  defp maybe_put_published_at(%{"status" => "published"} = params, %ContentEntry{
+         published_at: nil
+       }) do
+    Map.put(params, "published_at", DateTime.utc_now(:second))
+  end
+
+  defp maybe_put_published_at(params, _entry), do: params
+
+  defp coerce_payload_value(_field, value) when value in [nil, ""], do: nil
+
+  defp coerce_payload_value(%ContentTypeField{field_type: "number"}, value)
+       when is_binary(value) do
+    case Float.parse(value) do
+      {number, ""} -> number
+      _other -> value
+    end
+  end
+
+  defp coerce_payload_value(%ContentTypeField{field_type: "boolean"}, value) do
+    value in [true, "true", "1", 1]
+  end
+
+  defp coerce_payload_value(%ContentTypeField{field_type: "json"}, value) when is_binary(value) do
+    case Jason.decode(value) do
+      {:ok, decoded} -> decoded
+      {:error, _reason} -> value
+    end
+  end
+
+  defp coerce_payload_value(_field, value), do: value
+
+  defp payload_input_type(%ContentTypeField{field_type: "text"}), do: "textarea"
+  defp payload_input_type(%ContentTypeField{field_type: "json"}), do: "textarea"
+  defp payload_input_type(%ContentTypeField{field_type: "number"}), do: "number"
+  defp payload_input_type(%ContentTypeField{field_type: "boolean"}), do: "checkbox"
+  defp payload_input_type(%ContentTypeField{field_type: "datetime"}), do: "datetime-local"
+  defp payload_input_type(%ContentTypeField{field_type: "url"}), do: "url"
+  defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "url"
+  defp payload_input_type(%ContentTypeField{field_type: "select"}), do: "select"
+  defp payload_input_type(_field), do: "text"
+
+  defp payload_label(%ContentTypeField{} = field) do
+    if field.required, do: "#{field.label} *", else: field.label
+  end
+
+  defp payload_value(form, %ContentTypeField{} = field) do
+    payload =
+      case form[:payload].value do
+        value when is_map(value) -> value
+        _other -> %{}
+      end
+
+    payload
+    |> Map.get(field.field_key)
+    |> format_payload_value(field)
+  end
+
+  defp format_payload_value(value, _field) when value in [nil, ""], do: nil
+
+  defp format_payload_value(value, %ContentTypeField{field_type: "datetime"}) do
+    value
+    |> datetime_to_string()
+    |> String.slice(0, 16)
+  end
+
+  defp format_payload_value(value, %ContentTypeField{field_type: "json"}) when is_binary(value),
+    do: value
+
+  defp format_payload_value(value, %ContentTypeField{field_type: "json"}) do
+    Jason.encode!(value)
+  end
+
+  defp format_payload_value(value, _field), do: value
+
+  defp datetime_to_string(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp datetime_to_string(%NaiveDateTime{} = value), do: NaiveDateTime.to_iso8601(value)
+  defp datetime_to_string(%Date{} = value), do: Date.to_iso8601(value)
+  defp datetime_to_string(value) when is_binary(value), do: value
+  defp datetime_to_string(value), do: to_string(value)
+
+  defp select_options(%ContentTypeField{settings: settings}) when is_map(settings) do
+    settings
+    |> Map.get("options", [])
+    |> case do
+      options when is_list(options) -> Enum.map(options, &{&1, &1})
+      _other -> []
+    end
+  end
+
+  defp select_options(_field), do: []
+
+  defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
+end

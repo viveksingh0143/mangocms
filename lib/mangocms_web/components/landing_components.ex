@@ -359,7 +359,7 @@ defmodule MangoCMSWeb.LandingComponents do
             class="rounded-box border border-base-300 bg-base-200 p-3 text-sm"
           >
             <span class="font-semibold">{question.label}</span>
-            <span class="text-base-content/60"> —                            {question.text}</span>
+            <span class="text-base-content/60"> —                             {question.text}</span>
           </div>
         </div>
       </div>

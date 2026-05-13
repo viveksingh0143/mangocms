@@ -170,6 +170,16 @@ defmodule MangoCMSWeb.Router do
       live "/products/:id", ProductLive.Show, :show
       live "/products/:id/show/edit", ProductLive.Show, :edit
 
+      live "/content-types", ContentTypeLive.Index, :index
+      live "/content-types/new", ContentTypeLive.Index, :new
+      live "/content-types/:id/edit", ContentTypeLive.Index, :edit
+      live "/content-types/:id", ContentTypeLive.Show, :show
+      live "/content-types/:id/fields/new", ContentTypeLive.Show, :new_field
+      live "/content-types/:id/fields/:field_id/edit", ContentTypeLive.Show, :edit_field
+      live "/content-types/:id/entries", ContentEntryLive.Index, :index
+      live "/content-types/:id/entries/new", ContentEntryLive.Index, :new
+      live "/content-types/:id/entries/:entry_id/edit", ContentEntryLive.Index, :edit
+
       live "/users", UserLive.Index, :index
       live "/users/new", UserLive.Index, :new
       live "/users/:id/edit", UserLive.Index, :edit

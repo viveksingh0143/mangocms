@@ -46,6 +46,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end)
   end
 
+  @spec delete_content_type(Tenant.t(), ContentType.t()) ::
+          {:ok, ContentType.t()} | {:error, Ecto.Changeset.t()}
+  def delete_content_type(%Tenant{} = tenant, %ContentType{} = content_type) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.delete(content_type)
+    end)
+  end
+
   @spec create_content_type(Tenant.t(), map()) ::
           {:ok, ContentType.t()} | {:error, Ecto.Changeset.t()}
   def create_content_type(%Tenant{} = tenant, attrs) do
@@ -82,6 +90,13 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end)
   end
 
+  @spec get_content_type_field!(Tenant.t(), String.t()) :: ContentTypeField.t()
+  def get_content_type_field!(%Tenant{} = tenant, id) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.get!(ContentTypeField, id)
+    end)
+  end
+
   @spec create_content_type_field(Tenant.t(), ContentType.t(), map()) ::
           {:ok, ContentTypeField.t()} | {:error, Ecto.Changeset.t()}
   def create_content_type_field(%Tenant{} = tenant, %ContentType{} = content_type, attrs) do
@@ -108,6 +123,24 @@ defmodule MangoCMS.Tenant.ContentEngine do
     TenantRepoManager.with_repo(tenant, fn repo ->
       repo.transaction(fn ->
         case field |> ContentTypeField.changeset(attrs) |> repo.update() do
+          {:ok, field} ->
+            rebuild_content_type_indexes!(repo, field.content_type_id)
+            field
+
+          {:error, changeset} ->
+            repo.rollback(changeset)
+        end
+      end)
+    end)
+    |> unwrap_transaction()
+  end
+
+  @spec delete_content_type_field(Tenant.t(), ContentTypeField.t()) ::
+          {:ok, ContentTypeField.t()} | {:error, Ecto.Changeset.t()}
+  def delete_content_type_field(%Tenant{} = tenant, %ContentTypeField{} = field) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.transaction(fn ->
+        case repo.delete(field) do
           {:ok, field} ->
             rebuild_content_type_indexes!(repo, field.content_type_id)
             field
@@ -249,6 +282,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
       entry
       |> ContentEntry.archive_changeset(fields)
       |> repo.update()
+    end)
+  end
+
+  @spec delete_entry(Tenant.t(), ContentEntry.t()) ::
+          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
+  def delete_entry(%Tenant{} = tenant, %ContentEntry{} = entry) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.delete(entry)
     end)
   end
 
