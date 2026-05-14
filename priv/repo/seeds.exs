@@ -1002,7 +1002,7 @@ if tenant do
       fixed_data: %{
         "title" => "Phase 3 page schema",
         "body" =>
-          "Pages can now contain ordered sections with fixed, dynamic, or reference mode. Dynamic sections can query tenant content entries and map fields into cards."
+          "Pages can now contain ordered sections with fixed or dynamic mode. Dynamic sections can query tenant content entries and map fields into cards."
       }
     })
 

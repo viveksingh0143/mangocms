@@ -61,7 +61,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Index do
     <Layouts.tenant_admin
       flash={@flash}
       title="Pages"
-      subtitle="Create tenant pages and compose them from fixed, dynamic, or reference-ready sections."
+      subtitle="Create tenant pages and compose them from fixed or dynamic sections."
       current_user={@current_user}
       current_tenant={@current_tenant}
       current_tenant_settings={@current_tenant_settings}

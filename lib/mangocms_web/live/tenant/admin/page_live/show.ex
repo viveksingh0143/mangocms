@@ -138,7 +138,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Show do
           <div class="border-b border-base-300 p-5">
             <h2 class="font-semibold text-base-content">Sections</h2>
             <p class="mt-1 text-sm text-base-content/60">
-              Fixed sections render directly. Dynamic and reference sections use source queries and slot mappings.
+              Fixed sections render directly. Dynamic sections use source queries and slot mappings.
             </p>
           </div>
 

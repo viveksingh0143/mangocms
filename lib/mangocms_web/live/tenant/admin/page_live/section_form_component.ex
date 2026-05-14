@@ -5,7 +5,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
   alias MangoCMS.Tenant.Pages.{PageSection, SectionMapping, SectionSource}
 
   @type_options PageSection.type_options()
-  @mode_options PageSection.mode_options()
+  @mode_options [{"Fixed", "fixed"}, {"Dynamic", "dynamic"}]
   @source_status_options SectionSource.status_options()
   @operator_options SectionSource.operator_options()
   @formatter_options SectionMapping.formatter_options()
@@ -17,7 +17,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
       <.header>
         {@title}
         <:subtitle>
-          Fixed sections render directly. Dynamic and reference sections pull tenant content entries through a source query and slot mappings.
+          Fixed sections render directly. Dynamic sections pull tenant content entries through a source query and slot mappings.
         </:subtitle>
       </.header>
 
@@ -400,7 +400,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
     end
   end
 
-  defp dynamic_mode?(form), do: form[:mode].value in ["dynamic", "reference"]
+  defp dynamic_mode?(form), do: form[:mode].value == "dynamic"
 
   defp content_type_options(content_types) do
     [{"Select content type", ""}] ++ Enum.map(content_types, &{&1.name, &1.id})

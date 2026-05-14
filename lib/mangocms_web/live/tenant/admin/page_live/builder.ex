@@ -2,8 +2,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   use MangoCMSWeb, :live_view
 
   alias MangoCMS.Tenant.{ContentEngine, Pages}
-  alias MangoCMS.Tenant.Pages.PageSection
+  alias MangoCMS.Tenant.Pages.{PageSection, SectionMapping, SectionSource}
   alias MangoCMSWeb.AdminGuard
+  alias MangoCMSWeb.Tenant.Admin.PageLive.SectionEditor
 
   @width_options [
     {"Full", "full"},
@@ -43,6 +44,10 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     }
   ]
 
+  @source_status_options SectionSource.status_options()
+  @operator_options SectionSource.operator_options()
+  @formatter_options SectionMapping.formatter_options()
+
   @impl true
   def mount(_params, _session, socket) do
     case AdminGuard.authorize_tenant(socket, :manage_pages) do
@@ -59,6 +64,20 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   @impl true
   def handle_event("select_section", %{"id" => id}, socket) do
     {:noreply, select_section(socket, id)}
+  end
+
+  def handle_event("save_page_details", %{"page" => page_params}, socket) do
+    case Pages.update_page(socket.assigns.current_tenant, socket.assigns.page, page_params) do
+      {:ok, page} ->
+        {:noreply,
+         socket
+         |> assign(:page, page)
+         |> assign(:page_form, page_form(page))
+         |> put_flash(:info, "Page updated")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, :page_form, to_form(changeset))}
+    end
   end
 
   def handle_event("add_section", %{"preset" => preset}, socket) do
@@ -115,20 +134,31 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     end
   end
 
-  def handle_event("save_active_section", %{"section" => section_params}, socket) do
+  def handle_event("save_builder_section", %{"section" => section_params}, socket) do
     section = Pages.get_section!(socket.assigns.current_tenant, socket.assigns.active_section.id)
     ensure_section_belongs_to_page!(socket.assigns.page, section)
-    attrs = inspector_attrs(section, section_params)
+    {section_attrs, source_attrs, mappings} = split_section_params(section, section_params)
 
-    case Pages.update_section(socket.assigns.current_tenant, section, attrs) do
+    case Pages.update_section_configuration(
+           socket.assigns.current_tenant,
+           section,
+           section_attrs,
+           source_attrs,
+           mappings
+         ) do
       {:ok, section} ->
         {:noreply,
          socket
          |> put_flash(:info, "Section updated")
          |> reload_sections(section.id)}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :inspector_form, to_form(changeset))}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         assign_section_error(socket, section, section_params, changeset_message(changeset))}
+
+      {:error, {type, %Ecto.Changeset{} = changeset}} ->
+        message = "#{human_label(to_string(type))} #{changeset_message(changeset)}"
+        {:noreply, assign_section_error(socket, section, section_params, message)}
     end
   end
 
@@ -165,7 +195,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         </.button>
       </:actions>
 
-      <section id="page-builder" class="mt-8 grid gap-5 xl:grid-cols-[17rem_1fr_22rem]">
+      <section id="page-builder" class="mt-8 grid gap-5 xl:grid-cols-[17rem_1fr]">
         <aside class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm">
           <div>
             <h2 class="font-semibold text-base-content">Palette</h2>
@@ -194,12 +224,88 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
           </div>
         </aside>
 
-        <section class="rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <section class="overflow-hidden rounded-lg border border-base-300 bg-base-100 shadow-sm">
+          <.form
+            for={@page_form}
+            id="builder-page-form"
+            class="border-b border-base-300 bg-base-100 p-5"
+            phx-submit="save_page_details"
+          >
+            <div class="grid gap-4 xl:grid-cols-[1fr_18rem] xl:items-start">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-primary">Page</p>
+                <.input
+                  field={@page_form[:title]}
+                  label="Page title"
+                  class="w-full input input-ghost h-auto px-0 py-2 text-3xl font-bold leading-tight"
+                />
+                <.input
+                  id="builder_page_subtitle"
+                  name="page[seo][subtitle]"
+                  type="textarea"
+                  label="Page subtitle"
+                  value={page_subtitle_value(@page_form)}
+                  rows="2"
+                  class="w-full textarea textarea-ghost px-0 text-base leading-7"
+                />
+              </div>
+
+              <div class="rounded-lg border border-base-300 bg-base-200 p-4">
+                <div class="grid gap-3">
+                  <.input
+                    field={@page_form[:slug]}
+                    type="text"
+                    label="Slug"
+                    class="w-full input input-sm"
+                  />
+                  <.input
+                    field={@page_form[:type]}
+                    type="select"
+                    label="Type"
+                    options={@page_type_options}
+                    class="w-full select select-sm"
+                  />
+                  <.input
+                    field={@page_form[:status]}
+                    type="select"
+                    label="Status"
+                    options={@page_status_options}
+                    class="w-full select select-sm"
+                  />
+                  <.input
+                    id="builder_page_seo_title"
+                    name="page[seo][title]"
+                    type="text"
+                    label="SEO title"
+                    value={page_seo_value(@page_form, "title")}
+                    class="w-full input input-sm"
+                  />
+                  <.input
+                    id="builder_page_seo_description"
+                    name="page[seo][description]"
+                    type="textarea"
+                    label="SEO description"
+                    value={page_seo_value(@page_form, "description")}
+                    rows="2"
+                    class="w-full textarea textarea-sm"
+                  />
+                  <.button
+                    id="builder-save-page-button"
+                    variant="primary"
+                    phx-disable-with="Saving..."
+                  >
+                    Save page
+                  </.button>
+                </div>
+              </div>
+            </div>
+          </.form>
+
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 p-4">
             <div>
               <h2 class="font-semibold text-base-content">Canvas</h2>
               <p class="mt-1 text-sm text-base-content/60">
-                Drag cards to reorder, or use the arrow controls.
+                Select a section to edit it in place. Drag cards to reorder, or use the arrow controls.
               </p>
             </div>
             <span class="rounded-full bg-base-200 px-3 py-1 text-xs font-semibold text-base-content/70">
@@ -227,31 +333,36 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
               draggable="true"
               class={builder_section_class(section, @active_section)}
             >
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <button
-                  type="button"
-                  phx-click="select_section"
-                  phx-value-id={section.id}
-                  class="min-w-0 flex-1 text-left"
-                >
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="cursor-grab rounded-md bg-base-200 px-2 py-1 text-xs font-semibold text-base-content/60">
-                      Drag
-                    </span>
-                    <span class={mode_class(section.mode)}>{human_label(section.mode)}</span>
-                    <span class="rounded-full bg-base-200 px-2 py-0.5 text-xs font-medium text-base-content/70">
-                      {section.type}
-                    </span>
-                  </div>
-                  <h3 class="mt-3 truncate text-lg font-semibold text-base-content">
-                    {section_title(section)}
-                  </h3>
-                  <p class="mt-1 line-clamp-2 text-sm text-base-content/60">
-                    {section_summary(section)}
-                  </p>
-                </button>
+              <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="cursor-grab rounded-md bg-base-200 px-2 py-1 text-xs font-semibold text-base-content/60">
+                    Drag
+                  </span>
+                  <span class={mode_class(section.mode)}>{human_label(section.mode)}</span>
+                  <span class="rounded-full bg-base-200 px-2 py-0.5 text-xs font-medium text-base-content/70">
+                    {section.type}
+                  </span>
+                </div>
 
                 <div class="flex items-center gap-1">
+                  <button
+                    :if={!section_active?(section, @active_section)}
+                    id={"builder-select-section-#{section.id}"}
+                    type="button"
+                    phx-click="select_section"
+                    phx-value-id={section.id}
+                    class="btn btn-sm btn-ghost"
+                  >
+                    Edit
+                  </button>
+                  <.link
+                    :if={section_active?(section, @active_section)}
+                    id="builder-advanced-edit-link"
+                    navigate={~p"/admin/pages/#{@page}/sections/#{section}/edit"}
+                    class="btn btn-sm btn-ghost"
+                  >
+                    Advanced
+                  </.link>
                   <button
                     id={"builder-move-up-#{section.id}"}
                     type="button"
@@ -277,105 +388,65 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                 </div>
               </div>
 
-              <div class="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  :for={{label, width} <- @width_options}
-                  id={"builder-section-width-#{width}-#{section.id}"}
-                  type="button"
-                  phx-click="set_width"
-                  phx-value-id={section.id}
-                  phx-value-width={width}
-                  class={width_button_class(section, width)}
+              <%= if section_active?(section, @active_section) do %>
+                <.form
+                  for={@section_form}
+                  id={"builder-section-form-#{section.id}"}
+                  phx-submit="save_builder_section"
                 >
-                  {label}
+                  <p
+                    :if={@section_error}
+                    class="mb-4 rounded-lg bg-error/10 p-3 text-sm text-error"
+                  >
+                    {@section_error}
+                  </p>
+
+                  <SectionEditor.form
+                    section={section}
+                    form={@section_form}
+                    width_options={@width_options}
+                    source_params={@source_params}
+                    mapping_rows={@mapping_rows}
+                    content_type_options={@content_type_options}
+                    source_status_options={@source_status_options}
+                    operator_options={@operator_options}
+                    formatter_options={@formatter_options}
+                  />
+
+                  <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
+                    <button
+                      :for={{label, width} <- @width_options}
+                      id={"builder-section-width-#{width}-#{section.id}"}
+                      type="button"
+                      phx-click="set_width"
+                      phx-value-id={section.id}
+                      phx-value-width={width}
+                      class={width_button_class(section, width)}
+                    >
+                      {label}
+                    </button>
+                    <.button
+                      id={"builder-save-section-button-#{section.id}"}
+                      variant="primary"
+                      phx-disable-with="Saving..."
+                    >
+                      Save section
+                    </.button>
+                  </div>
+                </.form>
+              <% else %>
+                <button
+                  type="button"
+                  phx-click="select_section"
+                  phx-value-id={section.id}
+                  class="block w-full text-left"
+                >
+                  <SectionEditor.preview section={section} />
                 </button>
-              </div>
+              <% end %>
             </article>
           </div>
         </section>
-
-        <aside class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm">
-          <div :if={@active_section} id="builder-inspector">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <h2 class="font-semibold text-base-content">Inspector</h2>
-                <p class="mt-1 text-sm text-base-content/60">
-                  Selected: {section_title(@active_section)}
-                </p>
-              </div>
-              <.link
-                id="builder-advanced-edit-link"
-                navigate={~p"/admin/pages/#{@page}/sections/#{@active_section}/edit"}
-                class="btn btn-sm btn-ghost"
-              >
-                Advanced
-              </.link>
-            </div>
-
-            <.form
-              for={@inspector_form}
-              id="builder-inspector-form"
-              class="mt-5 space-y-3"
-              phx-submit="save_active_section"
-            >
-              <.input
-                field={@inspector_form[:type]}
-                type="select"
-                label="Type"
-                options={@type_options}
-              />
-              <.input field={@inspector_form[:template_id]} type="text" label="Template" />
-              <.input
-                id="builder_inspector_width"
-                name="section[settings][width]"
-                type="select"
-                label="Canvas width"
-                options={@width_options}
-                value={settings_value(@active_section, "width", "full")}
-              />
-              <.input
-                id="builder_inspector_title"
-                name="section[fixed_data][title]"
-                type="text"
-                label="Title"
-                value={fixed_value(@active_section, "title")}
-              />
-              <.input
-                id="builder_inspector_subtitle"
-                name="section[fixed_data][subtitle]"
-                type="textarea"
-                label="Subtitle"
-                rows="3"
-                value={fixed_value(@active_section, "subtitle")}
-              />
-              <.input
-                id="builder_inspector_body"
-                name="section[fixed_data][body]"
-                type="textarea"
-                label="Body"
-                rows="4"
-                value={fixed_value(@active_section, "body")}
-              />
-
-              <.button
-                id="builder-save-inspector-button"
-                variant="primary"
-                phx-disable-with="Saving..."
-              >
-                Save inspector
-              </.button>
-            </.form>
-          </div>
-
-          <div :if={!@active_section} class="grid min-h-80 place-items-center text-center">
-            <div>
-              <h2 class="font-semibold text-base-content">No section selected</h2>
-              <p class="mt-1 text-sm text-base-content/60">
-                Select a canvas card to edit its visible settings.
-              </p>
-            </div>
-          </div>
-        </aside>
       </section>
     </Layouts.tenant_admin>
     """
@@ -385,16 +456,22 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     tenant = socket.assigns.current_tenant
     page = Pages.get_page!(tenant, page_id)
     sections = Pages.list_sections(tenant, page)
+    content_types = ContentEngine.list_content_types(tenant)
     active_section = selected_section(sections, selected_section_id)
 
     socket
     |> assign(:page, page)
-    |> assign(:content_types, ContentEngine.list_content_types(tenant))
+    |> assign(:content_types, content_types)
+    |> assign(:page_form, page_form(page))
     |> assign(:section_count, length(sections))
-    |> assign(:active_section, active_section)
-    |> assign(:inspector_form, inspector_form(active_section))
+    |> assign_section_editor(active_section)
     |> assign(:section_presets, @section_presets)
-    |> assign(:type_options, PageSection.type_options())
+    |> assign(:page_type_options, MangoCMS.Tenant.Pages.Page.type_options())
+    |> assign(:page_status_options, MangoCMS.Tenant.Pages.Page.status_options())
+    |> assign(:source_status_options, @source_status_options)
+    |> assign(:operator_options, @operator_options)
+    |> assign(:formatter_options, @formatter_options)
+    |> assign(:content_type_options, content_type_options(content_types))
     |> assign(:width_options, @width_options)
     |> stream(:sections, sections, reset: true)
   end
@@ -405,8 +482,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
     socket
     |> assign(:section_count, length(sections))
-    |> assign(:active_section, active_section)
-    |> assign(:inspector_form, inspector_form(active_section))
+    |> assign_section_editor(active_section)
     |> stream(:sections, sections, reset: true)
   end
 
@@ -414,9 +490,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     section = Pages.get_section!(socket.assigns.current_tenant, id)
     ensure_section_belongs_to_page!(socket.assigns.page, section)
 
-    socket
-    |> assign(:active_section, section)
-    |> assign(:inspector_form, inspector_form(section))
+    reload_sections(socket, section.id)
   end
 
   defp selected_section([], _id), do: nil
@@ -426,24 +500,56 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     Enum.find(sections, &(&1.id == id)) || List.first(sections)
   end
 
-  defp inspector_form(nil), do: to_form(%{}, as: :section)
+  defp assign_section_editor(socket, nil) do
+    socket
+    |> assign(:active_section, nil)
+    |> assign(:section_form, to_form(%{}, as: :section))
+    |> assign(:section_error, nil)
+    |> assign(:source_params, source_params(nil))
+    |> assign(:mapping_rows, Pages.default_section_mappings())
+  end
 
-  defp inspector_form(%PageSection{} = section) do
-    section
-    |> inspector_params()
+  defp assign_section_editor(socket, %PageSection{} = section) do
+    socket
+    |> assign(:active_section, section)
+    |> assign(:section_form, section_form(section))
+    |> assign(:section_error, nil)
+    |> assign(:source_params, source_params(section))
+    |> assign(:mapping_rows, mapping_rows(section))
+  end
+
+  defp assign_section_error(socket, %PageSection{} = section, params, message) do
+    socket
+    |> assign(:active_section, section)
+    |> assign(:section_form, params |> section_form_params(section) |> to_form(as: :section))
+    |> assign(:section_error, message)
+    |> assign(:source_params, normalize_source_params(Map.get(params, "source", %{})))
+    |> assign(:mapping_rows, params |> Map.get("mappings", %{}) |> mapping_rows_from_params())
+    |> stream_insert(:sections, section)
+  end
+
+  defp page_form(page), do: page |> Pages.change_page() |> to_form()
+
+  defp section_form(%PageSection{} = section) do
+    %{}
+    |> section_form_params(section)
     |> to_form(as: :section)
   end
 
-  defp inspector_params(%PageSection{} = section) do
+  defp section_form_params(params, %PageSection{} = section) when is_map(params) do
     %{
-      "type" => section.type,
-      "template_id" => section.template_id,
-      "fixed_data" => section.fixed_data || %{},
-      "settings" => section.settings || %{}
+      "type" => Map.get(params, "type", section.type),
+      "template_id" => Map.get(params, "template_id", section.template_id),
+      "mode" => Map.get(params, "mode", section.mode),
+      "position" => Map.get(params, "position", section.position || 0),
+      "fixed_data" => Map.get(params, "fixed_data", section.fixed_data || %{}),
+      "settings" => Map.get(params, "settings", section.settings || %{})
     }
   end
 
-  defp inspector_attrs(%PageSection{} = section, params) do
+  defp split_section_params(%PageSection{} = section, params) do
+    mode = if Map.get(params, "mode") == "dynamic", do: "dynamic", else: "fixed"
+
     fixed_data =
       section.fixed_data
       |> safe_map()
@@ -457,11 +563,102 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       |> Map.update("width", "full", &normalize_width/1)
       |> compact_map()
 
-    %{
-      type: params["type"] || section.type,
-      template_id: params["template_id"] || section.template_id,
+    section_attrs = %{
+      type: Map.get(params, "type", section.type),
+      template_id: Map.get(params, "template_id", section.template_id),
+      mode: mode,
+      position: Map.get(params, "position", section.position || 0),
       fixed_data: fixed_data,
       settings: settings
+    }
+
+    source_attrs =
+      if mode == "dynamic" do
+        Map.get(params, "source", %{})
+      else
+        %{}
+      end
+
+    mappings =
+      if mode == "dynamic" do
+        Map.get(params, "mappings", %{})
+      else
+        []
+      end
+
+    {section_attrs, source_attrs, mappings}
+  end
+
+  defp content_type_options(content_types) do
+    [{"Select content type", ""}] ++ Enum.map(content_types, &{&1.name, &1.id})
+  end
+
+  defp source_params(%PageSection{source: %SectionSource{} = source}) do
+    normalize_source_params(%{
+      "content_type_id" => source.content_type_id || "",
+      "status" => source.status || "published",
+      "filters" => source.filters || %{},
+      "sort" => source.sort || %{},
+      "limit" => source.limit || 6,
+      "offset" => source.offset || 0
+    })
+  end
+
+  defp source_params(_section), do: normalize_source_params(%{})
+
+  defp normalize_source_params(params) when is_map(params) do
+    defaults = %{
+      "content_type_id" => "",
+      "status" => "published",
+      "filters" => %{"field" => "", "op" => "==", "value" => ""},
+      "sort" => %{"field" => "published_at", "direction" => "desc"},
+      "limit" => 6,
+      "offset" => 0
+    }
+
+    defaults
+    |> Map.merge(string_key_map(params))
+    |> Map.update("filters", defaults["filters"], &string_key_map/1)
+    |> Map.update("sort", defaults["sort"], &string_key_map/1)
+  end
+
+  defp normalize_source_params(_params), do: source_params(nil)
+
+  defp mapping_rows(%PageSection{mappings: mappings}) when is_list(mappings) do
+    existing =
+      mappings
+      |> Enum.map(&mapping_params/1)
+      |> Map.new(&{&1["slot"], &1})
+
+    merge_mapping_rows(existing)
+  end
+
+  defp mapping_rows(_section), do: Pages.default_section_mappings()
+
+  defp mapping_rows_from_params(params) when is_map(params) do
+    params
+    |> Map.values()
+    |> Enum.filter(&is_map/1)
+    |> Enum.map(&string_key_map/1)
+    |> Map.new(&{&1["slot"], &1})
+    |> merge_mapping_rows()
+  end
+
+  defp mapping_rows_from_params(_params), do: Pages.default_section_mappings()
+
+  defp merge_mapping_rows(existing) do
+    Pages.default_section_mappings()
+    |> Enum.map(fn row -> Map.merge(row, Map.get(existing, row["slot"], %{})) end)
+    |> Enum.sort_by(&(&1["position"] || 0))
+  end
+
+  defp mapping_params(%SectionMapping{} = mapping) do
+    %{
+      "slot" => mapping.slot,
+      "source_path" => mapping.source_path,
+      "formatter" => mapping.formatter,
+      "settings" => mapping.settings || %{},
+      "position" => mapping.position
     }
   end
 
@@ -586,6 +783,20 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     end
   end
 
+  defp section_active?(%PageSection{id: id}, %PageSection{id: id}), do: true
+  defp section_active?(_section, _active_section), do: false
+
+  defp page_seo_value(form, key) do
+    case form[:seo].value do
+      value when is_map(value) -> Map.get(value, key)
+      _other -> nil
+    end
+  end
+
+  defp page_subtitle_value(form) do
+    page_seo_value(form, "subtitle") || page_seo_value(form, "description")
+  end
+
   defp builder_section_class(section, active_section) do
     [
       "rounded-lg border bg-base-100 p-4 shadow-sm transition hover:border-primary hover:shadow-md",
@@ -622,29 +833,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   defp normalize_width(_width), do: "full"
 
-  defp section_title(%PageSection{fixed_data: fixed_data}) when is_map(fixed_data) do
-    case Map.get(fixed_data, "title") do
-      value when is_binary(value) and value != "" -> value
-      _other -> "Untitled section"
-    end
-  end
-
-  defp section_title(_section), do: "Untitled section"
-
-  defp section_summary(%PageSection{mode: "dynamic", source: %{limit: limit}}) do
-    "Dynamic content grid · limit #{limit}"
-  end
-
-  defp section_summary(%PageSection{mode: "reference", source: %{limit: limit}}) do
-    "Referenced content · limit #{limit}"
-  end
-
-  defp section_summary(%PageSection{fixed_data: fixed_data}) when is_map(fixed_data) do
-    Map.get(fixed_data, "subtitle") || Map.get(fixed_data, "body") || "Fixed content section"
-  end
-
-  defp section_summary(_section), do: "Page section"
-
   defp mode_class("fixed"),
     do:
       "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
@@ -667,12 +855,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   defp human_label(_value), do: "Unknown"
 
-  defp fixed_value(%PageSection{fixed_data: fixed_data}, key) when is_map(fixed_data) do
-    Map.get(fixed_data, key)
-  end
-
-  defp fixed_value(_section, _key), do: nil
-
   defp settings_value(%PageSection{settings: settings}, key, fallback) when is_map(settings) do
     case Map.get(settings, key) do
       value when is_binary(value) and value != "" -> value
@@ -684,6 +866,15 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   defp safe_map(value) when is_map(value), do: value
   defp safe_map(_value), do: %{}
+
+  defp string_key_map(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_atom(key) -> {Atom.to_string(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp string_key_map(_value), do: %{}
 
   defp compact_map(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)

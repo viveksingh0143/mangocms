@@ -210,8 +210,29 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       {:ok, builder_live, _html} = live(conn, ~p"/admin/pages/#{page}/builder")
 
       assert has_element?(builder_live, "#page-builder")
+      assert has_element?(builder_live, "#builder-page-form")
       assert has_element?(builder_live, "#builder-add-text")
-      assert has_element?(builder_live, "#builder-inspector-form")
+      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
+
+      assert builder_live
+             |> form("#builder-page-form",
+               page: %{
+                 title: "Builder Page Updated",
+                 slug: page.slug,
+                 type: page.type,
+                 status: page.status,
+                 seo: %{
+                   "title" => "Builder Page Updated",
+                   "subtitle" => "Inline subtitle",
+                   "description" => "Builder SEO description"
+                 }
+               }
+             )
+             |> render_submit()
+
+      page = Pages.get_page!(tenant, page.id)
+      assert page.title == "Builder Page Updated"
+      assert page.seo["subtitle"] == "Inline subtitle"
 
       assert builder_live
              |> element("#builder-section-width-half-#{first_section.id}")
@@ -228,16 +249,19 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
                first_section.id
              ]
 
+      first_section = Pages.get_section!(tenant, first_section.id)
+
       assert builder_live
-             |> form("#builder-inspector-form",
+             |> form("#builder-section-form-#{first_section.id}",
                section: %{
                  type: "hero",
                  template_id: "default",
+                 mode: "fixed",
+                 position: first_section.position,
                  settings: %{"width" => "narrow"},
                  fixed_data: %{
                    "title" => "Updated builder title",
-                   "subtitle" => "Updated from builder",
-                   "body" => ""
+                   "subtitle" => "Updated from builder"
                  }
                }
              )

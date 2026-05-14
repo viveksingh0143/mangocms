@@ -14,7 +14,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.FormComponent do
       <.header>
         {@title}
         <:subtitle>
-          Pages are tenant-local and can contain fixed, dynamic, or reference sections.
+          Pages are tenant-local and can contain fixed or dynamic sections.
         </:subtitle>
       </.header>
 
