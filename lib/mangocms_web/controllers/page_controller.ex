@@ -15,9 +15,6 @@ defmodule MangoCMSWeb.PageController do
   def show(conn, %{"slug" => slug}) do
     tenant = conn.assigns.current_tenant
 
-    dbg(tenant)
-    dbg(slug)
-
     case Pages.get_published_page_by_slug(tenant, slug) do
       nil ->
         conn
