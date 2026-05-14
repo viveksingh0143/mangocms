@@ -258,7 +258,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
                  template_id: "default",
                  mode: "fixed",
                  position: first_section.position,
-                 settings: %{"width" => "narrow"},
                  fixed_data: %{
                    "title" => "Updated builder title",
                    "subtitle" => "Updated from builder"

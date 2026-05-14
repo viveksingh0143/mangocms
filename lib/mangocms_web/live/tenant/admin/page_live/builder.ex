@@ -5,6 +5,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   alias MangoCMS.Tenant.Pages.{PageSection, SectionMapping, SectionSource}
   alias MangoCMSWeb.AdminGuard
   alias MangoCMSWeb.Tenant.Admin.PageLive.SectionEditor
+  alias MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared
 
   @width_options [
     {"Full", "full"},
@@ -234,19 +235,22 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
             <div class="grid gap-4 xl:grid-cols-[1fr_18rem] xl:items-start">
               <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-primary">Page</p>
-                <.input
-                  field={@page_form[:title]}
+                <Shared.editable_text
+                  id="builder_page_title"
+                  name="page[title]"
                   label="Page title"
-                  class="w-full input input-ghost h-auto px-0 py-2 text-3xl font-bold leading-tight"
+                  value={@page_form[:title].value}
+                  placeholder="Untitled page"
+                  class="py-2 text-3xl font-bold leading-tight text-base-content"
                 />
-                <.input
+                <Shared.editable_text
                   id="builder_page_subtitle"
                   name="page[seo][subtitle]"
-                  type="textarea"
                   label="Page subtitle"
                   value={page_subtitle_value(@page_form)}
-                  rows="2"
-                  class="w-full textarea textarea-ghost px-0 text-base leading-7"
+                  placeholder="Add a short page subtitle."
+                  multiline
+                  class="text-base leading-7 text-base-content/70"
                 />
               </div>
 
@@ -333,7 +337,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
               draggable="true"
               class={builder_section_class(section, @active_section)}
             >
-              <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="cursor-grab rounded-md bg-base-200 px-2 py-1 text-xs font-semibold text-base-content/60">
                     Drag
@@ -343,49 +347,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                     {section.type}
                   </span>
                 </div>
-
-                <div class="flex items-center gap-1">
-                  <button
-                    :if={!section_active?(section, @active_section)}
-                    id={"builder-select-section-#{section.id}"}
-                    type="button"
-                    phx-click="select_section"
-                    phx-value-id={section.id}
-                    class="btn btn-sm btn-ghost"
-                  >
-                    Edit
-                  </button>
-                  <.link
-                    :if={section_active?(section, @active_section)}
-                    id="builder-advanced-edit-link"
-                    navigate={~p"/admin/pages/#{@page}/sections/#{section}/edit"}
-                    class="btn btn-sm btn-ghost"
-                  >
-                    Advanced
-                  </.link>
-                  <button
-                    id={"builder-move-up-#{section.id}"}
-                    type="button"
-                    phx-click="move_section"
-                    phx-value-id={section.id}
-                    phx-value-direction="up"
-                    class="btn btn-square btn-ghost btn-sm"
-                    title="Move up"
-                  >
-                    <.icon name="hero-arrow-up" class="size-4" />
-                  </button>
-                  <button
-                    id={"builder-move-down-#{section.id}"}
-                    type="button"
-                    phx-click="move_section"
-                    phx-value-id={section.id}
-                    phx-value-direction="down"
-                    class="btn btn-square btn-ghost btn-sm"
-                    title="Move down"
-                  >
-                    <.icon name="hero-arrow-down" class="size-4" />
-                  </button>
-                </div>
+                <span
+                  :if={section_active?(section, @active_section)}
+                  class="badge badge-primary badge-outline"
+                >
+                  Editing
+                </span>
               </div>
 
               <%= if section_active?(section, @active_section) do %>
@@ -413,25 +380,62 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                     formatter_options={@formatter_options}
                   />
 
-                  <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
-                    <button
-                      :for={{label, width} <- @width_options}
-                      id={"builder-section-width-#{width}-#{section.id}"}
-                      type="button"
-                      phx-click="set_width"
-                      phx-value-id={section.id}
-                      phx-value-width={width}
-                      class={width_button_class(section, width)}
-                    >
-                      {label}
-                    </button>
-                    <.button
-                      id={"builder-save-section-button-#{section.id}"}
-                      variant="primary"
-                      phx-disable-with="Saving..."
-                    >
-                      Save section
-                    </.button>
+                  <div class="sticky bottom-3 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-full border border-base-300 bg-base-100/95 p-2 shadow-lg backdrop-blur">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span class="px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                        Size
+                      </span>
+                      <button
+                        :for={{label, width} <- @width_options}
+                        id={"builder-section-width-#{width}-#{section.id}"}
+                        type="button"
+                        phx-click="set_width"
+                        phx-value-id={section.id}
+                        phx-value-width={width}
+                        class={width_button_class(section, width)}
+                      >
+                        {label}
+                      </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-1">
+                      <.link
+                        id="builder-advanced-edit-link"
+                        navigate={~p"/admin/pages/#{@page}/sections/#{section}/edit"}
+                        class="btn btn-sm btn-ghost"
+                      >
+                        Advanced
+                      </.link>
+                      <button
+                        id={"builder-move-up-#{section.id}"}
+                        type="button"
+                        phx-click="move_section"
+                        phx-value-id={section.id}
+                        phx-value-direction="up"
+                        class="btn btn-square btn-ghost btn-sm"
+                        title="Move up"
+                      >
+                        <.icon name="hero-arrow-up" class="size-4" />
+                      </button>
+                      <button
+                        id={"builder-move-down-#{section.id}"}
+                        type="button"
+                        phx-click="move_section"
+                        phx-value-id={section.id}
+                        phx-value-direction="down"
+                        class="btn btn-square btn-ghost btn-sm"
+                        title="Move down"
+                      >
+                        <.icon name="hero-arrow-down" class="size-4" />
+                      </button>
+                      <.button
+                        id={"builder-save-section-button-#{section.id}"}
+                        variant="primary"
+                        phx-disable-with="Saving..."
+                      >
+                        Save
+                      </.button>
+                    </div>
                   </div>
                 </.form>
               <% else %>
@@ -799,10 +803,11 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   defp builder_section_class(section, active_section) do
     [
-      "rounded-lg border bg-base-100 p-4 shadow-sm transition hover:border-primary hover:shadow-md",
+      "rounded-lg border bg-base-100 p-3 transition hover:border-primary/40 hover:shadow-sm",
       width_class(section),
-      active_section && active_section.id == section.id && "border-primary ring-2 ring-primary/20",
-      !(active_section && active_section.id == section.id) && "border-base-300"
+      active_section && active_section.id == section.id &&
+        "border-primary/40 ring-1 ring-primary/20",
+      !(active_section && active_section.id == section.id) && "border-base-200"
     ]
   end
 

@@ -26,6 +26,62 @@ import {hooks as colocatedHooks} from "phoenix-colocated/mangocms"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+const ContentEditableInput = {
+  mounted() {
+    this.input = document.getElementById(this.el.dataset.inputId)
+    this.multiline = this.el.dataset.multiline === "true"
+    this.placeholder = this.el.dataset.placeholder || ""
+    this.placeholderActive = this.el.dataset.placeholderActive === "true"
+
+    this.syncInput = () => {
+      if (!this.input) return
+
+      let text = this.el.innerText.replace(/\u00a0/g, " ")
+      if (!this.multiline) text = text.replace(/\s+/g, " ").trim()
+      if (this.placeholderActive && text === this.placeholder) text = ""
+      this.input.value = text
+    }
+
+    this.el.addEventListener("focus", () => {
+      if (!this.placeholderActive) return
+
+      this.el.innerText = ""
+      this.placeholderActive = false
+      this.syncInput()
+    })
+
+    this.el.addEventListener("input", this.syncInput)
+    this.el.addEventListener("blur", () => {
+      const text = this.el.innerText.replace(/\u00a0/g, " ").trim()
+
+      if (text === "" && this.placeholder !== "") {
+        this.placeholderActive = true
+        this.el.innerText = this.placeholder
+      }
+
+      this.syncInput()
+    })
+
+    this.el.addEventListener("keydown", event => {
+      if (!this.multiline && event.key === "Enter") {
+        event.preventDefault()
+        this.el.blur()
+      }
+    })
+
+    this.el.addEventListener("paste", event => {
+      event.preventDefault()
+      const text = (event.clipboardData || window.clipboardData).getData("text/plain")
+      document.execCommand("insertText", false, text)
+      this.syncInput()
+    })
+  },
+
+  updated() {
+    this.input = document.getElementById(this.el.dataset.inputId)
+  },
+}
+
 const BuilderSortable = {
   mounted() {
     this.draggingId = null
@@ -74,7 +130,7 @@ const BuilderSortable = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, BuilderSortable},
+  hooks: {...colocatedHooks, BuilderSortable, ContentEditableInput},
 })
 
 // Show progress bar on live navigation and form submits

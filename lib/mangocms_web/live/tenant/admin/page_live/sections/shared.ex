@@ -39,6 +39,74 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
     """
   end
 
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :value, :any, default: nil
+  attr :class, :any, default: nil
+  attr :label, :string, default: nil
+  attr :placeholder, :string, default: nil
+  attr :multiline, :boolean, default: false
+
+  def editable_text(%{multiline: true} = assigns) do
+    assigns = assign_editable_values(assigns)
+
+    ~H"""
+    <textarea id={@id} name={@name} class="sr-only" tabindex="-1" aria-hidden="true">{@input_value}</textarea>
+    <div
+      id={"#{@id}_editable"}
+      contenteditable="true"
+      phx-hook="ContentEditableInput"
+      data-input-id={@id}
+      data-multiline="true"
+      data-placeholder={@placeholder || ""}
+      data-placeholder-active={to_string(@placeholder_active)}
+      role="textbox"
+      aria-label={@label || @placeholder || @name}
+      spellcheck="true"
+      class={[
+        "min-h-8 rounded-md outline-none transition focus:bg-base-200/60 focus:ring-2 focus:ring-primary/30",
+        @class
+      ]}
+    >
+      {@display_value}
+    </div>
+    """
+  end
+
+  def editable_text(assigns) do
+    assigns = assign_editable_values(assigns)
+
+    ~H"""
+    <input
+      id={@id}
+      name={@name}
+      type="text"
+      value={@input_value}
+      class="sr-only"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <div
+      id={"#{@id}_editable"}
+      contenteditable="true"
+      phx-hook="ContentEditableInput"
+      data-input-id={@id}
+      data-multiline="false"
+      data-placeholder={@placeholder || ""}
+      data-placeholder-active={to_string(@placeholder_active)}
+      role="textbox"
+      aria-label={@label || @placeholder || @name}
+      spellcheck="true"
+      class={[
+        "min-h-8 rounded-md outline-none transition focus:bg-base-200/60 focus:ring-2 focus:ring-primary/30",
+        @class
+      ]}
+    >
+      {@display_value}
+    </div>
+    """
+  end
+
   def fixed_value(form, key) do
     case form[:fixed_data].value do
       value when is_map(value) -> Map.get(value, key)
@@ -46,17 +114,21 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
     end
   end
 
-  def settings_value(form, key, fallback) do
-    case form[:settings].value do
-      value when is_map(value) ->
-        case Map.get(value, key) do
-          setting when is_binary(setting) and setting != "" -> setting
-          _other -> fallback
-        end
+  defp assign_editable_values(assigns) do
+    input_value =
+      cond do
+        is_binary(assigns.value) -> assigns.value
+        not is_nil(assigns.value) -> to_string(assigns.value)
+        true -> ""
+      end
 
-      _other ->
-        fallback
-    end
+    placeholder_active = String.trim(input_value) == "" and is_binary(assigns.placeholder)
+    display_value = if placeholder_active, do: assigns.placeholder, else: input_value
+
+    assigns
+    |> assign(:input_value, input_value)
+    |> assign(:display_value, display_value)
+    |> assign(:placeholder_active, placeholder_active)
   end
 
   def data_value(%PageSection{fixed_data: fixed_data}, key) when is_map(fixed_data) do

@@ -36,56 +36,41 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Cta do
       <.hidden_section_fields section={@section} type="cta" template_id="default" mode="fixed" />
 
       <div class="mx-auto max-w-xl text-left">
-        <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <.input
-            id={"builder_cta_eyebrow_#{@section.id}"}
-            name="section[fixed_data][eyebrow]"
-            type="text"
-            label="Eyebrow"
-            value={fixed_value(@form, "eyebrow")}
-            placeholder="Next step"
-            class="w-full input input-sm"
-          />
-          <.input
-            id={"builder_cta_width_#{@section.id}"}
-            name="section[settings][width]"
-            type="select"
-            label="Width"
-            options={@width_options}
-            value={settings_value(@form, "width", "full")}
-            class="w-full select select-sm"
-          />
-        </div>
+        <.editable_text
+          id={"builder_cta_eyebrow_#{@section.id}"}
+          name="section[fixed_data][eyebrow]"
+          label="CTA eyebrow"
+          value={fixed_value(@form, "eyebrow")}
+          placeholder="Next step"
+          class="text-center text-xs font-semibold uppercase tracking-wide text-primary"
+        />
 
-        <.input
+        <.editable_text
           id={"builder_cta_title_#{@section.id}"}
           name="section[fixed_data][title]"
-          type="text"
           label="CTA title"
           value={fixed_value(@form, "title")}
           placeholder="Ready to take the next step?"
-          class="w-full input input-ghost h-auto px-0 py-2 text-center text-2xl font-bold"
+          class="mt-3 text-center text-2xl font-bold text-base-content"
         />
-        <.input
+        <.editable_text
           id={"builder_cta_subtitle_#{@section.id}"}
           name="section[fixed_data][subtitle]"
-          type="textarea"
           label="CTA subtitle"
           value={fixed_value(@form, "subtitle")}
-          rows="3"
           placeholder="Short supporting copy."
-          class="w-full textarea textarea-ghost px-0 text-center text-base leading-7"
+          multiline
+          class="mt-3 text-center text-base leading-7 text-base-content/70"
         />
 
         <div class="grid gap-3 sm:grid-cols-2">
-          <.input
+          <.editable_text
             id={"builder_cta_label_#{@section.id}"}
             name="section[fixed_data][cta_label]"
-            type="text"
             label="Button label"
             value={fixed_value(@form, "cta_label")}
             placeholder="Contact us"
-            class="w-full input"
+            class="btn btn-primary btn-sm mx-auto mt-3 inline-flex min-w-32 justify-center"
           />
           <.input
             id={"builder_cta_href_#{@section.id}"}

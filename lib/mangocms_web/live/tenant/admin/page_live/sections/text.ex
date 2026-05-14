@@ -32,45 +32,31 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
     <div class="rounded-lg bg-base-100 p-6">
       <.hidden_section_fields section={@section} type="text" template_id="default" mode="fixed" />
 
-      <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-        <.input
-          id={"builder_text_eyebrow_#{@section.id}"}
-          name="section[fixed_data][eyebrow]"
-          type="text"
-          label="Eyebrow"
-          value={fixed_value(@form, "eyebrow")}
-          placeholder="Overview"
-          class="w-full input input-sm"
-        />
-        <.input
-          id={"builder_text_width_#{@section.id}"}
-          name="section[settings][width]"
-          type="select"
-          label="Width"
-          options={@width_options}
-          value={settings_value(@form, "width", "narrow")}
-          class="w-full select select-sm"
-        />
-      </div>
+      <.editable_text
+        id={"builder_text_eyebrow_#{@section.id}"}
+        name="section[fixed_data][eyebrow]"
+        label="Text eyebrow"
+        value={fixed_value(@form, "eyebrow")}
+        placeholder="Overview"
+        class="text-xs font-semibold uppercase tracking-wide text-primary"
+      />
 
-      <.input
+      <.editable_text
         id={"builder_text_title_#{@section.id}"}
         name="section[fixed_data][title]"
-        type="text"
         label="Heading"
         value={fixed_value(@form, "title")}
         placeholder="Section heading"
-        class="w-full input input-ghost h-auto px-0 py-2 text-2xl font-bold"
+        class="mt-3 text-2xl font-bold text-base-content"
       />
-      <.input
+      <.editable_text
         id={"builder_text_body_#{@section.id}"}
         name="section[fixed_data][body]"
-        type="textarea"
         label="Body"
         value={fixed_value(@form, "body")}
-        rows="6"
         placeholder="Write the section body directly here."
-        class="w-full textarea textarea-ghost min-h-40 px-0 text-base leading-7"
+        multiline
+        class="mt-4 min-h-32 whitespace-pre-line text-base leading-7 text-base-content/70"
       />
     </div>
     """
