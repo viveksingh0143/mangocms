@@ -638,7 +638,7 @@ if tenant do
         "price" => 149_900,
         "rating" => 4.9,
         "on_sale" => true,
-        "image_url" => "/images/demo/company-profile.jpg",
+        "image_url" => "/images/logo.png",
         "description" => "A polished company website with pages, testimonials, and contact flows."
       }
     })
@@ -651,8 +651,35 @@ if tenant do
         "price" => 49_900,
         "rating" => 4.8,
         "on_sale" => false,
-        "image_url" => "/images/demo/ai-chat.jpg",
+        "image_url" => "/images/logo.png",
         "description" => "A tenant-aware assistant that answers questions from website content."
+      }
+    })
+
+    seed_entry.(product_type, %{
+      title: "Product Feature Microsite",
+      slug: "product-feature-microsite",
+      payload: %{
+        "name" => "Product Feature Microsite",
+        "price" => 199_900,
+        "rating" => 4.7,
+        "on_sale" => true,
+        "image_url" => "/images/logo.png",
+        "description" => "A focused product story with feature grids, proof points, and CTAs."
+      }
+    })
+
+    seed_entry.(product_type, %{
+      title: "Resume Website",
+      slug: "resume-website",
+      payload: %{
+        "name" => "Resume Website",
+        "price" => 79_900,
+        "rating" => 4.6,
+        "on_sale" => true,
+        "image_url" => "/images/logo.png",
+        "description" =>
+          "A clean personal site for experience, projects, references, and contact links."
       }
     })
   end
@@ -734,6 +761,30 @@ if tenant do
         "reviewed_at" => days_ago_iso.(7)
       }
     })
+
+    seed_entry.(review_type, %{
+      title: "Priya Nair Review",
+      slug: "priya-nair-review",
+      payload: %{
+        "customer_name" => "Priya Nair",
+        "rating" => 5,
+        "quote" =>
+          "MangoCMS gave our product launch a sharp microsite, review cards, and fast updates.",
+        "reviewed_at" => days_ago_iso.(3)
+      }
+    })
+
+    seed_entry.(review_type, %{
+      title: "Omar Khan Review",
+      slug: "omar-khan-review",
+      payload: %{
+        "customer_name" => "Omar Khan",
+        "rating" => 4,
+        "quote" =>
+          "The tenant admin is simple enough for our team to update content without developer help.",
+        "reviewed_at" => days_ago_iso.(32)
+      }
+    })
   end
 
   team_type =
@@ -797,7 +848,7 @@ if tenant do
         "full_name" => "Maya Iyer",
         "role" => "Founder",
         "biography" => "Builds practical websites and content systems for growing teams.",
-        "avatar_url" => "/images/demo/maya-iyer.jpg"
+        "avatar_url" => "/images/logo.png"
       }
     })
 
@@ -808,7 +859,19 @@ if tenant do
         "full_name" => "Arjun Rao",
         "role" => "Product Lead",
         "biography" => "Turns product stories into clear pages, cards, and launch content.",
-        "avatar_url" => "/images/demo/arjun-rao.jpg"
+        "avatar_url" => "/images/logo.png"
+      }
+    })
+
+    seed_entry.(team_type, %{
+      title: "Neha Kapoor",
+      slug: "neha-kapoor",
+      payload: %{
+        "full_name" => "Neha Kapoor",
+        "role" => "Customer Success",
+        "biography" =>
+          "Helps tenants turn their services, blogs, and reviews into polished pages.",
+        "avatar_url" => "/images/logo.png"
       }
     })
   end
@@ -862,6 +925,22 @@ if tenant do
         is_map(section.settings) and section.settings["seed_key"] == seed_key
       end)
 
+    print_section_error = fn action, error ->
+      case error do
+        {:error, {type, changeset}} ->
+          print_changeset_errors.(
+            "Could not #{action} page section #{page.slug}.#{seed_key} #{type}",
+            changeset
+          )
+
+        {:error, changeset} ->
+          print_changeset_errors.(
+            "Could not #{action} page section #{page.slug}.#{seed_key}",
+            changeset
+          )
+      end
+    end
+
     case section do
       nil ->
         case Pages.create_section_configuration(tenant, page, attrs, source_attrs, mappings) do
@@ -869,12 +948,8 @@ if tenant do
             IO.puts("Created tenant page section: #{page.slug}.#{seed_key}")
             section
 
-          {:error, changeset} ->
-            print_changeset_errors.(
-              "Could not create page section #{page.slug}.#{seed_key}",
-              changeset
-            )
-
+          {:error, _reason} = error ->
+            print_section_error.("create", error)
             nil
         end
 
@@ -884,12 +959,8 @@ if tenant do
             IO.puts("Updated tenant page section: #{page.slug}.#{seed_key}")
             section
 
-          {:error, changeset} ->
-            print_changeset_errors.(
-              "Could not update page section #{page.slug}.#{seed_key}",
-              changeset
-            )
-
+          {:error, _reason} = error ->
+            print_section_error.("update", error)
             section
         end
     end
@@ -975,6 +1046,283 @@ if tenant do
             "position" => 60
           },
           %{"slot" => "cta_href", "source_path" => "slug", "formatter" => "url", "position" => 70}
+        ]
+      })
+    end
+  end
+
+  company_page =
+    seed_page.(%{
+      title: "Company Profile",
+      slug: "company-profile",
+      type: "page",
+      status: "published",
+      seo: %{
+        "title" => "Company Profile",
+        "description" =>
+          "A demo company profile page with fixed story sections and a dynamic team grid."
+      }
+    })
+
+  if company_page do
+    seed_section.(company_page, "company_hero", %{
+      type: "hero",
+      template_id: "default",
+      mode: "fixed",
+      position: 10,
+      fixed_data: %{
+        "eyebrow" => "Company profile",
+        "title" => "Tell your company story without waiting on engineering",
+        "subtitle" =>
+          "This fixed hero lives on the page section itself. Tenant admins can update the copy, image, and call to action directly.",
+        "cta_label" => "View services",
+        "cta_href" => "/services",
+        "image_url" => "/images/logo.png"
+      }
+    })
+
+    seed_section.(company_page, "company_story", %{
+      type: "text",
+      template_id: "default",
+      mode: "fixed",
+      position: 20,
+      fixed_data: %{
+        "eyebrow" => "Fixed section",
+        "title" => "One local-first place for the essentials",
+        "body" =>
+          "Use fixed sections for content that belongs to one page: positioning, founders notes, trust copy, and campaign-specific CTAs. MangoCMS keeps this content in the tenant database so each site remains isolated and fast."
+      }
+    })
+
+    if team_type do
+      seed_section.(company_page, "company_team", %{
+        type: "feature_grid",
+        template_id: "cards",
+        mode: "dynamic",
+        position: 30,
+        fixed_data: %{
+          "eyebrow" => "Dynamic team",
+          "title" => "Meet the people behind the work",
+          "subtitle" =>
+            "These cards are pulled from the Team Members content type and mapped into card slots."
+        },
+        source: %{
+          content_type_id: team_type.id,
+          status: "published",
+          filters: %{},
+          sort: %{"field" => "full_name", "direction" => "asc"},
+          limit: 6,
+          offset: 0
+        },
+        mappings: [
+          %{
+            "slot" => "title",
+            "source_path" => "payload.full_name",
+            "formatter" => "text",
+            "position" => 20
+          },
+          %{
+            "slot" => "subtitle",
+            "source_path" => "payload.role",
+            "formatter" => "text",
+            "position" => 30
+          },
+          %{
+            "slot" => "body",
+            "source_path" => "payload.biography",
+            "formatter" => "excerpt",
+            "settings" => %{"limit" => 160},
+            "position" => 40
+          },
+          %{
+            "slot" => "image",
+            "source_path" => "payload.avatar_url",
+            "formatter" => "image",
+            "position" => 50
+          }
+        ]
+      })
+    end
+  end
+
+  services_page =
+    seed_page.(%{
+      title: "Services",
+      slug: "services",
+      type: "page",
+      status: "published",
+      seo: %{
+        "title" => "Services",
+        "description" =>
+          "A demo services page with fixed intro copy and dynamic product/service cards."
+      }
+    })
+
+  if services_page do
+    seed_section.(services_page, "services_hero", %{
+      type: "hero",
+      template_id: "default",
+      mode: "fixed",
+      position: 10,
+      fixed_data: %{
+        "eyebrow" => "Services",
+        "title" => "Launch profile sites, blogs, product pages, resumes, and AI chat",
+        "subtitle" =>
+          "A fixed page hero can frame the offer while dynamic grids stay fresh from reusable content entries.",
+        "cta_label" => "Read customer stories",
+        "cta_href" => "/customers",
+        "image_url" => "/images/logo.png"
+      }
+    })
+
+    if product_type do
+      seed_section.(services_page, "services_catalog", %{
+        type: "feature_grid",
+        template_id: "cards",
+        mode: "dynamic",
+        position: 20,
+        fixed_data: %{
+          "eyebrow" => "Dynamic services",
+          "title" => "Plan-driven service cards",
+          "subtitle" =>
+            "The source query sorts Product entries by rating and maps name, description, image, price, and slug into card slots."
+        },
+        source: %{
+          content_type_id: product_type.id,
+          status: "published",
+          filters: %{},
+          sort: %{"field" => "rating", "direction" => "desc"},
+          limit: 6,
+          offset: 0
+        },
+        mappings: [
+          %{
+            "slot" => "title",
+            "source_path" => "payload.name",
+            "formatter" => "text",
+            "position" => 20
+          },
+          %{
+            "slot" => "subtitle",
+            "source_path" => "payload.description",
+            "formatter" => "excerpt",
+            "settings" => %{"limit" => 140},
+            "position" => 30
+          },
+          %{
+            "slot" => "image",
+            "source_path" => "payload.image_url",
+            "formatter" => "image",
+            "position" => 50
+          },
+          %{
+            "slot" => "price",
+            "source_path" => "payload.price",
+            "formatter" => "currency",
+            "settings" => %{"currency" => "INR"},
+            "position" => 60
+          },
+          %{
+            "slot" => "cta_href",
+            "source_path" => "slug",
+            "formatter" => "url",
+            "position" => 70
+          }
+        ]
+      })
+    end
+
+    seed_section.(services_page, "services_cta", %{
+      type: "cta",
+      template_id: "default",
+      mode: "fixed",
+      position: 30,
+      fixed_data: %{
+        "eyebrow" => "Fixed CTA",
+        "title" => "Need a tailored tenant website?",
+        "subtitle" =>
+          "Use fixed CTA sections when the message belongs to a single page or campaign.",
+        "cta_label" => "Open admin",
+        "cta_href" => "/admin/dashboard"
+      }
+    })
+  end
+
+  customers_page =
+    seed_page.(%{
+      title: "Customer Stories",
+      slug: "customers",
+      type: "page",
+      status: "published",
+      seo: %{
+        "title" => "Customer Stories",
+        "description" =>
+          "A demo customer stories page with a fixed hero and dynamic testimonial cards."
+      }
+    })
+
+  if customers_page do
+    seed_section.(customers_page, "customers_hero", %{
+      type: "hero",
+      template_id: "default",
+      mode: "fixed",
+      position: 10,
+      fixed_data: %{
+        "eyebrow" => "Customers",
+        "title" => "Positive reviews from teams building faster tenant sites",
+        "subtitle" =>
+          "This page combines fixed campaign copy with dynamic review cards filtered from the tenant content engine.",
+        "cta_label" => "Explore services",
+        "cta_href" => "/services"
+      }
+    })
+
+    if review_type do
+      seed_section.(customers_page, "five_star_reviews", %{
+        type: "testimonial",
+        template_id: "cards",
+        mode: "dynamic",
+        position: 20,
+        fixed_data: %{
+          "eyebrow" => "Dynamic reviews",
+          "title" => "Recent five-star feedback",
+          "subtitle" =>
+            "This section filters Customer Reviews where rating is greater than or equal to five."
+        },
+        source: %{
+          content_type_id: review_type.id,
+          status: "published",
+          filters: %{"field" => "rating", "op" => ">=", "value" => 5},
+          sort: %{"field" => "reviewed_at", "direction" => "desc"},
+          limit: 6,
+          offset: 0
+        },
+        mappings: [
+          %{
+            "slot" => "title",
+            "source_path" => "payload.customer_name",
+            "formatter" => "text",
+            "position" => 20
+          },
+          %{
+            "slot" => "subtitle",
+            "source_path" => "payload.reviewed_at",
+            "formatter" => "date",
+            "position" => 30
+          },
+          %{
+            "slot" => "body",
+            "source_path" => "payload.quote",
+            "formatter" => "excerpt",
+            "settings" => %{"limit" => 220},
+            "position" => 40
+          },
+          %{
+            "slot" => "badge",
+            "source_path" => "payload.rating",
+            "formatter" => "number",
+            "position" => 50
+          }
         ]
       })
     end

@@ -136,6 +136,53 @@ defmodule MangoCMS.Tenant.Pages do
     PageSection.changeset(section, attrs)
   end
 
+  @spec update_section_settings(Tenant.t(), PageSection.t(), map()) ::
+          {:ok, PageSection.t()} | {:error, Ecto.Changeset.t()}
+  def update_section_settings(%Tenant{} = tenant, %PageSection{} = section, settings) do
+    attrs = %{
+      settings: Map.merge(section.settings || %{}, stringify_keys(settings))
+    }
+
+    update_section(tenant, section, attrs)
+  end
+
+  @spec reorder_sections(Tenant.t(), Page.t() | String.t(), [String.t()]) :: :ok
+  def reorder_sections(%Tenant{} = tenant, page, ordered_ids) when is_list(ordered_ids) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      page = resolve_page!(repo, page)
+
+      sections =
+        PageSection
+        |> where([section], section.page_id == ^page.id)
+        |> order_by([section], asc: section.position, asc: section.inserted_at)
+        |> repo.all()
+
+      sections_by_id = Map.new(sections, &{&1.id, &1})
+
+      ordered_ids =
+        ordered_ids
+        |> Enum.filter(&Map.has_key?(sections_by_id, &1))
+        |> Enum.uniq()
+
+      missing_ids =
+        sections
+        |> Enum.map(& &1.id)
+        |> Enum.reject(&(&1 in ordered_ids))
+
+      repo.transaction(fn ->
+        (ordered_ids ++ missing_ids)
+        |> Enum.with_index(1)
+        |> Enum.each(fn {id, index} ->
+          PageSection
+          |> where([section], section.id == ^id and section.page_id == ^page.id)
+          |> repo.update_all(set: [position: index * 10])
+        end)
+      end)
+
+      :ok
+    end)
+  end
+
   @spec create_section_configuration(Tenant.t(), Page.t(), map(), map(), list(map())) ::
           {:ok, PageSection.t()}
           | {:error, Ecto.Changeset.t()}
@@ -407,6 +454,13 @@ defmodule MangoCMS.Tenant.Pages do
   defp source_sort(_source), do: nil
 
   defp blank?(value), do: value in [nil, ""]
+
+  defp stringify_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_atom(key) -> {Atom.to_string(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
 
   defp string_key_map(map) when is_map(map) do
     Map.new(map, fn

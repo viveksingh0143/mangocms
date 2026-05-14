@@ -182,6 +182,74 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
   end
 
   describe "page sections and public render" do
+    test "builder adds, selects, resizes, and reorders sections", %{conn: conn} do
+      tenant = tenant_fixture()
+      page = page_fixture(tenant, title: "Builder", slug: "builder")
+
+      {:ok, first_section} =
+        Pages.create_section(tenant, page, %{
+          type: "hero",
+          template_id: "default",
+          mode: "fixed",
+          fixed_data: %{"title" => "First"},
+          settings: %{"width" => "full"},
+          position: 10
+        })
+
+      {:ok, second_section} =
+        Pages.create_section(tenant, page, %{
+          type: "text",
+          template_id: "default",
+          mode: "fixed",
+          fixed_data: %{"title" => "Second"},
+          settings: %{"width" => "full"},
+          position: 20
+        })
+
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, builder_live, _html} = live(conn, ~p"/admin/pages/#{page}/builder")
+
+      assert has_element?(builder_live, "#page-builder")
+      assert has_element?(builder_live, "#builder-add-text")
+      assert has_element?(builder_live, "#builder-inspector-form")
+
+      assert builder_live
+             |> element("#builder-section-width-half-#{first_section.id}")
+             |> render_click()
+
+      assert Pages.get_section!(tenant, first_section.id).settings["width"] == "half"
+
+      assert builder_live
+             |> element("#builder-move-down-#{first_section.id}")
+             |> render_click()
+
+      assert Enum.map(Pages.list_sections(tenant, page), & &1.id) == [
+               second_section.id,
+               first_section.id
+             ]
+
+      assert builder_live
+             |> form("#builder-inspector-form",
+               section: %{
+                 type: "hero",
+                 template_id: "default",
+                 settings: %{"width" => "narrow"},
+                 fixed_data: %{
+                   "title" => "Updated builder title",
+                   "subtitle" => "Updated from builder",
+                   "body" => ""
+                 }
+               }
+             )
+             |> render_submit()
+
+      assert Pages.get_section!(tenant, first_section.id).fixed_data["title"] ==
+               "Updated builder title"
+
+      assert builder_live |> element("#builder-add-text") |> render_click()
+      assert length(Pages.list_sections(tenant, page)) == 3
+    end
+
     test "creates a fixed section and renders the published page by slug", %{conn: conn} do
       tenant = tenant_fixture()
       page = page_fixture(tenant, title: "Services", slug: "services")

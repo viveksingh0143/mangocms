@@ -87,6 +87,13 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Show do
           View
         </.button>
         <.button
+          id="page-builder-button"
+          navigate={~p"/admin/pages/#{@page}/builder"}
+          class="btn btn-ghost"
+        >
+          Builder
+        </.button>
+        <.button
           id="new-page-section-button"
           patch={~p"/admin/pages/#{@page}/sections/new"}
           variant="primary"

@@ -173,6 +173,7 @@ defmodule MangoCMSWeb.Router do
       live "/pages", PageLive.Index, :index
       live "/pages/new", PageLive.Index, :new
       live "/pages/:id/edit", PageLive.Index, :edit
+      live "/pages/:id/builder", PageLive.Builder, :builder
       live "/pages/:id", PageLive.Show, :show
       live "/pages/:id/sections/new", PageLive.Show, :new_section
       live "/pages/:id/sections/:section_id/edit", PageLive.Show, :edit_section

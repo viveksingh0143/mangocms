@@ -131,6 +131,13 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Index do
                 Sections
               </.link>
               <.link
+                id={"builder-page-#{page.id}"}
+                navigate={~p"/admin/pages/#{page}/builder"}
+                class="btn btn-sm btn-ghost"
+              >
+                Builder
+              </.link>
+              <.link
                 id={"edit-page-#{page.id}"}
                 patch={~p"/admin/pages/#{page}/edit"}
                 class="btn btn-sm btn-ghost"

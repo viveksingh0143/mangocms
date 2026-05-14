@@ -26,10 +26,55 @@ import {hooks as colocatedHooks} from "phoenix-colocated/mangocms"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+const BuilderSortable = {
+  mounted() {
+    this.draggingId = null
+
+    this.el.addEventListener("dragstart", event => {
+      const item = event.target.closest("[data-section-id]")
+      if (!item) return
+
+      this.draggingId = item.dataset.sectionId
+      event.dataTransfer.effectAllowed = "move"
+      event.dataTransfer.setData("text/plain", this.draggingId)
+      item.classList.add("opacity-60")
+    })
+
+    this.el.addEventListener("dragend", event => {
+      const item = event.target.closest("[data-section-id]")
+      if (item) item.classList.remove("opacity-60")
+      this.draggingId = null
+    })
+
+    this.el.addEventListener("dragover", event => {
+      if (this.draggingId) event.preventDefault()
+    })
+
+    this.el.addEventListener("drop", event => {
+      if (!this.draggingId) return
+      event.preventDefault()
+
+      const target = event.target.closest("[data-section-id]")
+      const targetId = target && target.dataset.sectionId
+      const ids = Array.from(this.el.querySelectorAll("[data-section-id]")).map(item => item.dataset.sectionId)
+      const nextIds = ids.filter(id => id !== this.draggingId)
+
+      if (targetId && targetId !== this.draggingId) {
+        nextIds.splice(nextIds.indexOf(targetId), 0, this.draggingId)
+      } else {
+        nextIds.push(this.draggingId)
+      }
+
+      this.pushEvent("reorder_sections", {ids: nextIds})
+      this.draggingId = null
+    })
+  },
+}
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, BuilderSortable},
 })
 
 // Show progress bar on live navigation and form submits
@@ -80,4 +125,3 @@ if (process.env.NODE_ENV === "development") {
     window.liveReloader = reloader
   })
 }
-
