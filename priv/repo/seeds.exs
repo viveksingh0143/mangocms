@@ -10,6 +10,7 @@ alias MangoCMS.Tenant.Catalog
 alias MangoCMS.Tenant.Catalog.Product
 alias MangoCMS.Tenant.ContentEngine
 alias MangoCMS.Tenant.Migrator, as: TenantMigrator
+alias MangoCMS.Tenant.Pages
 alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 alias MangoCMS.Tenant.Settings, as: TenantSettings
 
@@ -810,5 +811,172 @@ if tenant do
         "avatar_url" => "/images/demo/arjun-rao.jpg"
       }
     })
+  end
+
+  seed_page = fn attrs ->
+    case Pages.get_page_by_slug(tenant, attrs.slug) do
+      nil ->
+        case Pages.create_page(tenant, attrs) do
+          {:ok, page} ->
+            IO.puts("Created tenant page: #{page.title}")
+            page
+
+          {:error, changeset} ->
+            print_changeset_errors.("Could not create tenant page #{attrs.slug}", changeset)
+            nil
+        end
+
+      page ->
+        case Pages.update_page(tenant, page, attrs) do
+          {:ok, page} ->
+            IO.puts("Updated tenant page: #{page.title}")
+            page
+
+          {:error, changeset} ->
+            print_changeset_errors.("Could not update tenant page #{attrs.slug}", changeset)
+            page
+        end
+    end
+  end
+
+  seed_section = fn page, seed_key, attrs ->
+    source_attrs = Map.get(attrs, :source, %{})
+    mappings = Map.get(attrs, :mappings, [])
+
+    attrs =
+      attrs
+      |> Map.drop([:source, :mappings])
+      |> Map.update(:settings, %{"seed_key" => seed_key}, fn settings ->
+        settings
+        |> case do
+          value when is_map(value) -> value
+          _other -> %{}
+        end
+        |> Map.put("seed_key", seed_key)
+      end)
+
+    section =
+      tenant
+      |> Pages.list_sections(page)
+      |> Enum.find(fn section ->
+        is_map(section.settings) and section.settings["seed_key"] == seed_key
+      end)
+
+    case section do
+      nil ->
+        case Pages.create_section_configuration(tenant, page, attrs, source_attrs, mappings) do
+          {:ok, section} ->
+            IO.puts("Created tenant page section: #{page.slug}.#{seed_key}")
+            section
+
+          {:error, changeset} ->
+            print_changeset_errors.(
+              "Could not create page section #{page.slug}.#{seed_key}",
+              changeset
+            )
+
+            nil
+        end
+
+      section ->
+        case Pages.update_section_configuration(tenant, section, attrs, source_attrs, mappings) do
+          {:ok, section} ->
+            IO.puts("Updated tenant page section: #{page.slug}.#{seed_key}")
+            section
+
+          {:error, changeset} ->
+            print_changeset_errors.(
+              "Could not update page section #{page.slug}.#{seed_key}",
+              changeset
+            )
+
+            section
+        end
+    end
+  end
+
+  welcome_page =
+    seed_page.(%{
+      title: "#{tenant.name} Welcome",
+      slug: "welcome",
+      type: "landing",
+      status: "published",
+      seo: %{
+        "title" => "#{tenant.name} Welcome",
+        "description" => "A seeded tenant page with fixed sections rendered by MangoCMS."
+      }
+    })
+
+  if welcome_page do
+    seed_section.(welcome_page, "hero", %{
+      type: "hero",
+      template_id: "default",
+      mode: "fixed",
+      position: 10,
+      fixed_data: %{
+        "eyebrow" => "Tenant page",
+        "title" => "Welcome to #{tenant.name}",
+        "subtitle" =>
+          "This fixed page section is stored in the tenant database and rendered from /welcome.",
+        "cta_label" => "Open dashboard",
+        "cta_href" => "/admin/dashboard"
+      }
+    })
+
+    seed_section.(welcome_page, "intro", %{
+      type: "text",
+      template_id: "default",
+      mode: "fixed",
+      position: 20,
+      fixed_data: %{
+        "title" => "Phase 3 page schema",
+        "body" =>
+          "Pages can now contain ordered sections with fixed, dynamic, or reference mode. Dynamic sections can query tenant content entries and map fields into cards."
+      }
+    })
+
+    if product_type do
+      seed_section.(welcome_page, "featured_products", %{
+        type: "feature_grid",
+        template_id: "cards",
+        mode: "dynamic",
+        position: 30,
+        fixed_data: %{
+          "eyebrow" => "Dynamic section",
+          "title" => "Featured services",
+          "subtitle" => "These cards are rendered from the tenant content engine."
+        },
+        source: %{
+          content_type_id: product_type.id,
+          status: "published",
+          filters: %{"field" => "on_sale", "op" => "==", "value" => "true"},
+          sort: %{"field" => "rating", "direction" => "desc"},
+          limit: 3,
+          offset: 0
+        },
+        mappings: [
+          %{"slot" => "title", "source_path" => "title", "formatter" => "text", "position" => 20},
+          %{
+            "slot" => "subtitle",
+            "source_path" => "payload.description",
+            "formatter" => "excerpt",
+            "position" => 30
+          },
+          %{
+            "slot" => "image",
+            "source_path" => "payload.image_url",
+            "formatter" => "image",
+            "position" => 50
+          },
+          %{
+            "slot" => "price",
+            "source_path" => "payload.price",
+            "formatter" => "currency",
+            "position" => 60
+          },
+          %{"slot" => "cta_href", "source_path" => "slug", "formatter" => "url", "position" => 70}
+        ]
+      })
+    end
   end
 end

@@ -1,0 +1,11 @@
+<Layouts.flash_group flash={@flash} />
+
+<.landing_navbar
+  id="tenant-page-navbar"
+  current_user={assigns[:current_user]}
+  current_tenant={assigns[:current_tenant]}
+  current_tenant_settings={assigns[:current_tenant_settings]}
+  platform_registration_enabled={false}
+/>
+
+<.tenant_page page={@page} sections={@sections} section_items={@section_items} />

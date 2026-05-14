@@ -170,6 +170,13 @@ defmodule MangoCMSWeb.Router do
       live "/products/:id", ProductLive.Show, :show
       live "/products/:id/show/edit", ProductLive.Show, :edit
 
+      live "/pages", PageLive.Index, :index
+      live "/pages/new", PageLive.Index, :new
+      live "/pages/:id/edit", PageLive.Index, :edit
+      live "/pages/:id", PageLive.Show, :show
+      live "/pages/:id/sections/new", PageLive.Show, :new_section
+      live "/pages/:id/sections/:section_id/edit", PageLive.Show, :edit_section
+
       live "/content-types", ContentTypeLive.Index, :index
       live "/content-types/new", ContentTypeLive.Index, :new
       live "/content-types/:id/edit", ContentTypeLive.Index, :edit
@@ -215,6 +222,12 @@ defmodule MangoCMSWeb.Router do
     put "/profile", AuthController, :update_profile
     put "/profile/password", AuthController, :update_password
     delete "/logout", AuthController, :delete
+  end
+
+  scope "/", MangoCMSWeb do
+    pipe_through [:browser, :require_tenant]
+
+    get "/:slug", PageController, :show
   end
 
   # Other scopes may use custom stacks.

@@ -138,6 +138,12 @@ defmodule MangoCMSWeb.Layouts do
           permission: :manage_products
         },
         %{
+          label: "Pages",
+          href: ~p"/admin/pages",
+          current: active == :pages,
+          permission: :manage_pages
+        },
+        %{
           label: "Content",
           href: ~p"/admin/content-types",
           current: active == :content,
