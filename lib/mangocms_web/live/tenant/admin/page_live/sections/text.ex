@@ -9,15 +9,27 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
 
   def display(assigns) do
     ~H"""
-    <div class="rounded-lg bg-base-100 p-6">
-      <p class="text-xs font-semibold uppercase tracking-wide text-primary">
+    <div class={section_surface_class(@section, "rounded-lg border p-6")}>
+      <p class={[
+        "text-xs font-semibold uppercase tracking-wide text-primary",
+        data_class_value(@section, "eyebrow")
+      ]}>
         {text_or(data_value(@section, "eyebrow"), "Text")}
       </p>
-      <h3 class="mt-3 text-2xl font-bold text-base-content">
-        {text_or(data_value(@section, "title"), "Untitled text section")}
+      <h3
+        :if={data_value(@section, "title")}
+        class={["mt-3 text-2xl font-bold text-base-content", data_class_value(@section, "title")]}
+      >
+        {data_value(@section, "title")}
       </h3>
-      <p class="mt-4 whitespace-pre-line text-sm leading-6 text-base-content/70">
-        {text_or(data_value(@section, "body"), data_value(@section, "subtitle") || "Add body copy.")}
+      <p
+        :if={data_value(@section, "body") || data_value(@section, "subtitle")}
+        class={[
+          "mt-4 whitespace-pre-line text-sm leading-6 text-base-content/70",
+          data_class_value(@section, "body")
+        ]}
+      >
+        {data_value(@section, "body") || data_value(@section, "subtitle")}
       </p>
     </div>
     """
@@ -29,7 +41,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
 
   def form(assigns) do
     ~H"""
-    <div class="rounded-lg bg-base-100 p-6">
+    <div class={form_section_surface_class(@section, @form, "rounded-lg border p-6")}>
       <.hidden_section_fields section={@section} type="text" template_id="default" mode="fixed" />
 
       <.editable_text
@@ -38,7 +50,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
         label="Text eyebrow"
         value={fixed_value(@form, "eyebrow")}
         placeholder="Overview"
-        class="text-xs font-semibold uppercase tracking-wide text-primary"
+        class={[
+          "text-xs font-semibold uppercase tracking-wide text-primary",
+          fixed_class_value(@form, "eyebrow")
+        ]}
+        data-builder-element="text"
+        data-builder-field="eyebrow"
       />
 
       <.editable_text
@@ -47,7 +64,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
         label="Heading"
         value={fixed_value(@form, "title")}
         placeholder="Section heading"
-        class="mt-3 text-2xl font-bold text-base-content"
+        class={["mt-3 text-2xl font-bold text-base-content", fixed_class_value(@form, "title")]}
+        data-builder-element="text"
+        data-builder-field="title"
       />
       <.editable_text
         id={"builder_text_body_#{@section.id}"}
@@ -56,7 +75,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
         value={fixed_value(@form, "body")}
         placeholder="Write the section body directly here."
         multiline
-        class="mt-4 min-h-32 whitespace-pre-line text-base leading-7 text-base-content/70"
+        class={[
+          "mt-4 min-h-32 whitespace-pre-line text-base leading-7 text-base-content/70",
+          fixed_class_value(@form, "body")
+        ]}
+        data-builder-element="text"
+        data-builder-field="body"
       />
     </div>
     """

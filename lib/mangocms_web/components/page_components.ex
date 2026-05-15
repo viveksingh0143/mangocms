@@ -36,8 +36,8 @@ defmodule MangoCMSWeb.PageComponents do
       |> assign(:mappings, mappings_by_slot(assigns.section))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class="bg-base-100">
-      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-100")}>
+      <div class="mx-auto max-w-desktop px-4 py-16 sm:px-6 lg:px-8">
         <div :if={present?(@data["title"]) || present?(@data["subtitle"])} class="mb-8 max-w-3xl">
           <p
             :if={present?(@data["eyebrow"])}
@@ -113,8 +113,14 @@ defmodule MangoCMSWeb.PageComponents do
     assigns = assign(assigns, :data, safe_map(assigns.section.fixed_data))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class="hero min-h-[32rem] bg-base-100">
-      <div class="hero-content grid max-w-7xl gap-10 px-4 py-20 lg:grid-cols-[1.05fr_0.95fr]">
+    <section
+      id={"section-#{@section.id}"}
+      class={section_class(@section, "hero min-h-[32rem] bg-base-100")}
+    >
+      <div class={[
+        "hero-content grid max-w-desktop gap-10 px-4 py-20",
+        hero_ratio_class(@section)
+      ]}>
         <div>
           <p
             :if={present?(@data["eyebrow"])}
@@ -132,7 +138,12 @@ defmodule MangoCMSWeb.PageComponents do
             {@data["subtitle"]}
           </p>
           <div :if={present?(@data["cta_label"])} class="mt-8">
-            <.link href={text_or(@data["cta_href"], "#")} class="btn btn-primary">
+            <.link
+              href={text_or(@data["cta_href"], "#")}
+              target={link_target(@data["cta_target"])}
+              title={@data["cta_title"]}
+              class={["btn btn-primary", @data["cta_text_class"], @data["cta_classes"]]}
+            >
               {@data["cta_label"]}
             </.link>
           </div>
@@ -142,9 +153,22 @@ defmodule MangoCMSWeb.PageComponents do
           :if={present?(@data["image_url"])}
           class="overflow-hidden rounded-lg border border-base-300 bg-base-200 shadow-sm"
         >
+          <.link
+            :if={present?(@data["image_href"])}
+            href={@data["image_href"]}
+            target={link_target(@data["image_target"])}
+            title={@data["image_title"]}
+          >
+            <img
+              src={@data["image_url"]}
+              alt={text_or(@data["image_alt"], text_or(@data["title"], "Page section image"))}
+              class="aspect-video w-full object-cover"
+            />
+          </.link>
           <img
+            :if={!present?(@data["image_href"])}
             src={@data["image_url"]}
-            alt={text_or(@data["title"], "Page section image")}
+            alt={text_or(@data["image_alt"], text_or(@data["title"], "Page section image"))}
             class="aspect-video w-full object-cover"
           />
         </div>
@@ -157,7 +181,7 @@ defmodule MangoCMSWeb.PageComponents do
     assigns = assign(assigns, :data, safe_map(assigns.section.fixed_data))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class="bg-base-200">
+    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-200")}>
       <div class="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 lg:px-8">
         <p
           :if={present?(@data["eyebrow"])}
@@ -175,7 +199,12 @@ defmodule MangoCMSWeb.PageComponents do
           {@data["subtitle"]}
         </p>
         <div :if={present?(@data["cta_label"])} class="mt-8">
-          <.link href={text_or(@data["cta_href"], "#")} class="btn btn-primary">
+          <.link
+            href={text_or(@data["cta_href"], "#")}
+            target={link_target(@data["cta_target"])}
+            title={@data["cta_title"]}
+            class={["btn btn-primary", @data["cta_text_class"], @data["cta_classes"]]}
+          >
             {@data["cta_label"]}
           </.link>
         </div>
@@ -188,7 +217,7 @@ defmodule MangoCMSWeb.PageComponents do
     assigns = assign(assigns, :data, safe_map(assigns.section.fixed_data))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class="bg-base-100">
+    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-100")}>
       <div class="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
         <p
           :if={present?(@data["eyebrow"])}
@@ -196,8 +225,8 @@ defmodule MangoCMSWeb.PageComponents do
         >
           {@data["eyebrow"]}
         </p>
-        <h2 class="text-3xl font-bold tracking-tight">
-          {text_or(@data["title"], "Untitled section")}
+        <h2 :if={present?(@data["title"])} class="text-3xl font-bold tracking-tight">
+          {@data["title"]}
         </h2>
         <p :if={present?(@data["subtitle"])} class="mt-4 text-base leading-7 text-base-content/70">
           {@data["subtitle"]}
@@ -209,7 +238,12 @@ defmodule MangoCMSWeb.PageComponents do
           {@data["body"]}
         </p>
         <div :if={present?(@data["cta_label"])} class="mt-8">
-          <.link href={text_or(@data["cta_href"], "#")} class="btn btn-outline">
+          <.link
+            href={text_or(@data["cta_href"], "#")}
+            target={link_target(@data["cta_target"])}
+            title={@data["cta_title"]}
+            class={["btn btn-outline", @data["cta_text_class"], @data["cta_classes"]]}
+          >
             {@data["cta_label"]}
           </.link>
         </div>
@@ -236,6 +270,41 @@ defmodule MangoCMSWeb.PageComponents do
   end
 
   defp text_or(_value, fallback), do: fallback
+
+  defp section_class(%PageSection{} = section, base) do
+    [
+      base,
+      settings_value(section, "background_class"),
+      settings_value(section, "border_class"),
+      settings_value(section, "extra_classes")
+    ]
+  end
+
+  defp hero_ratio_class(%PageSection{} = section) do
+    case settings_value(section, "content_ratio", "5:5") do
+      "2:8" -> "lg:grid-cols-[2fr_8fr]"
+      "8:2" -> "lg:grid-cols-[8fr_2fr]"
+      "6:4" -> "lg:grid-cols-[6fr_4fr]"
+      "4:6" -> "lg:grid-cols-[4fr_6fr]"
+      "7:3" -> "lg:grid-cols-[7fr_3fr]"
+      "3:7" -> "lg:grid-cols-[3fr_7fr]"
+      _ratio -> "lg:grid-cols-[5fr_5fr]"
+    end
+  end
+
+  defp settings_value(section, key, fallback \\ nil)
+
+  defp settings_value(%PageSection{settings: settings}, key, fallback) when is_map(settings) do
+    case Map.get(settings, key) do
+      value when is_binary(value) and value != "" -> value
+      _other -> fallback
+    end
+  end
+
+  defp settings_value(_section, _key, fallback), do: fallback
+
+  defp link_target(value) when value in ["_self", "_blank"], do: value
+  defp link_target(_value), do: "_self"
 
   defp mappings_by_slot(%PageSection{mappings: mappings}) when is_list(mappings) do
     Map.new(mappings, &{&1.slot, &1})

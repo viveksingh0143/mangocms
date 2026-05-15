@@ -2,9 +2,29 @@
    https://tailwindcss.com/docs/configuration */
 
 @import "tailwindcss" source(none);
+
+@theme {
+  /* 1920px / 16px = 120rem */
+  --container-desktop: 120rem;
+}
+
 @source "../css";
 @source "../js";
 @source "../../lib/mangocms_web";
+@source inline("bg-{base-100,base-200,base-300,base-content,primary,primary-content,secondary,secondary-content,accent,accent-content,neutral,neutral-content,info,success,warning,error,white,black,transparent}");
+@source inline("bg-{base-100,base-200,base-300,base-content,primary,secondary,accent,neutral,info,success,warning,error,white,black}/{5,10,15,20,25,30,40,50,60,70,80,90}");
+@source inline("bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("text-{base-content,primary,primary-content,secondary,secondary-content,accent,accent-content,neutral,neutral-content,info,success,warning,error,white,black}");
+@source inline("text-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("border-{base-100,base-200,base-300,base-content,primary,secondary,accent,neutral,info,success,warning,error,white,black,transparent}");
+@source inline("border-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("ring-{base-100,base-200,base-300,base-content,primary,secondary,accent,neutral,info,success,warning,error,white,black}/{5,10,15,20,25,30,40,50,60,70,80,90}");
+@source inline("{from,via,to}-{base-100,base-200,base-300,primary,secondary,accent,neutral,info,success,warning,error,white,black}");
+@source inline("{from,via,to}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("{p,px,py,pt,pb,pl,pr,m,mx,my,mt,mb,ml,mr,gap}-{0,1,2,3,4,5,6,8,10,12,16,20,24}");
+@source inline("rounded{,-sm,-md,-lg,-xl,-2xl,-3xl,-full} shadow{,-sm,-md,-lg,-xl,-2xl,-none} ring-{0,1,2,4,8}");
+@source inline("text-{xs,sm,base,lg,xl,2xl,3xl,4xl,5xl,6xl} font-{normal,medium,semibold,bold,extrabold} leading-{none,tight,snug,normal,relaxed,loose}");
+@source inline("bg-gradient-to-{t,tr,r,br,b,bl,l,tl} max-w-{sm,md,lg,xl,2xl,3xl,4xl,5xl,6xl,7xl,desktop,full} object-{cover,contain,fill,scale-down}");
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */

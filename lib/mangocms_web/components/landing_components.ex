@@ -156,7 +156,7 @@ defmodule MangoCMSWeb.LandingComponents do
   def hero_section(assigns) do
     ~H"""
     <section id={@id} class="hero overflow-hidden bg-base-100">
-      <div class="hero-content w-full max-w-7xl flex-col gap-12 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <div class="hero-content w-full max-w-desktop flex-col gap-12 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div class="mx-auto max-w-4xl text-center">
           <.announcement_badge
             :if={@eyebrow}
@@ -198,7 +198,7 @@ defmodule MangoCMSWeb.LandingComponents do
   def landing_section(assigns) do
     ~H"""
     <section id={@id} class={["px-4 py-16 sm:px-6 lg:px-8 lg:py-24", @class]}>
-      <div class="mx-auto max-w-7xl">
+      <div class="mx-auto max-w-desktop">
         <div class="max-w-3xl">
           <p :if={@eyebrow} class="text-sm font-bold uppercase tracking-wide text-primary">
             {@eyebrow}
@@ -574,7 +574,7 @@ defmodule MangoCMSWeb.LandingComponents do
   def testimonial_section(assigns) do
     ~H"""
     <section class="px-4 py-16 sm:px-6 lg:px-8">
-      <div class="mx-auto grid max-w-7xl overflow-hidden rounded-box border border-base-300 bg-base-200 lg:grid-cols-[0.8fr_1.2fr]">
+      <div class="mx-auto grid max-w-desktop overflow-hidden rounded-box border border-base-300 bg-base-200 lg:grid-cols-[0.8fr_1.2fr]">
         <div class="min-h-72 bg-neutral p-8 text-neutral-content">
           <div class="flex h-full flex-col justify-between">
             <img
@@ -617,7 +617,7 @@ defmodule MangoCMSWeb.LandingComponents do
   def cta_section(assigns) do
     ~H"""
     <section id={@id} class="px-4 py-16 sm:px-6 lg:px-8">
-      <div class="hero mx-auto max-w-7xl rounded-box bg-primary text-primary-content">
+      <div class="hero mx-auto max-w-desktop rounded-box bg-primary text-primary-content">
         <div class="hero-content flex-col px-6 py-14 text-center">
           <h2 class="text-3xl font-black tracking-tight sm:text-5xl">{@title}</h2>
           <p class="max-w-2xl text-lg text-primary-content/80">{@subtitle}</p>

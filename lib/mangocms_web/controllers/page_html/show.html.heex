@@ -9,3 +9,12 @@
 />
 
 <.tenant_page page={@page} sections={@sections} section_items={@section_items} />
+
+<.link
+  :if={@can_edit_page}
+  id="public-page-edit-button"
+  navigate={~p"/admin/pages/#{@page}/builder"}
+  class="btn btn-primary fixed right-6 bottom-6 z-50 shadow-2xl"
+>
+  <.icon name="hero-pencil-square" class="size-4" /> Edit page
+</.link>

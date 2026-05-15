@@ -138,16 +138,23 @@ defmodule MangoCMSWeb.Layouts do
           permission: :manage_products
         },
         %{
-          label: "Pages",
-          href: ~p"/admin/pages",
-          current: active == :pages,
-          permission: :manage_pages
-        },
-        %{
           label: "Content",
-          href: ~p"/admin/content-types",
-          current: active == :content,
-          permission: :manage_content
+          href: ~p"/admin/pages",
+          current: active in [:pages, :content],
+          children: [
+            %{
+              label: "Pages",
+              href: ~p"/admin/pages",
+              current: active == :pages,
+              permission: :manage_pages
+            },
+            %{
+              label: "Content Types",
+              href: ~p"/admin/content-types",
+              current: active == :content,
+              permission: :manage_content
+            }
+          ]
         },
         %{
           label: "Users",
@@ -170,9 +177,35 @@ defmodule MangoCMSWeb.Layouts do
   defp visible_admin_nav(items, _scope, nil), do: items
 
   defp visible_admin_nav(items, scope, user) do
-    Enum.filter(items, fn item ->
-      Authorization.can?(user, scope, Map.fetch!(item, :permission))
-    end)
+    items
+    |> Enum.map(&filter_nav_item(&1, scope, user))
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp filter_nav_item(item, scope, user) do
+    children =
+      item
+      |> nav_children()
+      |> Enum.map(&filter_nav_item(&1, scope, user))
+      |> Enum.reject(&is_nil/1)
+
+    cond do
+      children != [] ->
+        Map.put(item, :children, children)
+
+      nav_item_allowed?(item, scope, user) ->
+        item
+
+      true ->
+        nil
+    end
+  end
+
+  defp nav_item_allowed?(item, scope, user) do
+    case Map.get(item, :permission) do
+      nil -> true
+      permission -> Authorization.can?(user, scope, permission)
+    end
   end
 
   @doc "Renders the platform admin layout with platform defaults."
@@ -375,8 +408,8 @@ defmodule MangoCMSWeb.Layouts do
 
     ~H"""
     <div id={@id} class="min-h-full bg-base-200 text-base-content transition-colors">
-      <nav class="bg-gray-800 dark:bg-gray-800/50">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav class="sticky top-0 z-50 bg-gray-800 dark:bg-gray-800/50">
+        <div class="mx-auto max-w-desktop px-4 sm:px-6 lg:px-8">
           <div class="flex h-16 items-center justify-between">
             <div class="flex items-center">
               <.link navigate={@brand_href} class="flex shrink-0 items-center gap-3">
@@ -396,12 +429,41 @@ defmodule MangoCMSWeb.Layouts do
                 <div class="ml-10 flex items-baseline space-x-4">
                   <.link
                     :for={item <- @nav_items}
+                    :if={nav_children(item) == []}
                     navigate={nav_href(item)}
                     aria-current={if(nav_current?(item), do: "page", else: nil)}
                     class={admin_nav_class(nav_current?(item), :desktop)}
                   >
                     {nav_label(item)}
                   </.link>
+                  <div
+                    :for={item <- @nav_items}
+                    :if={nav_children(item) != []}
+                    class="group relative"
+                  >
+                    <button
+                      type="button"
+                      aria-current={if(nav_current?(item), do: "page", else: nil)}
+                      class={admin_nav_class(nav_current?(item), :desktop)}
+                    >
+                      <span>{nav_label(item)}</span>
+                      <.icon name="hero-chevron-down" class="ml-1 inline size-3" />
+                    </button>
+                    <div class="absolute left-0 z-20 mt-2 hidden min-w-48 rounded-md bg-base-100 py-2 text-base-content shadow-lg shadow-base-content/10 outline-1 outline-base-300 group-focus-within:block group-hover:block">
+                      <.link
+                        :for={child <- nav_children(item)}
+                        navigate={nav_href(child)}
+                        aria-current={if(nav_current?(child), do: "page", else: nil)}
+                        class={[
+                          "block px-4 py-2 text-sm transition hover:bg-base-200 hover:text-base-content focus:bg-base-200 focus:text-base-content focus:outline-none",
+                          nav_current?(child) && "font-semibold text-primary",
+                          !nav_current?(child) && "text-base-content/80"
+                        ]}
+                      >
+                        {nav_label(child)}
+                      </.link>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -513,12 +575,28 @@ defmodule MangoCMSWeb.Layouts do
           <div class="space-y-1 px-2 pt-2 pb-3 sm:px-3">
             <.link
               :for={item <- @nav_items}
+              :if={nav_children(item) == []}
               navigate={nav_href(item)}
               aria-current={if(nav_current?(item), do: "page", else: nil)}
               class={admin_nav_class(nav_current?(item), :mobile)}
             >
               {nav_label(item)}
             </.link>
+            <div :for={item <- @nav_items} :if={nav_children(item) != []}>
+              <div class={admin_nav_class(nav_current?(item), :mobile)}>
+                {nav_label(item)}
+              </div>
+              <div class="mt-1 space-y-1 pl-4">
+                <.link
+                  :for={child <- nav_children(item)}
+                  navigate={nav_href(child)}
+                  aria-current={if(nav_current?(child), do: "page", else: nil)}
+                  class={admin_nav_class(nav_current?(child), :mobile)}
+                >
+                  {nav_label(child)}
+                </.link>
+              </div>
+            </div>
           </div>
           <div class="border-t border-white/10 pt-4 pb-3">
             <div class="flex items-center px-5">
@@ -572,8 +650,8 @@ defmodule MangoCMSWeb.Layouts do
         </div>
       </nav>
 
-      <header class="relative border-y border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition-colors">
-        <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+      <header class="sticky top-16 z-40 border-y border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition-colors">
+        <div class="mx-auto flex max-w-desktop flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
           <div>
             <h1 class="text-lg/6 font-semibold text-base-content">{@title}</h1>
             <p :if={@subtitle} class="mt-1 text-sm text-base-content/60">{@subtitle}</p>
@@ -585,7 +663,7 @@ defmodule MangoCMSWeb.Layouts do
       </header>
 
       <main>
-        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-desktop px-4 py-6 sm:px-6 lg:px-8">
           {render_slot(@inner_block)}
         </div>
       </main>
@@ -623,8 +701,19 @@ defmodule MangoCMSWeb.Layouts do
   end
 
   defp nav_label(item), do: Map.fetch!(item, :label)
-  defp nav_href(item), do: Map.fetch!(item, :href)
-  defp nav_current?(item), do: Map.get(item, :current, false)
+
+  defp nav_href(item) do
+    case Map.get(item, :href) do
+      nil -> item |> nav_children() |> List.first() |> nav_href()
+      href -> href
+    end
+  end
+
+  defp nav_current?(item) do
+    Map.get(item, :current, false) or Enum.any?(nav_children(item), &nav_current?/1)
+  end
+
+  defp nav_children(item), do: Map.get(item, :children, [])
 
   def user_display_name(%{full_name: full_name} = user) when is_binary(full_name) do
     case String.trim(full_name) do

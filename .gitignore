@@ -33,6 +33,7 @@ mangocms-*.tar
 
 # Ignore sqlite 3 databases cache.
 /priv/data
+/priv/static/uploads
 
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log

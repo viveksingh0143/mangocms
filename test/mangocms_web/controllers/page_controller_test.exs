@@ -3,6 +3,7 @@ defmodule MangoCMSWeb.PageControllerTest do
 
   alias MangoCMS.Platform.Accounts
   alias MangoCMS.Platform
+  alias MangoCMS.Tenant.Pages
 
   defp unique_suffix do
     System.unique_integer([:positive]) |> Integer.to_string()
@@ -164,5 +165,26 @@ defmodule MangoCMSWeb.PageControllerTest do
     assert html =~ ~p"/admin/dashboard"
     assert html =~ ~p"/admin/profile"
     assert html =~ ~p"/admin/logout"
+  end
+
+  test "GET tenant published page shows floating edit button for page managers", %{conn: conn} do
+    tenant = tenant_fixture()
+
+    {:ok, page} =
+      Pages.create_page(tenant, %{
+        title: "About",
+        slug: "about",
+        type: "page",
+        status: "published",
+        seo: %{}
+      })
+
+    {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+
+    conn = get(conn, ~p"/about")
+    html = html_response(conn, 200)
+
+    assert html =~ "id=\"public-page-edit-button\""
+    assert html =~ ~p"/admin/pages/#{page}/builder"
   end
 end

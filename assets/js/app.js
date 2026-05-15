@@ -40,6 +40,7 @@ const ContentEditableInput = {
       if (!this.multiline) text = text.replace(/\s+/g, " ").trim()
       if (this.placeholderActive && text === this.placeholder) text = ""
       this.input.value = text
+      this.input.dispatchEvent(new Event("input", {bubbles: true}))
     }
 
     this.el.addEventListener("focus", () => {
@@ -85,8 +86,18 @@ const ContentEditableInput = {
 const BuilderSortable = {
   mounted() {
     this.draggingId = null
+    this.draggingPreset = null
 
-    this.el.addEventListener("dragstart", event => {
+    this.handleDragStart = event => {
+      const preset = event.target.closest("[data-preset-id]")
+      if (preset) {
+        this.draggingPreset = preset.dataset.presetId
+        event.dataTransfer.effectAllowed = "copy"
+        event.dataTransfer.setData("text/plain", `preset:${this.draggingPreset}`)
+        preset.classList.add("opacity-60")
+        return
+      }
+
       const item = event.target.closest("[data-section-id]")
       if (!item) return
 
@@ -94,24 +105,38 @@ const BuilderSortable = {
       event.dataTransfer.effectAllowed = "move"
       event.dataTransfer.setData("text/plain", this.draggingId)
       item.classList.add("opacity-60")
-    })
+    }
 
-    this.el.addEventListener("dragend", event => {
+    this.handleDragEnd = event => {
+      const preset = event.target.closest("[data-preset-id]")
+      if (preset) preset.classList.remove("opacity-60")
       const item = event.target.closest("[data-section-id]")
       if (item) item.classList.remove("opacity-60")
       this.draggingId = null
-    })
+      this.draggingPreset = null
+    }
+
+    document.addEventListener("dragstart", this.handleDragStart)
+    document.addEventListener("dragend", this.handleDragEnd)
 
     this.el.addEventListener("dragover", event => {
-      if (this.draggingId) event.preventDefault()
+      if (this.draggingId || this.draggingPreset) event.preventDefault()
     })
 
     this.el.addEventListener("drop", event => {
-      if (!this.draggingId) return
+      if (!this.draggingId && !this.draggingPreset) return
       event.preventDefault()
 
       const target = event.target.closest("[data-section-id]")
       const targetId = target && target.dataset.sectionId
+
+      if (this.draggingPreset) {
+        const placement = target && event.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2 ? "before" : "after"
+        this.pushEvent("insert_preset_section", {preset: this.draggingPreset, target_id: targetId, placement})
+        this.draggingPreset = null
+        return
+      }
+
       const ids = Array.from(this.el.querySelectorAll("[data-section-id]")).map(item => item.dataset.sectionId)
       const nextIds = ids.filter(id => id !== this.draggingId)
 
@@ -125,12 +150,46 @@ const BuilderSortable = {
       this.draggingId = null
     })
   },
+
+  destroyed() {
+    document.removeEventListener("dragstart", this.handleDragStart)
+    document.removeEventListener("dragend", this.handleDragEnd)
+  },
+}
+
+const BuilderCanvas = {
+  mounted() {
+    this.el.addEventListener("click", event => {
+      if (event.target.closest("#builder-palette")) return
+      if (event.target.closest("#builder-seo-panel")) return
+      if (event.target.closest("#builder-page-element-panel")) return
+      if (event.target.closest("#builder-section-properties-panel")) return
+      if (event.target.closest("#builder-inspector-sidebar")) return
+      if (event.target.closest("[id^='builder-section-bottom-sheet-']")) return
+      if (event.target.closest("[data-builder-page-element]")) return
+      if (event.target.matches("input[type='file'][data-phx-upload-ref]")) return
+
+      const section = event.target.closest("[data-section-id]")
+
+      if (section) {
+        const element = event.target.closest("[data-builder-element]")
+        this.pushEvent("select_canvas_element", {
+          section_id: section.dataset.sectionId,
+          kind: element ? element.dataset.builderElement : "section",
+          field: element ? element.dataset.builderField : null,
+        })
+        return
+      }
+
+      this.pushEvent("clear_section_focus", {})
+    })
+  },
 }
 
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, BuilderSortable, ContentEditableInput},
+  hooks: {...colocatedHooks, BuilderCanvas, BuilderSortable, ContentEditableInput},
 })
 
 // Show progress bar on live navigation and form submits

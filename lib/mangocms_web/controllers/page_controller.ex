@@ -1,6 +1,7 @@
 defmodule MangoCMSWeb.PageController do
   use MangoCMSWeb, :controller
 
+  alias MangoCMS.Authorization
   alias MangoCMS.Tenant.Pages
   alias MangoCMSWeb.PlatformRegistration
 
@@ -25,7 +26,8 @@ defmodule MangoCMSWeb.PageController do
         render(conn, :show,
           page: page,
           sections: page.sections,
-          section_items: Pages.section_render_items(tenant, page.sections)
+          section_items: Pages.section_render_items(tenant, page.sections),
+          can_edit_page: Authorization.can?(conn.assigns[:current_user], :tenant, :manage_pages)
         )
     end
   end

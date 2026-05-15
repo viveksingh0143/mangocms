@@ -214,6 +214,29 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       assert has_element?(builder_live, "#builder-add-text")
       assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
 
+      render_hook(builder_live, "select_canvas_element", %{
+        "section_id" => first_section.id,
+        "kind" => "link",
+        "field" => "cta_label"
+      })
+
+      assert has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
+
+      render_hook(builder_live, "select_canvas_element", %{
+        "section_id" => first_section.id,
+        "kind" => "image"
+      })
+
+      assert has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
+
+      render_hook(builder_live, "select_canvas_element", %{
+        "section_id" => first_section.id,
+        "kind" => "text",
+        "field" => "title"
+      })
+
+      assert has_element?(builder_live, "#builder_section_text_value_title_#{first_section.id}")
+
       assert builder_live
              |> form("#builder-page-form",
                page: %{
@@ -241,6 +264,30 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       assert Pages.get_section!(tenant, first_section.id).settings["width"] == "half"
 
       assert builder_live
+             |> form("#builder-section-form-#{first_section.id}",
+               section: %{fixed_data: %{"title_classes" => "text-primary"}}
+             )
+             |> render_change()
+
+      assert has_element?(
+               builder_live,
+               "#builder_hero_title_#{first_section.id}_editable.text-primary"
+             )
+
+      render_hook(builder_live, "select_canvas_element", %{
+        "section_id" => first_section.id,
+        "kind" => "section"
+      })
+
+      assert builder_live
+             |> form("#builder-section-form-#{first_section.id}",
+               section: %{settings: %{"extra_classes" => "shadow-xl ring-1"}}
+             )
+             |> render_change()
+
+      assert has_element?(builder_live, ".shadow-xl")
+
+      assert builder_live
              |> element("#builder-move-down-#{first_section.id}")
              |> render_click()
 
@@ -250,6 +297,24 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
              ]
 
       first_section = Pages.get_section!(tenant, first_section.id)
+
+      render_hook(builder_live, "select_canvas_element", %{
+        "section_id" => first_section.id,
+        "kind" => "image"
+      })
+
+      assert has_element?(builder_live, "#builder-section-properties-panel")
+
+      upload =
+        file_input(builder_live, "#builder-section-form-#{first_section.id}", :section_image, [
+          %{
+            name: "hero.png",
+            content: "uploaded image",
+            type: "image/png"
+          }
+        ])
+
+      render_upload(upload, "hero.png")
 
       assert builder_live
              |> form("#builder-section-form-#{first_section.id}",
@@ -268,6 +333,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
 
       assert Pages.get_section!(tenant, first_section.id).fixed_data["title"] ==
                "Updated builder title"
+
+      assert Pages.get_section!(tenant, first_section.id).fixed_data["image_url"] =~
+               "/uploads/tenants/#{tenant.id}/sections/#{first_section.id}/images/"
 
       assert builder_live |> element("#builder-add-text") |> render_click()
       assert length(Pages.list_sections(tenant, page)) == 3

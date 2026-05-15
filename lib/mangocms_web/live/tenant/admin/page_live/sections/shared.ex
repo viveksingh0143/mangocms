@@ -46,29 +46,44 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
   attr :label, :string, default: nil
   attr :placeholder, :string, default: nil
   attr :multiline, :boolean, default: false
+  attr :rest, :global
 
   def editable_text(%{multiline: true} = assigns) do
     assigns = assign_editable_values(assigns)
 
     ~H"""
-    <textarea id={@id} name={@name} class="sr-only" tabindex="-1" aria-hidden="true">{@input_value}</textarea>
+    <textarea
+      id={@id}
+      name={@name}
+      class="sr-only"
+      tabindex="-1"
+      aria-hidden="true"
+      phx-debounce="500"
+    >{@input_value}</textarea>
     <div
       id={"#{@id}_editable"}
-      contenteditable="true"
-      phx-hook="ContentEditableInput"
-      data-input-id={@id}
-      data-multiline="true"
-      data-placeholder={@placeholder || ""}
-      data-placeholder-active={to_string(@placeholder_active)}
-      role="textbox"
-      aria-label={@label || @placeholder || @name}
-      spellcheck="true"
       class={[
-        "min-h-8 rounded-md outline-none transition focus:bg-base-200/60 focus:ring-2 focus:ring-primary/30",
+        "min-h-8 rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
         @class
       ]}
+      {@rest}
     >
-      {@display_value}
+      <div
+        id={"#{@id}_editable_input"}
+        contenteditable="true"
+        phx-hook="ContentEditableInput"
+        phx-update="ignore"
+        data-input-id={@id}
+        data-multiline="true"
+        data-placeholder={@placeholder || ""}
+        data-placeholder-active={to_string(@placeholder_active)}
+        role="textbox"
+        aria-label={@label || @placeholder || @name}
+        spellcheck="true"
+        class="min-h-8 outline-none"
+      >
+        {@display_value}
+      </div>
     </div>
     """
   end
@@ -85,24 +100,32 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
       class="sr-only"
       tabindex="-1"
       aria-hidden="true"
+      phx-debounce="500"
     />
     <div
       id={"#{@id}_editable"}
-      contenteditable="true"
-      phx-hook="ContentEditableInput"
-      data-input-id={@id}
-      data-multiline="false"
-      data-placeholder={@placeholder || ""}
-      data-placeholder-active={to_string(@placeholder_active)}
-      role="textbox"
-      aria-label={@label || @placeholder || @name}
-      spellcheck="true"
       class={[
-        "min-h-8 rounded-md outline-none transition focus:bg-base-200/60 focus:ring-2 focus:ring-primary/30",
+        "min-h-8 rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
         @class
       ]}
+      {@rest}
     >
-      {@display_value}
+      <div
+        id={"#{@id}_editable_input"}
+        contenteditable="true"
+        phx-hook="ContentEditableInput"
+        phx-update="ignore"
+        data-input-id={@id}
+        data-multiline="false"
+        data-placeholder={@placeholder || ""}
+        data-placeholder-active={to_string(@placeholder_active)}
+        role="textbox"
+        aria-label={@label || @placeholder || @name}
+        spellcheck="true"
+        class="min-h-8 outline-none"
+      >
+        {@display_value}
+      </div>
     </div>
     """
   end
@@ -113,6 +136,97 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
       _other -> nil
     end
   end
+
+  def fixed_class_value(form, field) when is_binary(field) do
+    fixed_value(form, "#{field}_classes")
+  end
+
+  def data_class_value(%PageSection{} = section, field) when is_binary(field) do
+    data_value(section, "#{field}_classes")
+  end
+
+  def section_surface_class(%PageSection{} = section, base, fallback_background \\ "bg-base-100") do
+    [
+      base,
+      settings_value(section, "background_class", fallback_background),
+      settings_value(section, "border_class", "border-transparent"),
+      settings_value(section, "extra_classes", nil)
+    ]
+  end
+
+  def form_section_surface_class(
+        %PageSection{} = section,
+        form,
+        base,
+        fallback_background \\ "bg-base-100"
+      ) do
+    [
+      base,
+      form_settings_value(
+        form,
+        "background_class",
+        settings_value(section, "background_class", fallback_background)
+      ),
+      form_settings_value(
+        form,
+        "border_class",
+        settings_value(section, "border_class", "border-transparent")
+      ),
+      form_settings_value(form, "extra_classes", settings_value(section, "extra_classes", nil))
+    ]
+  end
+
+  def hero_ratio_class(%PageSection{} = section) do
+    ratio_class(settings_value(section, "content_ratio", "5:5"))
+  end
+
+  def form_hero_ratio_class(%PageSection{} = section, form) do
+    form
+    |> form_settings_value("content_ratio", settings_value(section, "content_ratio", "5:5"))
+    |> ratio_class()
+  end
+
+  def form_settings_value(form, key, fallback \\ nil)
+
+  def form_settings_value(form, key, fallback) do
+    case form[:settings].value do
+      value when is_map(value) -> non_empty_value(Map.get(value, key), fallback)
+      _other -> fallback
+    end
+  end
+
+  defp ratio_class(ratio) do
+    case ratio do
+      "2:8" -> "lg:grid-cols-[2fr_8fr]"
+      "8:2" -> "lg:grid-cols-[8fr_2fr]"
+      "6:4" -> "lg:grid-cols-[6fr_4fr]"
+      "4:6" -> "lg:grid-cols-[4fr_6fr]"
+      "7:3" -> "lg:grid-cols-[7fr_3fr]"
+      "3:7" -> "lg:grid-cols-[3fr_7fr]"
+      _ratio -> "lg:grid-cols-[5fr_5fr]"
+    end
+  end
+
+  def settings_value(section, key, fallback \\ nil)
+
+  def settings_value(%PageSection{settings: settings}, key, fallback) when is_map(settings) do
+    non_empty_value(Map.get(settings, key), fallback)
+  end
+
+  def settings_value(_section, _key, fallback), do: fallback
+
+  defp non_empty_value(value, fallback) when is_binary(value) do
+    case String.trim(value) do
+      "" -> fallback
+      text -> text
+    end
+  end
+
+  defp non_empty_value(value, _fallback) when not is_nil(value), do: value
+  defp non_empty_value(_value, fallback), do: fallback
+
+  def link_target(value) when value in ["_self", "_blank"], do: value
+  def link_target(_value), do: "_self"
 
   defp assign_editable_values(assigns) do
     input_value =

@@ -9,14 +9,20 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.DynamicGrid do
 
   def display(assigns) do
     ~H"""
-    <div class="rounded-lg bg-base-100 p-5">
-      <p class="text-xs font-semibold uppercase tracking-wide text-primary">
+    <div class={section_surface_class(@section, "rounded-lg border p-5")}>
+      <p class={[
+        "text-xs font-semibold uppercase tracking-wide text-primary",
+        data_class_value(@section, "eyebrow")
+      ]}>
         {text_or(data_value(@section, "eyebrow"), "Dynamic")}
       </p>
-      <h3 class="mt-3 text-2xl font-bold text-base-content">
+      <h3 class={["mt-3 text-2xl font-bold text-base-content", data_class_value(@section, "title")]}>
         {text_or(data_value(@section, "title"), "Dynamic content grid")}
       </h3>
-      <p class="mt-2 text-sm leading-6 text-base-content/70">
+      <p class={[
+        "mt-2 text-sm leading-6 text-base-content/70",
+        data_class_value(@section, "subtitle")
+      ]}>
         {text_or(data_value(@section, "subtitle"), "Cards are rendered from tenant content entries.")}
       </p>
 
@@ -44,7 +50,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.DynamicGrid do
 
   def form(assigns) do
     ~H"""
-    <div class="rounded-lg bg-base-100 p-5">
+    <div class={form_section_surface_class(@section, @form, "rounded-lg border p-5")}>
       <.hidden_section_fields
         section={@section}
         type="feature_grid"
@@ -58,7 +64,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.DynamicGrid do
         label="Dynamic eyebrow"
         value={fixed_value(@form, "eyebrow")}
         placeholder="Dynamic"
-        class="text-xs font-semibold uppercase tracking-wide text-primary"
+        class={[
+          "text-xs font-semibold uppercase tracking-wide text-primary",
+          fixed_class_value(@form, "eyebrow")
+        ]}
+        data-builder-element="text"
+        data-builder-field="eyebrow"
       />
 
       <.editable_text
@@ -67,7 +78,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.DynamicGrid do
         label="Grid title"
         value={fixed_value(@form, "title")}
         placeholder="Featured content"
-        class="mt-3 text-2xl font-bold text-base-content"
+        class={["mt-3 text-2xl font-bold text-base-content", fixed_class_value(@form, "title")]}
+        data-builder-element="text"
+        data-builder-field="title"
       />
       <.editable_text
         id={"builder_dynamic_subtitle_#{@section.id}"}
@@ -76,152 +89,13 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.DynamicGrid do
         value={fixed_value(@form, "subtitle")}
         placeholder="Short supporting copy."
         multiline
-        class="mt-2 text-base leading-7 text-base-content/70"
+        class={[
+          "mt-2 text-base leading-7 text-base-content/70",
+          fixed_class_value(@form, "subtitle")
+        ]}
+        data-builder-element="text"
+        data-builder-field="subtitle"
       />
-
-      <div class="mt-5 rounded-lg border border-base-300 bg-base-200 p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h4 class="font-semibold text-base-content">Dynamic source</h4>
-            <p class="text-sm text-base-content/60">
-              Choose the content pool this section reads from.
-            </p>
-          </div>
-          <span class="rounded-full bg-base-100 px-2.5 py-1 text-xs font-semibold text-base-content/70">
-            Dynamic
-          </span>
-        </div>
-
-        <div class="mt-4 grid gap-4 md:grid-cols-4">
-          <.input
-            id={"builder_dynamic_source_content_type_#{@section.id}"}
-            name="section[source][content_type_id]"
-            type="select"
-            label="Content type"
-            options={@content_type_options}
-            value={source_value(@source_params, "content_type_id")}
-            class="w-full select"
-          />
-          <.input
-            id={"builder_dynamic_source_status_#{@section.id}"}
-            name="section[source][status]"
-            type="select"
-            label="Status"
-            options={@source_status_options}
-            value={source_value(@source_params, "status")}
-            class="w-full select"
-          />
-          <.input
-            id={"builder_dynamic_source_limit_#{@section.id}"}
-            name="section[source][limit]"
-            type="number"
-            label="Limit"
-            min="1"
-            max="50"
-            value={source_value(@source_params, "limit")}
-            class="w-full input"
-          />
-          <.input
-            id={"builder_dynamic_source_offset_#{@section.id}"}
-            name="section[source][offset]"
-            type="number"
-            label="Offset"
-            min="0"
-            value={source_value(@source_params, "offset")}
-            class="w-full input"
-          />
-        </div>
-
-        <div class="mt-4 grid gap-4 md:grid-cols-3">
-          <.input
-            id={"builder_dynamic_filter_field_#{@section.id}"}
-            name="section[source][filters][field]"
-            type="text"
-            label="Filter field"
-            value={source_filter_value(@source_params, "field")}
-            placeholder="rating"
-            class="w-full input"
-          />
-          <.input
-            id={"builder_dynamic_filter_op_#{@section.id}"}
-            name="section[source][filters][op]"
-            type="select"
-            label="Operator"
-            options={@operator_options}
-            value={source_filter_value(@source_params, "op")}
-            class="w-full select"
-          />
-          <.input
-            id={"builder_dynamic_filter_value_#{@section.id}"}
-            name="section[source][filters][value]"
-            type="text"
-            label="Filter value"
-            value={source_filter_value(@source_params, "value")}
-            placeholder="5"
-            class="w-full input"
-          />
-        </div>
-
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          <.input
-            id={"builder_dynamic_sort_field_#{@section.id}"}
-            name="section[source][sort][field]"
-            type="text"
-            label="Sort field"
-            value={source_sort_value(@source_params, "field")}
-            placeholder="published_at"
-            class="w-full input"
-          />
-          <.input
-            id={"builder_dynamic_sort_direction_#{@section.id}"}
-            name="section[source][sort][direction]"
-            type="select"
-            label="Sort direction"
-            options={[{"Descending", "desc"}, {"Ascending", "asc"}]}
-            value={source_sort_value(@source_params, "direction")}
-            class="w-full select"
-          />
-        </div>
-      </div>
-
-      <div class="mt-5 grid gap-3 md:grid-cols-3">
-        <div
-          :for={{mapping, index} <- Enum.with_index(@mapping_rows)}
-          class="rounded-lg border border-base-300 bg-base-100 p-3"
-        >
-          <input
-            type="hidden"
-            name={"section[mappings][#{index}][slot]"}
-            value={mapping["slot"]}
-          />
-          <input
-            type="hidden"
-            name={"section[mappings][#{index}][position]"}
-            value={mapping["position"]}
-          />
-          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
-            {mapping_label(mapping["slot"])}
-          </p>
-          <.input
-            id={"builder_dynamic_mapping_#{@section.id}_#{mapping["slot"]}_source"}
-            name={"section[mappings][#{index}][source_path]"}
-            type="text"
-            label="Path"
-            value={mapping["source_path"]}
-            placeholder="payload.name"
-            class="w-full input input-sm"
-          />
-          <.input
-            id={"builder_dynamic_mapping_#{@section.id}_#{mapping["slot"]}_formatter"}
-            name={"section[mappings][#{index}][formatter]"}
-            type="select"
-            label="Formatter"
-            options={@formatter_options}
-            value={mapping["formatter"]}
-            class="w-full select select-sm"
-          />
-        </div>
-      </div>
     </div>
     """
   end
