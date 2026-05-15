@@ -3,12 +3,15 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   alias MangoCMS.Tenant.ContentEngine
   alias MangoCMS.Tenant.ContentEngine.{ContentEntry, ContentTypeField}
+  alias MangoCMS.Uploads
   alias MangoCMSWeb.CoreComponents
 
   @status_options ContentEntry.status_options()
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :media_uploads, Map.get(assigns, :uploads, %{}))
+
     ~H"""
     <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
       <.header>
@@ -51,7 +54,12 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
           </div>
 
           <div class="mt-5 grid gap-5 md:grid-cols-2">
-            <.payload_input :for={field <- @fields} form={@form} field_def={field} />
+            <.payload_input
+              :for={field <- @fields}
+              form={@form}
+              field_def={field}
+              uploads={@media_uploads}
+            />
           </div>
         </div>
 
@@ -74,7 +82,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
      socket
      |> assign(assigns)
      |> assign(:status_options, @status_options)
-     |> assign_form(changeset)}
+     |> assign_form(changeset)
+     |> allow_media_uploads(assigns.fields)}
   end
 
   @impl true
@@ -90,7 +99,11 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   def handle_event("save", %{"content_entry" => entry_params}, socket) do
-    params = normalize_entry_params(entry_params, socket.assigns.fields, socket.assigns.entry)
+    params =
+      entry_params
+      |> put_uploaded_media(socket)
+      |> normalize_entry_params(socket.assigns.fields, socket.assigns.entry)
+
     save_entry(socket, socket.assigns.action, params)
   end
 
@@ -140,6 +153,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
       |> assign(:input_value, payload_value(assigns.form, field))
       |> assign(:input_label, payload_label(field))
       |> assign(:input_options, select_options(field))
+      |> assign(:media_field?, media_field?(field))
+      |> assign(:upload_config, Map.get(assigns.uploads || %{}, media_upload_name(field)))
 
     ~H"""
     <div class={[@input_type == "textarea" && "md:col-span-2"]}>
@@ -174,7 +189,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
       />
 
       <.input
-        :if={@input_type not in ["select", "textarea", "checkbox"]}
+        :if={@input_type not in ["select", "textarea", "checkbox"] and !@media_field?}
         id={@input_id}
         name={@input_name}
         type={@input_type}
@@ -182,8 +197,85 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         value={@input_value}
         step={if(@input_type == "number", do: "any", else: nil)}
       />
+
+      <div :if={@media_field?} class="grid gap-2">
+        <.input
+          id={@input_id}
+          name={@input_name}
+          type="text"
+          label={@input_label}
+          value={@input_value}
+          placeholder="/uploads/tenants/..."
+        />
+        <div
+          :if={@upload_config}
+          id={"#{@input_id}_upload"}
+          class="rounded-lg border border-dashed border-base-300 bg-base-100 p-3"
+        >
+          <div class="relative">
+            <.live_file_input
+              upload={@upload_config}
+              class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+            />
+            <span class="btn btn-outline btn-sm w-full pointer-events-none">
+              Upload {String.downcase(@field_def.field_type)}
+            </span>
+          </div>
+          <div class="mt-2 grid gap-1">
+            <p :for={entry <- @upload_config.entries} class="text-xs text-base-content/60">
+              {entry.client_name} · {entry.progress}%
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
     """
+  end
+
+  defp allow_media_uploads(socket, fields) do
+    Enum.reduce(media_fields(fields), socket, fn field, socket ->
+      upload_name = media_upload_name(field)
+
+      if Map.has_key?(socket.assigns[:uploads] || %{}, upload_name) do
+        socket
+      else
+        allow_upload(socket, upload_name,
+          accept: media_accept(field),
+          max_entries: 1,
+          max_file_size: media_max_file_size(field),
+          auto_upload: true
+        )
+      end
+    end)
+  end
+
+  defp put_uploaded_media(params, socket) do
+    Enum.reduce(media_fields(socket.assigns.fields), params, fn field, params ->
+      upload_name = media_upload_name(field)
+
+      consume_uploaded_entries(socket, upload_name, fn meta, entry ->
+        {:ok,
+         Uploads.store_live_upload!(entry, meta, {:tenant, socket.assigns.tenant},
+           type: [
+             "content",
+             socket.assigns.content_type.id,
+             field.field_key,
+             media_directory(field)
+           ]
+         )}
+      end)
+      |> case do
+        [url | _rest] ->
+          Map.update(params, "payload", %{field.field_key => url}, fn payload ->
+            payload
+            |> safe_map()
+            |> Map.put(field.field_key, url)
+          end)
+
+        [] ->
+          params
+      end
+    end)
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -251,7 +343,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   defp payload_input_type(%ContentTypeField{field_type: "boolean"}), do: "checkbox"
   defp payload_input_type(%ContentTypeField{field_type: "datetime"}), do: "datetime-local"
   defp payload_input_type(%ContentTypeField{field_type: "url"}), do: "url"
-  defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "url"
+  defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "text"
+  defp payload_input_type(%ContentTypeField{field_type: "video"}), do: "text"
   defp payload_input_type(%ContentTypeField{field_type: "select"}), do: "select"
   defp payload_input_type(_field), do: "text"
 
@@ -304,6 +397,27 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   defp select_options(_field), do: []
+
+  defp media_fields(fields) do
+    Enum.filter(fields, &media_field?/1)
+  end
+
+  defp media_field?(%ContentTypeField{field_type: type}), do: type in ["image", "video"]
+
+  defp media_upload_name(%ContentTypeField{id: id}) when is_binary(id), do: "payload_media_#{id}"
+  defp media_upload_name(%ContentTypeField{field_key: key}), do: "payload_media_#{key}"
+
+  defp media_accept(%ContentTypeField{field_type: "video"}), do: ~w(.mp4 .webm .mov)
+  defp media_accept(_field), do: ~w(.jpg .jpeg .png .gif .webp .svg)
+
+  defp media_max_file_size(%ContentTypeField{field_type: "video"}), do: 50_000_000
+  defp media_max_file_size(_field), do: 5_000_000
+
+  defp media_directory(%ContentTypeField{field_type: "video"}), do: "videos"
+  defp media_directory(_field), do: "images"
+
+  defp safe_map(value) when is_map(value), do: value
+  defp safe_map(_value), do: %{}
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 end

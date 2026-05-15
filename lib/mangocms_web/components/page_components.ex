@@ -12,11 +12,13 @@ defmodule MangoCMSWeb.PageComponents do
   def tenant_page(assigns) do
     ~H"""
     <main id="tenant-page" class="bg-base-100 text-base-content">
-      <.page_section
-        :for={section <- @sections}
-        section={section}
-        items={Map.get(@section_items, section.id, [])}
-      />
+      <div class="mx-auto grid max-w-desktop grid-cols-12 gap-5 px-4 py-6 sm:px-6 lg:px-8">
+        <.page_section
+          :for={section <- @sections}
+          section={section}
+          items={Map.get(@section_items, section.id, [])}
+        />
+      </div>
     </main>
     """
   end
@@ -36,19 +38,28 @@ defmodule MangoCMSWeb.PageComponents do
       |> assign(:mappings, mappings_by_slot(assigns.section))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-100")}>
-      <div class="mx-auto max-w-desktop px-4 py-16 sm:px-6 lg:px-8">
+    <section id={"section-#{@section.id}"} class={section_outer_class(@section, "bg-base-100")}>
+      <div class="py-16">
         <div :if={present?(@data["title"]) || present?(@data["subtitle"])} class="mb-8 max-w-3xl">
           <p
             :if={present?(@data["eyebrow"])}
-            class="mb-3 text-sm font-semibold uppercase tracking-wide text-primary"
+            class={[
+              "mb-3 text-sm font-semibold uppercase tracking-wide text-primary",
+              data_class_value(@data, "eyebrow")
+            ]}
           >
             {@data["eyebrow"]}
           </p>
-          <h2 :if={present?(@data["title"])} class="text-3xl font-bold tracking-tight">
+          <h2
+            :if={present?(@data["title"])}
+            class={["text-3xl font-bold tracking-tight", data_class_value(@data, "title")]}
+          >
             {@data["title"]}
           </h2>
-          <p :if={present?(@data["subtitle"])} class="mt-3 text-base text-base-content/70">
+          <p
+            :if={present?(@data["subtitle"])}
+            class={["mt-3 text-base text-base-content/70", data_class_value(@data, "subtitle")]}
+          >
             {@data["subtitle"]}
           </p>
         </div>
@@ -115,25 +126,34 @@ defmodule MangoCMSWeb.PageComponents do
     ~H"""
     <section
       id={"section-#{@section.id}"}
-      class={section_class(@section, "hero min-h-[32rem] bg-base-100")}
+      class={section_outer_class(@section, "hero min-h-[32rem] bg-base-100")}
     >
       <div class={[
-        "hero-content grid max-w-desktop gap-10 px-4 py-20",
+        "hero-content grid w-full max-w-none gap-10 px-0 py-20",
         hero_ratio_class(@section)
       ]}>
         <div>
           <p
             :if={present?(@data["eyebrow"])}
-            class="mb-3 text-sm font-semibold uppercase tracking-wide text-primary"
+            class={[
+              "mb-3 text-sm font-semibold uppercase tracking-wide text-primary",
+              data_class_value(@data, "eyebrow")
+            ]}
           >
             {@data["eyebrow"]}
           </p>
-          <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">
+          <h1 class={[
+            "text-4xl font-bold tracking-tight sm:text-5xl",
+            data_class_value(@data, "title")
+          ]}>
             {text_or(@data["title"], "Untitled page section")}
           </h1>
           <p
             :if={present?(@data["subtitle"])}
-            class="mt-5 max-w-2xl text-lg leading-8 text-base-content/70"
+            class={[
+              "mt-5 max-w-2xl text-lg leading-8 text-base-content/70",
+              data_class_value(@data, "subtitle")
+            ]}
           >
             {@data["subtitle"]}
           </p>
@@ -162,14 +182,14 @@ defmodule MangoCMSWeb.PageComponents do
             <img
               src={@data["image_url"]}
               alt={text_or(@data["image_alt"], text_or(@data["title"], "Page section image"))}
-              class="aspect-video w-full object-cover"
+              class={["aspect-video w-full object-cover", @data["image_classes"]]}
             />
           </.link>
           <img
             :if={!present?(@data["image_href"])}
             src={@data["image_url"]}
             alt={text_or(@data["image_alt"], text_or(@data["title"], "Page section image"))}
-            class="aspect-video w-full object-cover"
+            class={["aspect-video w-full object-cover", @data["image_classes"]]}
           />
         </div>
       </div>
@@ -181,20 +201,26 @@ defmodule MangoCMSWeb.PageComponents do
     assigns = assign(assigns, :data, safe_map(assigns.section.fixed_data))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-200")}>
-      <div class="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 lg:px-8">
+    <section id={"section-#{@section.id}"} class={section_outer_class(@section, "bg-base-200")}>
+      <div class="mx-auto max-w-5xl py-16 text-center">
         <p
           :if={present?(@data["eyebrow"])}
-          class="mb-3 text-sm font-semibold uppercase tracking-wide text-primary"
+          class={[
+            "mb-3 text-sm font-semibold uppercase tracking-wide text-primary",
+            data_class_value(@data, "eyebrow")
+          ]}
         >
           {@data["eyebrow"]}
         </p>
-        <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">
+        <h2 class={["text-3xl font-bold tracking-tight sm:text-4xl", data_class_value(@data, "title")]}>
           {text_or(@data["title"], "Ready to begin?")}
         </h2>
         <p
           :if={present?(@data["subtitle"])}
-          class="mx-auto mt-4 max-w-2xl text-base leading-7 text-base-content/70"
+          class={[
+            "mx-auto mt-4 max-w-2xl text-base leading-7 text-base-content/70",
+            data_class_value(@data, "subtitle")
+          ]}
         >
           {@data["subtitle"]}
         </p>
@@ -217,23 +243,38 @@ defmodule MangoCMSWeb.PageComponents do
     assigns = assign(assigns, :data, safe_map(assigns.section.fixed_data))
 
     ~H"""
-    <section id={"section-#{@section.id}"} class={section_class(@section, "bg-base-100")}>
-      <div class="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+    <section id={"section-#{@section.id}"} class={section_outer_class(@section, "bg-base-100")}>
+      <div class="mx-auto max-w-4xl py-14">
         <p
           :if={present?(@data["eyebrow"])}
-          class="mb-3 text-sm font-semibold uppercase tracking-wide text-primary"
+          class={[
+            "mb-3 text-sm font-semibold uppercase tracking-wide text-primary",
+            data_class_value(@data, "eyebrow")
+          ]}
         >
           {@data["eyebrow"]}
         </p>
-        <h2 :if={present?(@data["title"])} class="text-3xl font-bold tracking-tight">
+        <h2
+          :if={present?(@data["title"])}
+          class={["text-3xl font-bold tracking-tight", data_class_value(@data, "title")]}
+        >
           {@data["title"]}
         </h2>
-        <p :if={present?(@data["subtitle"])} class="mt-4 text-base leading-7 text-base-content/70">
+        <p
+          :if={present?(@data["subtitle"])}
+          class={[
+            "mt-4 text-base leading-7 text-base-content/70",
+            data_class_value(@data, "subtitle")
+          ]}
+        >
           {@data["subtitle"]}
         </p>
         <p
           :if={present?(@data["body"])}
-          class="mt-6 whitespace-pre-line text-base leading-7 text-base-content/80"
+          class={[
+            "mt-6 whitespace-pre-line text-base leading-7 text-base-content/80",
+            data_class_value(@data, "body")
+          ]}
         >
           {@data["body"]}
         </p>
@@ -271,13 +312,27 @@ defmodule MangoCMSWeb.PageComponents do
 
   defp text_or(_value, fallback), do: fallback
 
-  defp section_class(%PageSection{} = section, base) do
+  defp data_class_value(data, field) when is_map(data) and is_binary(field) do
+    Map.get(data, "#{field}_classes")
+  end
+
+  defp section_outer_class(%PageSection{} = section, base) do
     [
+      section_width_class(section),
       base,
       settings_value(section, "background_class"),
       settings_value(section, "border_class"),
       settings_value(section, "extra_classes")
     ]
+  end
+
+  defp section_width_class(section) do
+    case settings_value(section, "width", "full") do
+      "half" -> "col-span-12 lg:col-span-6"
+      "third" -> "col-span-12 lg:col-span-4"
+      "narrow" -> "col-span-12 lg:col-span-8 lg:col-start-3"
+      _full -> "col-span-12"
+    end
   end
 
   defp hero_ratio_class(%PageSection{} = section) do

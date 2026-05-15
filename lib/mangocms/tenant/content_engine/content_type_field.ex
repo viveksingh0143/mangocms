@@ -8,7 +8,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
 
-  @field_types ~w(string text number boolean datetime image url select json)
+  @field_types ~w(string text number boolean datetime image video url select json)
 
   @type t :: %__MODULE__{}
 

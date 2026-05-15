@@ -142,7 +142,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
     content_type
   end
 
-  defp host_conn(conn, host), do: %{conn | host: host}
+  defp host_conn(conn, host, port \\ 80), do: %{conn | host: host, port: port}
 
   describe "page admin" do
     test "creates, updates, and deletes tenant pages", %{conn: conn} do
@@ -206,13 +206,38 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
           position: 20
         })
 
-      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {conn, _user} =
+        conn |> host_conn(tenant.domain, 4000) |> register_and_log_in_tenant_user(tenant)
+
       {:ok, builder_live, _html} = live(conn, ~p"/admin/pages/#{page}/builder")
 
       assert has_element?(builder_live, "#page-builder")
       assert has_element?(builder_live, "#builder-page-form")
+
+      assert has_element?(
+               builder_live,
+               ~s|#builder-public-page-link[href="http://#{tenant.domain}:4000/#{page.slug}"]|
+             )
+
       assert has_element?(builder_live, "#builder-add-text")
       assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
+      assert has_element?(builder_live, "#builder-section-gear-#{first_section.id}")
+      assert has_element?(builder_live, "#builder-delete-section-#{first_section.id}")
+      refute has_element?(builder_live, "#builder-section-properties-panel")
+
+      assert builder_live
+             |> element("#builder-select-section-#{second_section.id}")
+             |> render_click()
+
+      refute has_element?(builder_live, "#builder-section-properties-panel")
+
+      assert builder_live
+             |> element("#builder-section-gear-#{first_section.id}")
+             |> render_click()
+
+      assert has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
+      assert has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
+      assert has_element?(builder_live, "#builder_hero_title_#{first_section.id}_editable")
 
       render_hook(builder_live, "select_canvas_element", %{
         "section_id" => first_section.id,
@@ -221,6 +246,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       })
 
       assert has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
+      refute has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
+      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
 
       render_hook(builder_live, "select_canvas_element", %{
         "section_id" => first_section.id,
@@ -228,6 +255,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       })
 
       assert has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
+      refute has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
+      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
 
       render_hook(builder_live, "select_canvas_element", %{
         "section_id" => first_section.id,
@@ -236,6 +265,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       })
 
       assert has_element?(builder_live, "#builder_section_text_value_title_#{first_section.id}")
+      refute has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
+      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
+
+      assert builder_live
+             |> element("#builder-section-gear-#{first_section.id}")
+             |> render_click()
 
       assert builder_live
              |> form("#builder-page-form",
@@ -274,10 +309,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
                "#builder_hero_title_#{first_section.id}_editable.text-primary"
              )
 
-      render_hook(builder_live, "select_canvas_element", %{
-        "section_id" => first_section.id,
-        "kind" => "section"
-      })
+      assert builder_live
+             |> element("#builder-section-gear-#{first_section.id}")
+             |> render_click()
 
       assert builder_live
              |> form("#builder-section-form-#{first_section.id}",
@@ -298,10 +332,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
 
       first_section = Pages.get_section!(tenant, first_section.id)
 
-      render_hook(builder_live, "select_canvas_element", %{
-        "section_id" => first_section.id,
-        "kind" => "image"
-      })
+      assert builder_live
+             |> element("#builder-section-gear-#{first_section.id}")
+             |> render_click()
 
       assert has_element?(builder_live, "#builder-section-properties-panel")
 
@@ -339,6 +372,17 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
 
       assert builder_live |> element("#builder-add-text") |> render_click()
       assert length(Pages.list_sections(tenant, page)) == 3
+
+      [new_section | _rest] =
+        tenant
+        |> Pages.list_sections(page)
+        |> Enum.reject(&(&1.id in [first_section.id, second_section.id]))
+
+      assert builder_live
+             |> element("#builder-delete-section-#{new_section.id}")
+             |> render_click()
+
+      assert length(Pages.list_sections(tenant, page)) == 2
     end
 
     test "creates a fixed section and renders the published page by slug", %{conn: conn} do
@@ -376,16 +420,33 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
 
       assert show_live
              |> form("#page-section-form",
-               page_section: %{
-                 @section_attrs
-                 | fixed_data: %{@section_attrs.fixed_data | "title" => "Updated hero"}
-               }
+               page_section:
+                 Map.merge(@section_attrs, %{
+                   fixed_data:
+                     Map.merge(@section_attrs.fixed_data, %{
+                       "title" => "Updated hero",
+                       "title_classes" => "text-primary"
+                     }),
+                   settings: %{"width" => "half", "extra_classes" => "shadow-xl"}
+                 })
              )
              |> render_submit()
 
       assert_patch(show_live, ~p"/admin/pages/#{page}")
       [section] = Pages.list_sections(tenant, page)
       assert section.fixed_data["title"] == "Updated hero"
+      assert section.fixed_data["title_classes"] == "text-primary"
+      assert section.settings["width"] == "half"
+
+      public_conn =
+        build_conn()
+        |> host_conn(tenant.domain)
+        |> get(~p"/services")
+
+      html = html_response(public_conn, 200)
+      assert html =~ "lg:col-span-6"
+      assert html =~ "text-primary"
+      assert html =~ "shadow-xl"
 
       assert show_live |> element("#delete-page-section-#{section.id}") |> render_click()
       assert Pages.list_sections(tenant, page) == []

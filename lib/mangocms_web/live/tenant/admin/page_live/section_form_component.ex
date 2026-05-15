@@ -9,6 +9,22 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
   @source_status_options SectionSource.status_options()
   @operator_options SectionSource.operator_options()
   @formatter_options SectionMapping.formatter_options()
+  @width_options [
+    {"Full", "full"},
+    {"Half", "half"},
+    {"Third", "third"},
+    {"Narrow", "narrow"}
+  ]
+  @hero_ratio_options [
+    {"5:5", "5:5"},
+    {"2:8", "2:8"},
+    {"8:2", "8:2"},
+    {"6:4", "6:4"},
+    {"4:6", "4:6"},
+    {"7:3", "7:3"},
+    {"3:7", "3:7"}
+  ]
+  @target_options [{"Same tab", "_self"}, {"New tab", "_blank"}]
 
   @impl true
   def render(assigns) do
@@ -102,10 +118,181 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
             <.input
               id="page_section_fixed_data_image_url"
               name="page_section[fixed_data][image_url]"
-              type="url"
+              type="text"
               label="Image URL"
               value={fixed_value(@form, "image_url")}
               placeholder="/images/example.jpg"
+            />
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-base-300 bg-base-200 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-semibold text-base-content">Section properties</h3>
+              <p class="text-sm text-base-content/60">
+                Optional layout, styling, media, and link rules used by the public renderer.
+              </p>
+            </div>
+            <span class="rounded-full bg-base-100 px-2.5 py-1 text-xs font-semibold text-base-content/70">
+              settings + fixed_data
+            </span>
+          </div>
+
+          <div class="mt-4 grid gap-5 md:grid-cols-3">
+            <.input
+              id="page_section_settings_width"
+              name="page_section[settings][width]"
+              type="select"
+              label="Section size"
+              options={@width_options}
+              value={settings_value(@form, "width", "full")}
+            />
+            <.input
+              :if={@form[:type].value == "hero"}
+              id="page_section_settings_content_ratio"
+              name="page_section[settings][content_ratio]"
+              type="select"
+              label="Hero content / image split"
+              options={@hero_ratio_options}
+              value={settings_value(@form, "content_ratio", "5:5")}
+            />
+            <.input
+              id="page_section_settings_background_class"
+              name="page_section[settings][background_class]"
+              type="text"
+              label="Background classes"
+              value={settings_value(@form, "background_class")}
+              placeholder="bg-base-100"
+            />
+            <.input
+              id="page_section_settings_border_class"
+              name="page_section[settings][border_class]"
+              type="text"
+              label="Border classes"
+              value={settings_value(@form, "border_class")}
+              placeholder="border border-base-300"
+            />
+            <.input
+              id="page_section_settings_extra_classes"
+              name="page_section[settings][extra_classes]"
+              type="textarea"
+              label="Extra section classes"
+              value={settings_value(@form, "extra_classes")}
+              rows="3"
+              placeholder="shadow-xl ring-1 ring-primary/20"
+            />
+          </div>
+
+          <div class="mt-5 grid gap-5 md:grid-cols-2">
+            <.input
+              id="page_section_fixed_data_eyebrow_classes"
+              name="page_section[fixed_data][eyebrow_classes]"
+              type="text"
+              label="Eyebrow classes"
+              value={fixed_value(@form, "eyebrow_classes")}
+              placeholder="text-primary"
+            />
+            <.input
+              id="page_section_fixed_data_title_classes"
+              name="page_section[fixed_data][title_classes]"
+              type="text"
+              label="Title classes"
+              value={fixed_value(@form, "title_classes")}
+              placeholder="text-5xl text-primary"
+            />
+            <.input
+              id="page_section_fixed_data_subtitle_classes"
+              name="page_section[fixed_data][subtitle_classes]"
+              type="text"
+              label="Subtitle classes"
+              value={fixed_value(@form, "subtitle_classes")}
+              placeholder="text-base-content/70"
+            />
+            <.input
+              id="page_section_fixed_data_body_classes"
+              name="page_section[fixed_data][body_classes]"
+              type="text"
+              label="Body classes"
+              value={fixed_value(@form, "body_classes")}
+              placeholder="leading-8"
+            />
+          </div>
+
+          <div class="mt-5 grid gap-5 md:grid-cols-2">
+            <.input
+              id="page_section_fixed_data_image_alt"
+              name="page_section[fixed_data][image_alt]"
+              type="text"
+              label="Image alt"
+              value={fixed_value(@form, "image_alt")}
+              placeholder="Describe the image"
+            />
+            <.input
+              id="page_section_fixed_data_image_href"
+              name="page_section[fixed_data][image_href]"
+              type="text"
+              label="Image link"
+              value={fixed_value(@form, "image_href")}
+              placeholder="/about"
+            />
+            <.input
+              id="page_section_fixed_data_image_target"
+              name="page_section[fixed_data][image_target]"
+              type="select"
+              label="Image link target"
+              options={@target_options}
+              value={fixed_value(@form, "image_target") || "_self"}
+            />
+            <.input
+              id="page_section_fixed_data_image_title"
+              name="page_section[fixed_data][image_title]"
+              type="text"
+              label="Image link title"
+              value={fixed_value(@form, "image_title")}
+              placeholder="Small SEO title"
+            />
+            <.input
+              id="page_section_fixed_data_image_classes"
+              name="page_section[fixed_data][image_classes]"
+              type="textarea"
+              label="Image classes"
+              value={fixed_value(@form, "image_classes")}
+              rows="3"
+              placeholder="rounded-xl object-cover"
+            />
+            <.input
+              id="page_section_fixed_data_cta_target"
+              name="page_section[fixed_data][cta_target]"
+              type="select"
+              label="CTA target"
+              options={@target_options}
+              value={fixed_value(@form, "cta_target") || "_self"}
+            />
+            <.input
+              id="page_section_fixed_data_cta_title"
+              name="page_section[fixed_data][cta_title]"
+              type="text"
+              label="CTA title"
+              value={fixed_value(@form, "cta_title")}
+              placeholder="Small SEO title"
+            />
+            <.input
+              id="page_section_fixed_data_cta_text_class"
+              name="page_section[fixed_data][cta_text_class]"
+              type="text"
+              label="CTA text classes"
+              value={fixed_value(@form, "cta_text_class")}
+              placeholder="text-white"
+            />
+            <.input
+              id="page_section_fixed_data_cta_classes"
+              name="page_section[fixed_data][cta_classes]"
+              type="textarea"
+              label="CTA custom classes"
+              value={fixed_value(@form, "cta_classes")}
+              rows="3"
+              placeholder="btn-primary shadow-lg"
             />
           </div>
         </div>
@@ -288,6 +475,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
      |> assign(:source_status_options, @source_status_options)
      |> assign(:operator_options, @operator_options)
      |> assign(:formatter_options, @formatter_options)
+     |> assign(:width_options, @width_options)
+     |> assign(:hero_ratio_options, @hero_ratio_options)
+     |> assign(:target_options, @target_options)
      |> assign(:content_type_options, content_type_options(assigns[:content_types] || []))
      |> assign(:source_error, nil)
      |> assign_source_config(source_params(section), mapping_rows(section))
@@ -395,8 +585,21 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
 
   defp fixed_value(form, key) do
     case form[:fixed_data].value do
-      value when is_map(value) -> Map.get(value, key)
+      value when is_map(value) -> value |> string_key_map() |> Map.get(key)
       _other -> nil
+    end
+  end
+
+  defp settings_value(form, key, fallback \\ nil) do
+    case form[:settings].value do
+      value when is_map(value) ->
+        value
+        |> string_key_map()
+        |> Map.get(key)
+        |> non_empty_value(fallback)
+
+      _other ->
+        fallback
     end
   end
 
@@ -500,6 +703,16 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.SectionFormComponent do
   end
 
   defp string_key_map(_value), do: %{}
+
+  defp non_empty_value(value, fallback) when is_binary(value) do
+    case String.trim(value) do
+      "" -> fallback
+      text -> text
+    end
+  end
+
+  defp non_empty_value(value, _fallback) when not is_nil(value), do: value
+  defp non_empty_value(_value, fallback), do: fallback
 
   defp config_error_message(:source),
     do: "Source query is invalid. Choose a content type and keep the limit between 1 and 50."

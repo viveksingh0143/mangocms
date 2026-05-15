@@ -129,7 +129,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     end
   end
 
-  defp valid_value?(type, value, _settings) when type in ~w(string text image url),
+  defp valid_value?(type, value, _settings) when type in ~w(string text image video url),
     do: is_binary(value)
 
   defp valid_value?("number", value, _settings) do

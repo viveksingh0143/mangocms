@@ -85,8 +85,11 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   @impl true
-  def handle_params(%{"id" => id} = params, _url, socket) do
-    {:noreply, load_builder(socket, id, params["section"])}
+  def handle_params(%{"id" => id} = params, url, socket) do
+    {:noreply,
+     socket
+     |> assign(:tenant_public_base_url, public_base_url(url))
+     |> load_builder(id, params["section"])}
   end
 
   @impl true
@@ -95,7 +98,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      socket
      |> select_section(id)
      |> assign(:selected_canvas_element, selected_canvas_element(%{"kind" => "section"}))
-     |> assign(:right_panel, :section_properties)}
+     |> assign(:right_panel, nil)}
   end
 
   def handle_event("select_canvas_element", %{"section_id" => id} = params, socket) do
@@ -111,7 +114,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      socket
      |> clear_active_section()
      |> assign(:selected_canvas_element, selected_canvas_element(params))
-     |> assign(:right_panel, :page_properties)}
+     |> assign(:right_panel, nil)}
   end
 
   def handle_event("clear_section_focus", _params, socket) do
@@ -132,6 +135,17 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   def handle_event("open_seo_panel", _params, socket) do
     {:noreply, assign(socket, :right_panel, :seo)}
+  end
+
+  def handle_event("open_section_properties", %{"id" => id} = params, socket) do
+    {:noreply,
+     socket
+     |> select_section_if_needed(id)
+     |> assign(
+       :selected_canvas_element,
+       selected_canvas_element(params |> Map.put("kind", "section") |> Map.put("section_id", id))
+     )
+     |> assign(:right_panel, :section_properties)}
   end
 
   def handle_event("open_section_properties", _params, socket) do
@@ -304,6 +318,24 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
     :ok = Pages.reorder_sections(socket.assigns.current_tenant, socket.assigns.page, ids)
     {:noreply, reload_sections(socket, id)}
+  end
+
+  def handle_event("delete_section", %{"id" => id}, socket) do
+    section = Pages.get_section!(socket.assigns.current_tenant, id)
+    ensure_section_belongs_to_page!(socket.assigns.page, section)
+    {:ok, _section} = Pages.delete_section(socket.assigns.current_tenant, section)
+
+    next_active_id =
+      socket.assigns.current_tenant
+      |> Pages.list_sections(socket.assigns.page)
+      |> List.first()
+      |> then(&(&1 && &1.id))
+
+    {:noreply,
+     socket
+     |> clear_dirty_section(id)
+     |> put_flash(:info, "Section removed")
+     |> reload_sections(next_active_id)}
   end
 
   def handle_event("reorder_sections", %{"ids" => ids}, socket) when is_list(ids) do
@@ -545,23 +577,30 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                 value={@page_form[:title].value}
                 placeholder="Untitled page"
                 class="py-2 text-3xl font-bold leading-tight text-base-content"
-                phx-click="select_canvas_element"
-                phx-value-kind="page"
-                phx-value-field="title"
-                data-builder-page-element="true"
               />
-              <Shared.editable_text
-                id="builder_page_slug"
-                name="page[slug]"
-                label="Page slug"
-                value={@page_form[:slug].value}
-                placeholder="page-slug"
-                class="mt-1 text-sm font-medium text-base-content/50"
-                phx-click="select_canvas_element"
-                phx-value-kind="page"
-                phx-value-field="slug"
-                data-builder-page-element="true"
-              />
+              <div class="mt-1 grid gap-1 text-sm font-medium text-base-content/50">
+                <.link
+                  id="builder-public-page-link"
+                  href={public_page_url(@tenant_public_base_url, @page_form[:slug].value)}
+                  class="w-fit rounded text-primary underline-offset-4 hover:underline"
+                  target="_blank"
+                >
+                  {public_page_url(@tenant_public_base_url, @page_form[:slug].value)}
+                </.link>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-base-content/40">
+                    Slug
+                  </span>
+                  <Shared.editable_text
+                    id="builder_page_slug"
+                    name="page[slug]"
+                    label="Page slug"
+                    value={@page_form[:slug].value}
+                    placeholder="page-slug"
+                    class="inline-flex min-h-0 text-sm font-medium text-base-content/50"
+                  />
+                </div>
+              </div>
               <Shared.editable_text
                 id="builder_page_subtitle"
                 name="page[seo][subtitle]"
@@ -570,10 +609,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                 placeholder="Add a short page subtitle."
                 multiline
                 class="mt-3 text-base leading-7 text-base-content/70"
-                phx-click="select_canvas_element"
-                phx-value-kind="page"
-                phx-value-field="subtitle"
-                data-builder-page-element="true"
               />
             </div>
           </.form>
@@ -599,11 +634,35 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
               class={builder_section_class(section, @active_section, @dirty_section_ids)}
             >
               <span
-                class="absolute right-3 top-3 z-10 cursor-grab rounded-full border border-base-300 bg-base-100/90 p-2 text-base-content/50 shadow-sm backdrop-blur"
+                class="absolute right-24 top-3 z-10 cursor-grab rounded-full border border-base-300 bg-base-100/90 p-2 text-base-content/50 shadow-sm backdrop-blur"
                 title="Drag section"
+                data-builder-ignore-click
               >
                 <.icon name="hero-bars-3" class="size-4" />
               </span>
+              <button
+                id={"builder-section-gear-#{section.id}"}
+                type="button"
+                phx-click="open_section_properties"
+                phx-value-id={section.id}
+                data-builder-ignore-click
+                class="absolute right-14 top-3 z-10 rounded-full border border-base-300 bg-base-100/90 p-2 text-base-content/60 shadow-sm backdrop-blur transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                title="Section settings"
+              >
+                <.icon name="hero-cog-6-tooth" class="size-4" />
+              </button>
+              <button
+                id={"builder-delete-section-#{section.id}"}
+                type="button"
+                phx-click="delete_section"
+                phx-value-id={section.id}
+                data-confirm="Remove this section from the page?"
+                data-builder-ignore-click
+                class="absolute right-3 top-3 z-10 rounded-full border border-error/20 bg-base-100/90 p-2 text-error shadow-sm backdrop-blur transition hover:bg-error/10"
+                title="Delete section"
+              >
+                <.icon name="hero-trash" class="size-4" />
+              </button>
 
               <%= if section_active?(section, @active_section) do %>
                 <.form
@@ -640,6 +699,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                 </.form>
               <% else %>
                 <button
+                  id={"builder-select-section-#{section.id}"}
                   type="button"
                   phx-click="select_section"
                   phx-value-id={section.id}
@@ -699,10 +759,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         :if={@panel == :seo}
         page_form={@page_form}
         form_id="builder-page-form"
-      />
-      <.page_element_panel
-        :if={@panel == :page_properties}
-        selected_element={@selected_element}
       />
       <.section_properties_panel
         :if={@panel == :section_properties and @active_section}
@@ -777,40 +833,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :selected_element, :map, required: true
-
-  defp page_element_panel(assigns) do
-    ~H"""
-    <div
-      id="builder-page-element-panel"
-      class="h-full overflow-y-auto p-5"
-    >
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-lg font-semibold text-base-content">Page element</h2>
-          <p class="mt-1 text-sm text-base-content/60">
-            {page_element_description(@selected_element)}
-          </p>
-        </div>
-        <button
-          id="builder-close-page-element-panel"
-          type="button"
-          phx-click="close_right_panel"
-          class="btn btn-square btn-ghost btn-sm"
-          title="Close page panel"
-        >
-          <.icon name="hero-x-mark" class="size-4" />
-        </button>
-      </div>
-
-      <div class="mt-5 rounded-lg border border-dashed border-base-300 bg-base-200 p-4 text-sm text-base-content/60">
-        Page title, slug, and subtitle are edited directly on the canvas. Use the SEO action for
-        search metadata.
-      </div>
-    </div>
-    """
-  end
-
   attr :section, PageSection, required: true
   attr :form, :any, required: true
   attr :form_id, :string, required: true
@@ -860,8 +882,18 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
           hero_ratio_options={@hero_ratio_options}
         />
 
+        <.section_text_properties
+          :if={selected_element_kind(@selected_element) == "section" and @section.mode == "fixed"}
+          section={@section}
+          form={@form}
+          form_id={@form_id}
+        />
+
         <.image_element_properties
-          :if={selected_element_kind(@selected_element) == "image"}
+          :if={
+            selected_element_kind(@selected_element) in ["section", "image"] and
+              @section.mode == "fixed"
+          }
           section={@section}
           form={@form}
           form_id={@form_id}
@@ -870,7 +902,10 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         />
 
         <.link_element_properties
-          :if={selected_element_kind(@selected_element) == "link"}
+          :if={
+            selected_element_kind(@selected_element) in ["section", "link"] and
+              @section.mode == "fixed"
+          }
           section={@section}
           form={@form}
           form_id={@form_id}
@@ -898,6 +933,66 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         />
       </div>
     </div>
+    """
+  end
+
+  attr :section, PageSection, required: true
+  attr :form, :any, required: true
+  attr :form_id, :string, required: true
+
+  defp section_text_properties(assigns) do
+    ~H"""
+    <section class="grid gap-4 rounded-lg border border-base-300 bg-base-200 p-4">
+      <h3 class="font-semibold text-base-content">Text classes</h3>
+      <.input
+        id={"builder_section_eyebrow_classes_#{@section.id}"}
+        name="section[fixed_data][eyebrow_classes]"
+        type="text"
+        label="Eyebrow classes"
+        value={fixed_form_value(@form, "eyebrow_classes")}
+        placeholder="text-primary"
+        form={@form_id}
+        class="w-full input"
+        phx-change="mark_active_section_dirty"
+        phx-debounce="300"
+      />
+      <.input
+        id={"builder_section_title_classes_#{@section.id}"}
+        name="section[fixed_data][title_classes]"
+        type="text"
+        label="Title classes"
+        value={fixed_form_value(@form, "title_classes")}
+        placeholder="text-primary max-w-3xl"
+        form={@form_id}
+        class="w-full input"
+        phx-change="mark_active_section_dirty"
+        phx-debounce="300"
+      />
+      <.input
+        id={"builder_section_subtitle_classes_#{@section.id}"}
+        name="section[fixed_data][subtitle_classes]"
+        type="text"
+        label="Subtitle classes"
+        value={fixed_form_value(@form, "subtitle_classes")}
+        placeholder="text-base-content/70"
+        form={@form_id}
+        class="w-full input"
+        phx-change="mark_active_section_dirty"
+        phx-debounce="300"
+      />
+      <.input
+        id={"builder_section_body_classes_#{@section.id}"}
+        name="section[fixed_data][body_classes]"
+        type="text"
+        label="Body classes"
+        value={fixed_form_value(@form, "body_classes")}
+        placeholder="leading-8"
+        form={@form_id}
+        class="w-full input"
+        phx-change="mark_active_section_dirty"
+        phx-debounce="300"
+      />
+    </section>
     """
   end
 
@@ -1031,7 +1126,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       <.input
         id={"builder_section_image_url_#{@section.id}"}
         name="section[fixed_data][image_url]"
-        type="url"
+        type="text"
         label="Image URL"
         value={fixed_form_value(@form, "image_url")}
         placeholder="/uploads/tenants/.../image.png"
@@ -1415,6 +1510,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
             id={"builder-section-properties-button-#{@section.id}"}
             type="button"
             phx-click="open_section_properties"
+            phx-value-id={@section.id}
             class="btn btn-sm btn-ghost"
           >
             Properties
@@ -1561,6 +1657,39 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   defp page_form(page), do: page |> Pages.change_page() |> to_form()
+
+  defp public_base_url(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host} = uri when is_binary(scheme) and is_binary(host) ->
+        "#{scheme}://#{host}#{public_port(uri)}"
+
+      _uri ->
+        ""
+    end
+  end
+
+  defp public_base_url(_url), do: ""
+
+  defp public_port(%URI{scheme: "http", port: port}) when port in [nil, 80], do: ""
+  defp public_port(%URI{scheme: "https", port: port}) when port in [nil, 443], do: ""
+  defp public_port(%URI{port: nil}), do: ""
+  defp public_port(%URI{port: port}), do: ":#{port}"
+
+  defp public_page_url(base_url, slug) do
+    slug =
+      slug
+      |> to_string()
+      |> String.trim()
+      |> String.trim("/")
+
+    base_url = String.trim_trailing(to_string(base_url), "/")
+
+    if slug == "" do
+      base_url <> "/"
+    else
+      base_url <> "/" <> slug
+    end
+  end
 
   defp section_form(%PageSection{} = section) do
     %{}
@@ -1904,7 +2033,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "image" -> "Image properties"
       "link" -> "Link properties"
       "text" -> "#{text_element_label(element)} properties"
-      "page" -> "Page element"
       _section -> "Section properties"
     end
   end
@@ -1914,7 +2042,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "image" -> "Image source, upload, alt text, and optional anchor settings."
       "link" -> "Href, target, title, text color, and custom button classes."
       "text" -> "Edit this text directly or tune its custom classes here."
-      "page" -> "Visible page text is edited directly on the page canvas."
       _section -> "Layout, background, border, classes, and dynamic source settings."
     end
   end
@@ -1932,12 +2059,6 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     |> text_element_field()
     |> human_label()
   end
-
-  defp page_element_description(%{"field" => field}) when is_binary(field) do
-    "Editing page #{human_label(field)}."
-  end
-
-  defp page_element_description(_element), do: "Editing page-level content."
 
   defp builder_section_class(section, active_section, dirty_section_ids) do
     [

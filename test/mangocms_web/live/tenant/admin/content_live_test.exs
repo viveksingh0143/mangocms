@@ -118,6 +118,22 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
         position: 20
       })
 
+    {:ok, _image_field} =
+      ContentEngine.create_content_type_field(tenant, content_type, %{
+        label: "Image",
+        field_key: "image_url",
+        field_type: "image",
+        position: 30
+      })
+
+    {:ok, _video_field} =
+      ContentEngine.create_content_type_field(tenant, content_type, %{
+        label: "Video",
+        field_key: "video_url",
+        field_type: "video",
+        position: 40
+      })
+
     content_type
   end
 
@@ -215,6 +231,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       assert has_element?(entries_live, "#new-content-entry-button")
       assert entries_live |> element("#new-content-entry-button") |> render_click()
       assert has_element?(entries_live, "#content-entry-form")
+      assert has_element?(entries_live, "#content_entry_payload_image_url")
+      assert has_element?(entries_live, "#content_entry_payload_image_url_upload")
+      assert has_element?(entries_live, "#content_entry_payload_video_url")
+      assert has_element?(entries_live, "#content_entry_payload_video_url_upload")
 
       invalid_entry_attrs = %{
         title: "Broken Service",

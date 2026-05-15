@@ -87,6 +87,35 @@ const BuilderSortable = {
   mounted() {
     this.draggingId = null
     this.draggingPreset = null
+    this.dropIndicator = document.createElement("div")
+    this.dropIndicator.className = "col-span-12 h-2 rounded-full bg-primary/70 shadow-sm shadow-primary/30"
+
+    this.clearDropIndicator = () => {
+      if (this.dropIndicator.parentNode) this.dropIndicator.remove()
+    }
+
+    this.targetPlacement = event => {
+      const target = event.target.closest("[data-section-id]")
+      if (!target || target.dataset.sectionId === this.draggingId) return {target: null, targetId: null, placement: "after"}
+
+      const placement = event.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2 ? "before" : "after"
+      return {target, targetId: target.dataset.sectionId, placement}
+    }
+
+    this.showDropIndicator = event => {
+      const {target, placement} = this.targetPlacement(event)
+
+      if (!target) {
+        this.el.appendChild(this.dropIndicator)
+        return
+      }
+
+      if (placement === "before") {
+        target.before(this.dropIndicator)
+      } else {
+        target.after(this.dropIndicator)
+      }
+    }
 
     this.handleDragStart = event => {
       const preset = event.target.closest("[data-preset-id]")
@@ -114,24 +143,27 @@ const BuilderSortable = {
       if (item) item.classList.remove("opacity-60")
       this.draggingId = null
       this.draggingPreset = null
+      this.clearDropIndicator()
     }
 
     document.addEventListener("dragstart", this.handleDragStart)
     document.addEventListener("dragend", this.handleDragEnd)
 
     this.el.addEventListener("dragover", event => {
-      if (this.draggingId || this.draggingPreset) event.preventDefault()
+      if (this.draggingId || this.draggingPreset) {
+        event.preventDefault()
+        this.showDropIndicator(event)
+      }
     })
 
     this.el.addEventListener("drop", event => {
       if (!this.draggingId && !this.draggingPreset) return
       event.preventDefault()
 
-      const target = event.target.closest("[data-section-id]")
-      const targetId = target && target.dataset.sectionId
+      const {targetId, placement} = this.targetPlacement(event)
+      this.clearDropIndicator()
 
       if (this.draggingPreset) {
-        const placement = target && event.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2 ? "before" : "after"
         this.pushEvent("insert_preset_section", {preset: this.draggingPreset, target_id: targetId, placement})
         this.draggingPreset = null
         return
@@ -141,7 +173,9 @@ const BuilderSortable = {
       const nextIds = ids.filter(id => id !== this.draggingId)
 
       if (targetId && targetId !== this.draggingId) {
-        nextIds.splice(nextIds.indexOf(targetId), 0, this.draggingId)
+        const targetIndex = nextIds.indexOf(targetId)
+        const insertIndex = placement === "after" ? targetIndex + 1 : targetIndex
+        nextIds.splice(insertIndex, 0, this.draggingId)
       } else {
         nextIds.push(this.draggingId)
       }
@@ -154,6 +188,7 @@ const BuilderSortable = {
   destroyed() {
     document.removeEventListener("dragstart", this.handleDragStart)
     document.removeEventListener("dragend", this.handleDragEnd)
+    this.clearDropIndicator()
   },
 }
 
@@ -162,24 +197,30 @@ const BuilderCanvas = {
     this.el.addEventListener("click", event => {
       if (event.target.closest("#builder-palette")) return
       if (event.target.closest("#builder-seo-panel")) return
-      if (event.target.closest("#builder-page-element-panel")) return
       if (event.target.closest("#builder-section-properties-panel")) return
       if (event.target.closest("#builder-inspector-sidebar")) return
       if (event.target.closest("[id^='builder-section-bottom-sheet-']")) return
       if (event.target.closest("[data-builder-page-element]")) return
+      if (event.target.closest("[data-builder-ignore-click]")) return
       if (event.target.matches("input[type='file'][data-phx-upload-ref]")) return
 
       const section = event.target.closest("[data-section-id]")
+      const element = event.target.closest("[data-builder-element]")
 
-      if (section) {
-        const element = event.target.closest("[data-builder-element]")
+      if (section && element) {
+        const kind = element.dataset.builderElement || "section"
+
+        if (kind !== "text") event.preventDefault()
+
         this.pushEvent("select_canvas_element", {
           section_id: section.dataset.sectionId,
-          kind: element ? element.dataset.builderElement : "section",
-          field: element ? element.dataset.builderField : null,
+          kind,
+          field: element.dataset.builderField || null,
         })
         return
       }
+
+      if (section) return
 
       this.pushEvent("clear_section_focus", {})
     })
