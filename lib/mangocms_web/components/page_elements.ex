@@ -21,7 +21,7 @@ defmodule MangoCMSWeb.PageElements do
   @spec section(map()) :: Phoenix.LiveView.Rendered.t()
   def section(assigns) do
     ~H"""
-    <section class={class_names(@classes, "w-full")}>
+    <section class={class_names(@classes, "w-full")} style={style_attr(@classes)}>
       {render_slot(@inner_block)}
     </section>
     """
@@ -35,12 +35,15 @@ defmodule MangoCMSWeb.PageElements do
   @spec row(map()) :: Phoenix.LiveView.Rendered.t()
   def row(assigns) do
     ~H"""
-    <div class={
-      class_names(
-        @classes,
-        "mx-auto grid w-full max-w-7xl grid-cols-12 gap-6 px-4 py-8 sm:px-6 lg:px-8"
-      )
-    }>
+    <div
+      class={
+        class_names(
+          @classes,
+          "mx-auto grid w-full max-w-7xl grid-cols-12 gap-6 px-4 py-6 sm:px-6 lg:px-8"
+        )
+      }
+      style={style_attr(@classes)}
+    >
       {render_slot(@inner_block)}
     </div>
     """
@@ -54,7 +57,7 @@ defmodule MangoCMSWeb.PageElements do
   @spec column(map()) :: Phoenix.LiveView.Rendered.t()
   def column(assigns) do
     ~H"""
-    <div class={class_names(@classes, "col-span-12")}>
+    <div class={class_names(@classes, "col-span-12")} style={style_attr(@classes)}>
       {render_slot(@inner_block)}
     </div>
     """
@@ -75,29 +78,47 @@ defmodule MangoCMSWeb.PageElements do
     ~H"""
     <%= case @level do %>
       <% 1 -> %>
-        <h1 class={
-          class_names(@classes, "text-4xl font-bold tracking-tight text-base-content sm:text-5xl")
-        }>
+        <h1
+          class={
+            class_names(@classes, "text-4xl font-bold tracking-tight text-base-content sm:text-5xl")
+          }
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h1>
       <% 2 -> %>
-        <h2 class={class_names(@classes, "text-3xl font-bold tracking-tight text-base-content")}>
+        <h2
+          class={class_names(@classes, "text-3xl font-bold tracking-tight text-base-content")}
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h2>
       <% 3 -> %>
-        <h3 class={class_names(@classes, "text-2xl font-semibold text-base-content")}>
+        <h3
+          class={class_names(@classes, "text-2xl font-semibold text-base-content")}
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h3>
       <% 4 -> %>
-        <h4 class={class_names(@classes, "text-xl font-semibold text-base-content")}>
+        <h4
+          class={class_names(@classes, "text-xl font-semibold text-base-content")}
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h4>
       <% 5 -> %>
-        <h5 class={class_names(@classes, "text-lg font-semibold text-base-content")}>
+        <h5
+          class={class_names(@classes, "text-lg font-semibold text-base-content")}
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h5>
       <% _ -> %>
-        <h6 class={class_names(@classes, "text-base font-semibold text-base-content")}>
+        <h6
+          class={class_names(@classes, "text-base font-semibold text-base-content")}
+          style={style_attr(@classes)}
+        >
           {prop(@props, "text", "Untitled heading")}
         </h6>
     <% end %>
@@ -111,7 +132,10 @@ defmodule MangoCMSWeb.PageElements do
   @spec paragraph(map()) :: Phoenix.LiveView.Rendered.t()
   def paragraph(assigns) do
     ~H"""
-    <p class={class_names(@classes, "text-base leading-7 text-base-content/75")}>
+    <p
+      class={class_names(@classes, "text-base leading-7 text-base-content/75")}
+      style={style_attr(@classes)}
+    >
       {prop(@props, "text", "Add paragraph text.")}
     </p>
     """
@@ -124,9 +148,12 @@ defmodule MangoCMSWeb.PageElements do
   @spec blockquote(map()) :: Phoenix.LiveView.Rendered.t()
   def blockquote(assigns) do
     ~H"""
-    <blockquote class={
-      class_names(@classes, "border-l-4 border-primary pl-4 text-lg italic text-base-content/80")
-    }>
+    <blockquote
+      class={
+        class_names(@classes, "border-l-4 border-primary pl-4 text-lg italic text-base-content/80")
+      }
+      style={style_attr(@classes)}
+    >
       {prop(@props, "text", "Add a quote.")}
     </blockquote>
     """
@@ -147,13 +174,19 @@ defmodule MangoCMSWeb.PageElements do
 
     ~H"""
     <.link :if={@href != ""} href={@href} target={@target}>
-      <img src={@src} alt={@alt} class={class_names(@classes, "w-full rounded-lg object-cover")} />
+      <img
+        src={@src}
+        alt={@alt}
+        class={class_names(@classes, "w-full rounded-lg object-cover")}
+        style={style_attr(@classes)}
+      />
     </.link>
     <img
       :if={@href == ""}
       src={@src}
       alt={@alt}
       class={class_names(@classes, "w-full rounded-lg object-cover")}
+      style={style_attr(@classes)}
     />
     """
   end
@@ -170,7 +203,10 @@ defmodule MangoCMSWeb.PageElements do
       |> assign(:title, prop(assigns.props, "title", "Video"))
 
     ~H"""
-    <div class={class_names(@classes, "aspect-video overflow-hidden rounded-lg bg-base-200")}>
+    <div
+      class={class_names(@classes, "aspect-video overflow-hidden rounded-lg bg-base-200")}
+      style={style_attr(@classes)}
+    >
       <iframe
         :if={@src != ""}
         src={@src}
@@ -200,7 +236,12 @@ defmodule MangoCMSWeb.PageElements do
       |> assign(:target, link_target(assigns.props))
 
     ~H"""
-    <.link href={@href} target={@target} class={class_names(@classes, "btn btn-primary")}>
+    <.link
+      href={@href}
+      target={@target}
+      class={class_names(@classes, "btn btn-primary")}
+      style={style_attr(@classes)}
+    >
       {prop(@props, "text", "Button")}
     </.link>
     """
@@ -224,6 +265,7 @@ defmodule MangoCMSWeb.PageElements do
       target={@target}
       title={@title}
       class={class_names(@classes, "link link-primary")}
+      style={style_attr(@classes)}
     >
       {prop(@props, "text", "Link")}
     </.link>
@@ -237,7 +279,7 @@ defmodule MangoCMSWeb.PageElements do
   @spec dynamic_form(map()) :: Phoenix.LiveView.Rendered.t()
   def dynamic_form(assigns) do
     ~H"""
-    <form class={class_names(@classes, "card bg-base-100 p-4 shadow-sm")}>
+    <form class={class_names(@classes, "card bg-base-100 p-4 shadow-sm")} style={style_attr(@classes)}>
       <label class="form-control">
         <span class="label-text">{prop(@props, "label", "Email")}</span>
         <input
@@ -261,12 +303,15 @@ defmodule MangoCMSWeb.PageElements do
   @spec unknown(map()) :: Phoenix.LiveView.Rendered.t()
   def unknown(assigns) do
     ~H"""
-    <div class={
-      class_names(
-        @classes,
-        "rounded-lg border border-dashed border-base-300 p-4 text-sm text-base-content/60"
-      )
-    }>
+    <div
+      class={
+        class_names(
+          @classes,
+          "rounded-lg border border-dashed border-base-300 p-4 text-sm text-base-content/60"
+        )
+      }
+      style={style_attr(@classes)}
+    >
       {render_slot(@inner_block)}
     </div>
     """
@@ -277,6 +322,7 @@ defmodule MangoCMSWeb.PageElements do
   def class_names(classes, fallback) when is_map(classes) do
     [
       class_value(classes, "display", fallback),
+      class_value(classes, "classes", ""),
       class_value(classes, "daisy_ui", ""),
       class_value(classes, "padding", ""),
       class_value(classes, "margin", ""),
@@ -285,6 +331,19 @@ defmodule MangoCMSWeb.PageElements do
   end
 
   def class_names(_classes, fallback), do: [fallback]
+
+  @doc "Returns inline CSS stored by the builder, or nil when no style is set."
+  @spec style_attr(map()) :: String.t() | nil
+  def style_attr(classes) when is_map(classes) do
+    classes
+    |> class_value("custom_css", "")
+    |> case do
+      "" -> nil
+      style -> style
+    end
+  end
+
+  def style_attr(_classes), do: nil
 
   @doc "Fetches a string prop with a fallback."
   @spec prop(map(), String.t(), String.t()) :: String.t()

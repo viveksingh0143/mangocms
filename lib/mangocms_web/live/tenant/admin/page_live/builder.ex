@@ -112,6 +112,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      |> assign(:clipboard, nil)
      |> assign(:viewport, "desktop")
      |> assign(:viewport_options, @viewport_options)
+     |> assign(:left_tab, "blocks")
+     |> assign(:blocks_collapsed, true)
      |> assign(:palette_query, "")
      |> assign(:current_version, page.content_tree_version || 1)
      |> assign(:global_sections, Pages.list_global_sections(tenant))
@@ -221,6 +223,14 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     {:noreply, assign(socket, :palette_query, query || "")}
   end
 
+  def handle_event("set_left_tab", %{"tab" => tab}, socket) when tab in ~w(blocks layers) do
+    {:noreply, assign(socket, :left_tab, tab)}
+  end
+
+  def handle_event("toggle_blocks", _params, socket) do
+    {:noreply, update(socket, :blocks_collapsed, &(!&1))}
+  end
+
   def handle_event("add_palette_node", %{"name" => name} = params, socket) do
     variant = Map.get(params, "variant", "default")
     target_id = socket.assigns.selected_id || "root"
@@ -310,13 +320,27 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   def handle_event("update_selected_node", %{"node" => node_params}, socket) do
     selected_id = socket.assigns.selected_id
+    props = safe_map(Map.get(node_params, "props"))
+    classes = normalize_inspector_classes(node_params)
 
     tree =
       socket.assigns.tree
-      |> ContentTree.update_node_props(selected_id, safe_map(Map.get(node_params, "props")))
-      |> ContentTree.update_node_classes(selected_id, safe_map(Map.get(node_params, "classes")))
+      |> ContentTree.update_node_props(selected_id, props)
+      |> ContentTree.update_node_classes(selected_id, classes)
 
     {:noreply, mutate_tree(socket, tree)}
+  end
+
+  def handle_event("add_class", %{"class" => class_name}, socket) do
+    socket
+    |> update_selected_class_text(&add_class_token(&1, class_name))
+    |> noreply()
+  end
+
+  def handle_event("remove_class", %{"class" => class_name}, socket) do
+    socket
+    |> update_selected_class_text(&remove_class_token(&1, class_name))
+    |> noreply()
   end
 
   def handle_event(
@@ -404,38 +428,86 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       <section
         id="page-builder"
         phx-hook="AstBuilderCanvas"
-        class="grid min-h-[calc(100vh-12rem)] grid-cols-[18rem_minmax(0,1fr)_20rem] gap-4"
+        class="grid h-[calc(100vh-10rem)] min-h-[38rem] grid-cols-[18rem_minmax(0,1fr)_20rem] gap-3 overflow-hidden"
       >
         <aside
           id="builder-palette"
-          class="flex min-h-full flex-col rounded-lg border border-base-300 bg-base-100"
+          class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
-          <div class="border-b border-base-300 p-4">
-            <label class="input input-bordered flex items-center gap-2">
-              <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
-              <input
-                id="builder-palette-search"
-                type="search"
-                name="q"
-                value={@palette_query}
-                phx-keyup="search_palette"
-                placeholder="Search blocks"
-                class="grow"
+          <div class="grid grid-cols-2 border-b border-base-300 p-2">
+            <button
+              id="builder-left-tab-blocks"
+              type="button"
+              phx-click="set_left_tab"
+              phx-value-tab="blocks"
+              class={["btn btn-sm", @left_tab == "blocks" && "btn-active"]}
+            >
+              <.icon name="hero-squares-plus" class="size-4" /> Blocks
+            </button>
+            <button
+              id="builder-left-tab-layers"
+              type="button"
+              phx-click="set_left_tab"
+              phx-value-tab="layers"
+              class={["btn btn-sm", @left_tab == "layers" && "btn-active"]}
+            >
+              <.icon name="hero-list-bullet" class="size-4" /> Layers
+            </button>
+          </div>
+
+          <div :if={@left_tab == "blocks"} class="flex min-h-0 flex-1 flex-col">
+            <div class="border-b border-base-300 p-3">
+              <label class="input input-bordered input-sm flex items-center gap-2">
+                <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
+                <input
+                  id="builder-palette-search"
+                  type="search"
+                  name="q"
+                  value={@palette_query}
+                  phx-keyup="search_palette"
+                  placeholder="Search blocks"
+                  class="grow"
+                />
+              </label>
+              <button
+                id="builder-toggle-blocks-button"
+                type="button"
+                phx-click="toggle_blocks"
+                class="btn btn-ghost btn-xs mt-3 w-full justify-between"
+              >
+                <span>
+                  {if @blocks_collapsed, do: "Expand block groups", else: "Collapse block groups"}
+                </span>
+                <.icon
+                  name={if(@blocks_collapsed, do: "hero-chevron-down", else: "hero-chevron-up")}
+                  class="size-4"
+                />
+              </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto p-3">
+              <.palette
+                groups={filtered_palette(@palette_query)}
+                global_sections={@global_sections}
+                collapsed={@blocks_collapsed}
               />
-            </label>
+            </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-4">
-            <.palette groups={filtered_palette(@palette_query)} global_sections={@global_sections} />
-          </div>
-
-          <div class="border-t border-base-300 p-4">
-            <h3 class="text-sm font-semibold">Layers</h3>
-            <.layers_tree tree={@tree} selected_id={@selected_id} />
+          <div :if={@left_tab == "layers"} class="flex min-h-0 flex-1 flex-col">
+            <div class="border-b border-base-300 p-3">
+              <h3 class="text-sm font-semibold">Layers</h3>
+              <p class="mt-1 text-xs text-base-content/60">
+                Select any node to focus it and show its properties.
+              </p>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-3">
+              <.layers_tree tree={@tree} selected_id={@selected_id} />
+            </div>
           </div>
         </aside>
 
-        <main class="overflow-hidden rounded-lg border border-base-300 bg-base-200">
+        <main class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-200">
           <.form
             for={@page_form}
             id="ast-builder-page-form"
@@ -492,7 +564,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
             </p>
           </div>
 
-          <div class="overflow-auto p-6">
+          <div class="min-h-0 flex-1 overflow-auto p-3">
             <div id="builder-canvas-frame" class={viewport_class(@viewport)}>
               <EditorCanvas.canvas tree={@tree} selected_id={@selected_id} />
             </div>
@@ -501,7 +573,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
         <aside
           id="builder-inspector-sidebar"
-          class="flex min-h-full flex-col rounded-lg border border-base-300 bg-base-100"
+          class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
           <%= if @show_versions? do %>
             <.version_history
@@ -524,13 +596,14 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   attr :groups, :list, required: true
   attr :global_sections, :list, default: []
+  attr :collapsed, :boolean, default: false
 
   defp palette(assigns) do
     ~H"""
     <div class="space-y-3">
       <details
         :for={group <- @groups}
-        open
+        open={!@collapsed}
         class="collapse collapse-arrow border border-base-300 bg-base-100"
       >
         <summary class="collapse-title min-h-0 py-3 text-sm font-semibold">{group.label}</summary>
@@ -552,7 +625,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         </div>
       </details>
 
-      <details open class="collapse collapse-arrow border border-base-300 bg-base-100">
+      <details open={!@collapsed} class="collapse collapse-arrow border border-base-300 bg-base-100">
         <summary class="collapse-title min-h-0 py-3 text-sm font-semibold">Global Sections</summary>
         <div class="collapse-content grid gap-2">
           <button
@@ -631,18 +704,20 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   attr :uploads, :map, required: true
 
   defp inspector(assigns) do
+    props = safe_map(assigns.selected_node && Map.get(assigns.selected_node, "props"))
+    classes = safe_map(assigns.selected_node && Map.get(assigns.selected_node, "classes"))
+    name = node_value(assigns.selected_node, "name", "No selection")
+
     assigns =
       assigns
       |> assign(:node_id, node_value(assigns.selected_node, "id", ""))
-      |> assign(:name, node_value(assigns.selected_node, "name", "No selection"))
-      |> assign(
-        :props,
-        safe_map(assigns.selected_node && Map.get(assigns.selected_node, "props"))
-      )
-      |> assign(
-        :classes,
-        safe_map(assigns.selected_node && Map.get(assigns.selected_node, "classes"))
-      )
+      |> assign(:name, name)
+      |> assign(:props, props)
+      |> assign(:classes, classes)
+      |> assign(:seo, safe_map(Map.get(props, "seo")))
+      |> assign(:class_text, inspector_class_text(classes))
+      |> assign(:class_tokens, class_tokens(inspector_class_text(classes)))
+      |> assign(:class_suggestions, class_suggestions(name))
 
     ~H"""
     <div class="flex items-center justify-between border-b border-base-300 p-4">
@@ -723,12 +798,32 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       </div>
 
       <div class="space-y-3">
-        <h3 class="text-sm font-semibold">Classes</h3>
-        <.class_input label="Display" key_name="display" value={Map.get(@classes, "display", "")} />
-        <.class_input label="daisyUI" key_name="daisy_ui" value={Map.get(@classes, "daisy_ui", "")} />
-        <.class_input label="Padding" key_name="padding" value={Map.get(@classes, "padding", "")} />
-        <.class_input label="Margin" key_name="margin" value={Map.get(@classes, "margin", "")} />
-        <.class_input label="Custom" key_name="custom" value={Map.get(@classes, "custom", "")} />
+        <h3 class="text-sm font-semibold">SEO</h3>
+        <.seo_input label="SEO title" key_name="title" value={Map.get(@seo, "title", "")} />
+        <.seo_input
+          label="SEO description"
+          key_name="description"
+          value={Map.get(@seo, "description", "")}
+        />
+        <.seo_input label="SEO keywords" key_name="keywords" value={Map.get(@seo, "keywords", "")} />
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold">Styling</h3>
+        <.class_tags tokens={@class_tokens} />
+        <.class_suggestion_buttons suggestions={@class_suggestions} tokens={@class_tokens} />
+        <.class_textarea
+          label="Classes"
+          key_name="display"
+          value={@class_text}
+          placeholder="btn btn-primary px-6 py-3"
+        />
+        <.class_textarea
+          label="Custom CSS"
+          key_name="custom_css"
+          value={Map.get(@classes, "custom_css", "")}
+          placeholder="border-radius: 1rem;"
+        />
       </div>
     </.form>
     """
@@ -751,15 +846,84 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   attr :key_name, :string, required: true
   attr :value, :string, default: ""
 
-  defp class_input(assigns) do
+  defp seo_input(assigns) do
     ~H"""
     <label class="form-control">
       <span class="label-text">{@label}</span>
       <input
-        name={"node[classes][#{@key_name}]"}
+        name={"node[props][seo][#{@key_name}]"}
         value={@value}
-        class="input input-bordered font-mono text-xs"
+        class="input input-bordered"
       />
+    </label>
+    """
+  end
+
+  attr :tokens, :list, default: []
+
+  defp class_tags(assigns) do
+    ~H"""
+    <div
+      :if={@tokens != []}
+      class="flex flex-wrap gap-1.5 rounded-lg border border-base-300 bg-base-200/50 p-2"
+    >
+      <button
+        :for={token <- @tokens}
+        type="button"
+        phx-click="remove_class"
+        phx-value-class={token}
+        class="badge badge-outline gap-1 font-mono"
+      >
+        {token}
+        <.icon name="hero-x-mark" class="size-3" />
+      </button>
+    </div>
+    """
+  end
+
+  attr :suggestions, :list, default: []
+  attr :tokens, :list, default: []
+
+  defp class_suggestion_buttons(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :available_suggestions,
+        Enum.reject(assigns.suggestions, &(&1 in assigns.tokens))
+      )
+
+    ~H"""
+    <div :if={@available_suggestions != []} class="flex flex-wrap gap-1.5">
+      <button
+        :for={suggestion <- @available_suggestions}
+        type="button"
+        phx-click="add_class"
+        phx-value-class={suggestion}
+        class="btn btn-xs btn-ghost border border-base-300 font-mono"
+      >
+        + {suggestion}
+      </button>
+    </div>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :key_name, :string, required: true
+  attr :value, :string, default: ""
+  attr :placeholder, :string, default: ""
+
+  defp class_textarea(assigns) do
+    ~H"""
+    <label class="form-control">
+      <span class="label-text">{@label}</span>
+      <textarea
+        id={"builder-style-#{@key_name}"}
+        name={"node[classes][#{@key_name}]"}
+        phx-hook="AutoGrowTextArea"
+        phx-debounce="300"
+        placeholder={@placeholder}
+        class="textarea textarea-bordered min-h-20 resize-none overflow-hidden font-mono text-xs"
+      >{@value}</textarea>
     </label>
     """
   end
@@ -860,6 +1024,77 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     |> assign_history(tree)
   end
 
+  defp update_selected_class_text(%{assigns: %{selected_id: nil}} = socket, _updater), do: socket
+
+  defp update_selected_class_text(socket, updater) do
+    selected_id = socket.assigns.selected_id
+    node = selected_node(socket.assigns.tree, selected_id)
+    class_text = node |> node_classes() |> inspector_class_text() |> updater.()
+
+    tree =
+      ContentTree.update_node_classes(socket.assigns.tree, selected_id, %{
+        "display" => class_text,
+        "daisy_ui" => "",
+        "padding" => "",
+        "margin" => "",
+        "custom" => ""
+      })
+
+    mutate_tree(socket, tree)
+  end
+
+  defp normalize_inspector_classes(node_params) do
+    classes = safe_map(Map.get(node_params, "classes"))
+
+    if Map.has_key?(classes, "display") do
+      classes
+      |> Map.update("display", "", &normalize_class_text/1)
+      |> Map.put("daisy_ui", "")
+      |> Map.put("padding", "")
+      |> Map.put("margin", "")
+      |> Map.put("custom", "")
+    else
+      classes
+    end
+  end
+
+  defp node_classes(%{"classes" => classes}) when is_map(classes), do: classes
+  defp node_classes(_node), do: %{}
+
+  defp inspector_class_text(classes) when is_map(classes) do
+    ["display", "classes", "daisy_ui", "padding", "margin", "custom"]
+    |> Enum.map(&Map.get(classes, &1, ""))
+    |> Enum.join(" ")
+    |> normalize_class_text()
+  end
+
+  defp inspector_class_text(_classes), do: ""
+
+  defp normalize_class_text(value) when is_binary(value) do
+    value
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.uniq()
+    |> Enum.join(" ")
+  end
+
+  defp normalize_class_text(_value), do: ""
+
+  defp class_tokens(value) when is_binary(value), do: String.split(value, ~r/\s+/, trim: true)
+  defp class_tokens(_value), do: []
+
+  defp add_class_token(value, token) do
+    [value, token]
+    |> Enum.join(" ")
+    |> normalize_class_text()
+  end
+
+  defp remove_class_token(value, token) do
+    value
+    |> class_tokens()
+    |> Enum.reject(&(&1 == token))
+    |> Enum.join(" ")
+  end
+
   defp assign_history(socket, tree) do
     history = socket.assigns[:history] || []
     index = socket.assigns[:history_index] || 0
@@ -923,7 +1158,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "name" => "section",
       "id" => node_id("section"),
       "props" => %{},
-      "classes" => %{"display" => "w-full bg-base-100", "padding" => "py-16"},
+      "classes" => %{"display" => "w-full bg-base-100 py-8"},
       "children" => [
         row_node("1:1")
       ]
@@ -1110,6 +1345,42 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   defp page_seo(%Page{seo: seo}, key), do: seo |> safe_map() |> Map.get(key, "")
+
+  defp class_suggestions("section") do
+    ~w(w-full bg-base-100 bg-base-200 bg-primary text-primary-content py-8 py-12 px-4 rounded-xl shadow-sm)
+  end
+
+  defp class_suggestions("row") do
+    ~w(mx-auto grid w-full max-w-7xl max-width-desktop grid-cols-12 gap-3 gap-4 gap-6 px-4 py-4)
+  end
+
+  defp class_suggestions("column") do
+    ~w(col-span-12 md:col-span-6 lg:col-span-4 lg:col-span-6 lg:col-span-8 flex flex-col gap-4)
+  end
+
+  defp class_suggestions("heading") do
+    ~w(text-2xl text-3xl text-4xl text-5xl font-bold font-extrabold text-base-content text-primary)
+  end
+
+  defp class_suggestions("paragraph") do
+    ~w(text-sm text-base text-lg leading-7 text-base-content text-base-content/75 max-w-3xl)
+  end
+
+  defp class_suggestions("button") do
+    ~w(btn btn-primary btn-secondary btn-outline btn-ghost btn-sm btn-md btn-lg rounded-full)
+  end
+
+  defp class_suggestions("anchor") do
+    ~w(link link-primary link-hover text-primary font-semibold underline underline-offset-4)
+  end
+
+  defp class_suggestions("image") do
+    ~w(w-full rounded-lg rounded-xl object-cover aspect-video shadow-md border border-base-300)
+  end
+
+  defp class_suggestions(_name) do
+    ~w(w-full rounded-lg bg-base-100 text-base-content shadow-sm border border-base-300 p-4 m-0)
+  end
 
   defp filtered_palette(""), do: @palette_groups
   defp filtered_palette(nil), do: @palette_groups

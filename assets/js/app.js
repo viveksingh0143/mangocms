@@ -265,6 +265,26 @@ const AstContentEditable = {
   },
 }
 
+const AutoGrowTextArea = {
+  mounted() {
+    this.resize = () => {
+      this.el.style.height = "auto"
+      this.el.style.height = `${this.el.scrollHeight}px`
+    }
+
+    this.el.addEventListener("input", this.resize)
+    this.resize()
+  },
+
+  updated() {
+    this.resize()
+  },
+
+  destroyed() {
+    this.el.removeEventListener("input", this.resize)
+  },
+}
+
 const AstBuilderCanvas = {
   mounted() {
     this.draggingNodeId = null
@@ -391,6 +411,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     ...colocatedHooks,
     AstBuilderCanvas,
     AstContentEditable,
+    AutoGrowTextArea,
     BuilderCanvas,
     BuilderSortable,
     ContentEditableInput,

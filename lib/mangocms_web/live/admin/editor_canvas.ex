@@ -41,7 +41,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       data-drop-target-id="root"
       data-drop-target-name="root"
       data-accepted-types={accepted_types("root")}
-      class="min-h-[60vh]"
+      class="min-h-[48vh]"
     >
       <%= for node <- @tree do %>
         <.editable_node node={node} selected_id={@selected_id} />
@@ -80,7 +80,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       phx-click="select_element"
       phx-value-id={@node_id}
       class={[
-        "group relative my-2 rounded-lg border border-dashed border-base-300 transition hover:border-primary/60 hover:bg-primary/5",
+        "group relative my-1 rounded-md border border-dashed border-base-300 transition hover:border-primary/60 hover:bg-primary/5",
         canvas_wrapper_class(@node),
         @selected_id == @node_id && "border-primary bg-primary/10"
       ]}
@@ -110,7 +110,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         </button>
       </div>
 
-      <div class="p-3">
+      <div class="p-2">
         <.editable_node_body
           node={@node}
           name={@name}
@@ -203,6 +203,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         "rounded outline-none transition focus:ring-2 focus:ring-primary/40",
         text_node_class(@tag, @classes)
       ]}
+      style={PageElements.style_attr(@classes)}
     >{@text}</div>
     """
   end
