@@ -63,7 +63,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
     <div
       id={"#{@id}_editable"}
       class={[
-        "min-h-8 rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
+        "rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
         @class
       ]}
       {@rest}
@@ -80,7 +80,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
         role="textbox"
         aria-label={@label || @placeholder || @name}
         spellcheck="true"
-        class="min-h-8 outline-none"
+        class="outline-none"
       >
         {@display_value}
       </div>
@@ -105,7 +105,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
     <div
       id={"#{@id}_editable"}
       class={[
-        "min-h-8 rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
+        "rounded-md transition focus-within:bg-base-200/60 focus-within:ring-2 focus-within:ring-primary/30",
         @class
       ]}
       {@rest}
@@ -122,7 +122,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Shared do
         role="textbox"
         aria-label={@label || @placeholder || @name}
         spellcheck="true"
-        class="min-h-8 outline-none"
+        class="outline-none"
       >
         {@display_value}
       </div>

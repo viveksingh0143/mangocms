@@ -1,6 +1,6 @@
 import Ecto.Query
 
-require IEx
+alias MangoCMS.ContentTree
 alias MangoCMS.Platform
 alias MangoCMS.Platform.Accounts
 alias MangoCMS.Platform.Accounts.User, as: PlatformUser
@@ -14,21 +14,67 @@ alias MangoCMS.Tenant.Pages
 alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 alias MangoCMS.Tenant.Settings, as: TenantSettings
 
-dbg("Starting seeds...")
+defmodule MangoCMS.Seeds.Faker do
+  @moduledoc false
 
-default_seed_password = if Mix.env() == :prod, do: nil, else: "P@ssw0rd123"
+  @first_names ~w(Aditi Arjun Kabir Maya Neha Omar Priya Rahul Riya Sana Tara Vivek)
+  @last_names ~w(Sharma Mehta Iyer Rao Nair Khan Kapoor Singh Patel Das)
+  @companies ["Acme Studio", "Northstar Labs", "Copper Leaf", "Pixel Foundry", "Brightlane"]
+  @services [
+    "Company Profile Website",
+    "AI Chat Add-on",
+    "Product Feature Microsite",
+    "Resume Website",
+    "Founder Blog",
+    "Customer Story Hub"
+  ]
 
-seed_password = fn env_name ->
-  System.get_env(env_name) || System.get_env("SEED_PASSWORD") || default_seed_password
+  def company_name do
+    module = Module.concat(["Faker", "Company"])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :name, 0) do
+      apply(module, :name, [])
+    else
+      Enum.random(@companies)
+    end
+  end
+
+  def person_name do
+    module = Module.concat(["Faker", "Person"])
+
+    cond do
+      Code.ensure_loaded?(module) and function_exported?(module, :name, 0) ->
+        apply(module, :name, [])
+
+      true ->
+        "#{Enum.random(@first_names)} #{Enum.random(@last_names)}"
+    end
+  end
+
+  def email(name, domain) do
+    local =
+      name
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, ".")
+      |> String.trim(".")
+
+    "#{local}@#{domain}"
+  end
+
+  def service_name, do: Enum.random(@services)
+
+  def sentence(topic) do
+    "#{topic} for teams that want fast pages, simple editing, and tenant-isolated content."
+  end
 end
+
+IO.puts("Seeding MangoCMS platform and tenant demo data...")
+
+seed_password =
+  System.get_env("SEED_PASSWORD") ||
+    if(Mix.env() == :prod, do: nil, else: "P@ssw0rd123")
 
 valid_password? = fn value -> is_binary(value) and String.length(value) >= 8 end
-
-days_ago_iso = fn days ->
-  DateTime.utc_now(:second)
-  |> DateTime.add(-days * 86_400, :second)
-  |> DateTime.to_iso8601()
-end
 
 print_changeset_errors = fn label, changeset ->
   errors =
@@ -51,44 +97,41 @@ confirm_platform_user = fn
     user
 end
 
-seed_platform_user = fn role, email, password, password_env_name, full_name ->
-  identity_key = PlatformUser.identity_key("platform", nil, email)
-  attrs = %{email: email, full_name: full_name, role: role, timezone: "UTC", locale: "en"}
+upsert_platform_user = fn attrs ->
+  identity_key = PlatformUser.identity_key("platform", nil, attrs.email)
+  attrs = Map.put_new(attrs, :password, seed_password)
 
   case Repo.get_by(PlatformUser, identity_key: identity_key) do
-    %PlatformUser{} = user ->
+    nil ->
+      if valid_password?.(attrs.password) do
+        case Accounts.create_user(attrs) do
+          {:ok, user} ->
+            confirm_platform_user.(user)
+            IO.puts("Created platform #{attrs.role}: #{attrs.email}")
+
+          {:error, changeset} ->
+            print_changeset_errors.("Could not create platform user #{attrs.email}", changeset)
+        end
+      else
+        IO.puts("Skipping platform user #{attrs.email}; set SEED_PASSWORD to at least 8 chars.")
+      end
+
+    user ->
+      attrs = Map.drop(attrs, [:password])
+
       case Accounts.update_user(user, attrs) do
         {:ok, user} ->
           confirm_platform_user.(user)
-          IO.puts("Updated platform #{role}: #{email}")
+          IO.puts("Updated platform #{attrs.role}: #{attrs.email}")
 
         {:error, changeset} ->
-          print_changeset_errors.("Could not update platform #{role} #{email}", changeset)
-      end
-
-    nil ->
-      if valid_password?.(password) do
-        case Accounts.create_user(Map.put(attrs, :password, password)) do
-          {:ok, user} ->
-            confirm_platform_user.(user)
-            IO.puts("Created platform #{role}: #{email}")
-
-          {:error, changeset} ->
-            print_changeset_errors.("Could not create platform #{role} #{email}", changeset)
-        end
-      else
-        IO.puts("""
-        Skipping platform #{role}: #{email}
-        Set #{password_env_name} or SEED_PASSWORD to at least 8 characters.
-        """)
+          print_changeset_errors.("Could not update platform user #{attrs.email}", changeset)
       end
   end
 end
 
-seed_plan = fn attrs ->
-  name = attrs.name
-
-  case Platform.get_plan_by_name(name) do
+upsert_plan = fn attrs ->
+  case Platform.get_plan_by_name(attrs.name) do
     nil ->
       case Platform.create_plan(attrs) do
         {:ok, plan} ->
@@ -96,7 +139,7 @@ seed_plan = fn attrs ->
           plan
 
         {:error, changeset} ->
-          print_changeset_errors.("Could not create plan #{name}", changeset)
+          print_changeset_errors.("Could not create plan #{attrs.name}", changeset)
           nil
       end
 
@@ -107,40 +150,41 @@ seed_plan = fn attrs ->
           plan
 
         {:error, changeset} ->
-          print_changeset_errors.("Could not update plan #{name}", changeset)
+          print_changeset_errors.("Could not update plan #{attrs.name}", changeset)
           plan
       end
   end
 end
 
-owner_email = System.get_env("PLATFORM_OWNER_EMAIL", "owner@mangocms.local")
-owner_password = seed_password.("PLATFORM_OWNER_PASSWORD")
-owner_name = System.get_env("PLATFORM_OWNER_NAME", "Platform Owner")
+upsert_platform_user.(%{
+  email: System.get_env("PLATFORM_OWNER_EMAIL", "owner@mangocms.local"),
+  full_name: System.get_env("PLATFORM_OWNER_NAME", "Platform Owner"),
+  role: "owner",
+  locale: "en",
+  timezone: "Asia/Kolkata"
+})
 
-admin_email = System.get_env("PLATFORM_ADMIN_EMAIL", "admin@mangocms.local")
-admin_password = seed_password.("PLATFORM_ADMIN_PASSWORD")
-admin_name = System.get_env("PLATFORM_ADMIN_NAME", "Platform Admin")
+upsert_platform_user.(%{
+  email: System.get_env("PLATFORM_ADMIN_EMAIL", "admin@mangocms.local"),
+  full_name: System.get_env("PLATFORM_ADMIN_NAME", "Platform Admin"),
+  role: "admin",
+  locale: "en",
+  timezone: "Asia/Kolkata"
+})
 
-customer_email = System.get_env("PLATFORM_CUSTOMER_EMAIL", "customer@mangocms.local")
-customer_password = seed_password.("PLATFORM_CUSTOMER_PASSWORD")
-customer_name = System.get_env("PLATFORM_CUSTOMER_NAME", "Demo Customer")
+upsert_platform_user.(%{
+  email: System.get_env("PLATFORM_CUSTOMER_EMAIL", "customer@mangocms.local"),
+  full_name: System.get_env("PLATFORM_CUSTOMER_NAME", "Demo Customer"),
+  role: "customer",
+  locale: "en",
+  timezone: "Asia/Kolkata"
+})
 
-seed_platform_user.("owner", owner_email, owner_password, "PLATFORM_OWNER_PASSWORD", owner_name)
-seed_platform_user.("admin", admin_email, admin_password, "PLATFORM_ADMIN_PASSWORD", admin_name)
-
-seed_platform_user.(
-  "customer",
-  customer_email,
-  customer_password,
-  "PLATFORM_CUSTOMER_PASSWORD",
-  customer_name
-)
-
-starter_plan =
-  seed_plan.(%{
+plans = [
+  %{
     name: "starter",
     display_name: "Starter",
-    description: "Launch a fast company profile, resume, or blog with the essentials.",
+    description: "Launch a company site, blog, resume, or product page with core CMS tools.",
     active: true,
     is_public: true,
     price_monthly: 99900,
@@ -159,7 +203,6 @@ starter_plan =
       "ai_chat" => true,
       "blog" => true,
       "company_profile" => true,
-      "custom_domain" => false,
       "product_features" => true,
       "resume" => true
     },
@@ -168,128 +211,104 @@ starter_plan =
     priority_support: false,
     white_label: false,
     sort_order: 10
-  })
-
-seed_plan.(%{
-  name: "pro",
-  display_name: "Pro",
-  description: "Grow a tenant site with custom domains, more users, and richer content.",
-  active: true,
-  is_public: true,
-  price_monthly: 249_900,
-  price_yearly: 2_499_000,
-  currency: "INR",
-  yearly_discount_bps: 1667,
-  trial_period_days: 14,
-  trial_requires_card: false,
-  max_pages: 250,
-  max_storage_mb: 10_240,
-  max_api_calls_per_day: 50_000,
-  max_users: 15,
-  max_domains: 3,
-  max_media_files: 5_000,
-  features: %{
-    "ai_chat" => true,
-    "analytics" => true,
-    "blog" => true,
-    "company_profile" => true,
-    "custom_domain" => true,
-    "product_features" => true,
-    "resume" => true
   },
-  custom_domain_support: true,
-  api_access: true,
-  priority_support: false,
-  white_label: false,
-  sort_order: 20
-})
-
-seed_plan.(%{
-  name: "enterprise",
-  display_name: "Enterprise",
-  description: "Higher limits, priority support, and white-label site operations.",
-  active: true,
-  is_public: true,
-  price_monthly: 999_900,
-  price_yearly: 9_999_000,
-  currency: "INR",
-  yearly_discount_bps: 1667,
-  trial_period_days: 30,
-  trial_requires_card: true,
-  max_pages: 2_500,
-  max_storage_mb: 102_400,
-  max_api_calls_per_day: 500_000,
-  max_users: 100,
-  max_domains: 25,
-  max_media_files: 50_000,
-  features: %{
-    "ai_chat" => true,
-    "analytics" => true,
-    "blog" => true,
-    "company_profile" => true,
-    "custom_domain" => true,
-    "exports" => true,
-    "product_features" => true,
-    "resume" => true,
-    "sso" => true
+  %{
+    name: "pro",
+    display_name: "Pro",
+    description: "More sites, users, domains, media, and content collections for growing teams.",
+    active: true,
+    is_public: true,
+    price_monthly: 249_900,
+    price_yearly: 2_499_000,
+    currency: "INR",
+    yearly_discount_bps: 1667,
+    trial_period_days: 14,
+    trial_requires_card: false,
+    max_pages: 250,
+    max_storage_mb: 10_240,
+    max_api_calls_per_day: 50_000,
+    max_users: 15,
+    max_domains: 3,
+    max_media_files: 5_000,
+    features: %{
+      "ai_chat" => true,
+      "analytics" => true,
+      "blog" => true,
+      "company_profile" => true,
+      "custom_domain" => true,
+      "product_features" => true,
+      "resume" => true
+    },
+    custom_domain_support: true,
+    api_access: true,
+    priority_support: false,
+    white_label: false,
+    sort_order: 20
   },
-  custom_domain_support: true,
-  api_access: true,
-  priority_support: true,
-  white_label: true,
-  sort_order: 30
-})
+  %{
+    name: "enterprise",
+    display_name: "Enterprise",
+    description: "White-label tenant operations with higher limits and priority support.",
+    active: true,
+    is_public: true,
+    price_monthly: 999_900,
+    price_yearly: 9_999_000,
+    currency: "INR",
+    yearly_discount_bps: 1667,
+    trial_period_days: 30,
+    trial_requires_card: true,
+    max_pages: 2_500,
+    max_storage_mb: 102_400,
+    max_api_calls_per_day: 500_000,
+    max_users: 100,
+    max_domains: 25,
+    max_media_files: 50_000,
+    features: %{
+      "ai_chat" => true,
+      "analytics" => true,
+      "blog" => true,
+      "company_profile" => true,
+      "custom_domain" => true,
+      "exports" => true,
+      "product_features" => true,
+      "resume" => true,
+      "sso" => true
+    },
+    custom_domain_support: true,
+    api_access: true,
+    priority_support: true,
+    white_label: true,
+    sort_order: 30
+  }
+]
+
+[starter_plan | _] = Enum.map(plans, upsert_plan)
 
 tenant_owner_email = System.get_env("TENANT_OWNER_EMAIL", "owner@acme.localhost")
-tenant_owner_password = seed_password.("TENANT_OWNER_PASSWORD")
 tenant_owner_name = System.get_env("TENANT_OWNER_NAME", "Acme Owner")
 
-tenant_base_attrs = %{
+tenant_attrs = %{
   name: System.get_env("TENANT_NAME", "Acme Studio"),
   domain: System.get_env("TENANT_DOMAIN", "acme.localhost"),
   subdomain: System.get_env("TENANT_SUBDOMAIN", "acme"),
   slug: System.get_env("TENANT_SLUG", "acme"),
   status: "active",
   active: true,
-  plan_id: starter_plan && starter_plan.id
+  plan_id: starter_plan.id
 }
 
 tenant =
-  cond do
-    is_nil(starter_plan) ->
-      IO.puts("Skipping demo tenant because the starter plan could not be seeded.")
-      nil
-
-    tenant = Platform.get_tenant_by_subdomain_with_plan(tenant_base_attrs.subdomain) ->
-      case Platform.update_tenant(tenant, tenant_base_attrs) do
-        {:ok, tenant} ->
-          IO.puts("Updated tenant: #{tenant.name}")
-          Platform.get_tenant_with_plan!(tenant.id)
-
-        {:error, changeset} ->
-          print_changeset_errors.(
-            "Could not update tenant #{tenant_base_attrs.subdomain}",
-            changeset
-          )
-
-          tenant
-      end
-
-    true ->
-      dbg(tenant_owner_password)
-
+  case Platform.get_tenant_by_subdomain_with_plan(tenant_attrs.subdomain) do
+    nil ->
       create_attrs =
-        if valid_password?.(tenant_owner_password) do
-          dbg("Valid Password")
-
-          Map.merge(tenant_base_attrs, %{
+        if valid_password?.(seed_password) do
+          Map.merge(tenant_attrs, %{
             owner_email: tenant_owner_email,
-            owner_password: tenant_owner_password,
+            owner_password: seed_password,
             owner_full_name: tenant_owner_name
           })
         else
-          dbg("Not Valid Password")
-          tenant_base_attrs
+          tenant_attrs
         end
 
       case Platform.create_tenant(create_attrs) do
@@ -298,12 +317,19 @@ tenant =
           Platform.get_tenant_with_plan!(tenant.id)
 
         {:error, changeset} ->
-          print_changeset_errors.(
-            "Could not create tenant #{tenant_base_attrs.subdomain}",
-            changeset
-          )
-
+          print_changeset_errors.("Could not create tenant #{tenant_attrs.slug}", changeset)
           nil
+      end
+
+    tenant ->
+      case Platform.update_tenant(tenant, tenant_attrs) do
+        {:ok, tenant} ->
+          IO.puts("Updated tenant: #{tenant.name}")
+          Platform.get_tenant_with_plan!(tenant.id)
+
+        {:error, changeset} ->
+          print_changeset_errors.("Could not update tenant #{tenant_attrs.slug}", changeset)
+          tenant
       end
   end
 
@@ -324,168 +350,136 @@ if tenant do
     end)
   end
 
-  tenant
-  |> TenantSettings.get_or_create_site_settings!()
-  |> then(fn settings ->
-    attrs = %{
-      site_name: tenant.name,
-      tagline:
-        "Launch company sites, blogs, resumes, and product pages from one local-first CMS.",
-      support_email: "support@#{tenant.domain}",
-      locale: "en",
-      timezone: "Asia/Kolkata"
-    }
+  upsert_tenant_user = fn attrs ->
+    attrs = Map.put_new(attrs, :password, seed_password)
 
-    case TenantSettings.update_site_settings(tenant, settings, attrs) do
-      {:ok, _settings} ->
-        IO.puts("Updated tenant settings: #{tenant.name}")
-
-      {:error, changeset} ->
-        print_changeset_errors.("Could not update tenant settings #{tenant.name}", changeset)
-    end
-  end)
-
-  dbg(tenant_owner_password)
-
-  if valid_password?.(tenant_owner_password) do
-    case TenantAccounts.get_user_by_email(tenant, tenant_owner_email) do
+    case TenantAccounts.get_user_by_email(tenant, attrs.email) do
       nil ->
-        case TenantAccounts.register_owner_user(tenant, %{
-               email: tenant_owner_email,
-               password: tenant_owner_password,
-               full_name: tenant_owner_name,
-               locale: "en",
-               timezone: "Asia/Kolkata"
-             }) do
-          {:ok, user} ->
-            confirm_tenant_user.(user)
+        if valid_password?.(attrs.password) do
+          case TenantAccounts.create_user(tenant, attrs) do
+            {:ok, user} ->
+              confirm_tenant_user.(user)
+              IO.puts("Created tenant #{attrs.role}: #{attrs.email}")
 
-            IO.puts(
-              "Created tenant owner: #{tenant_owner_email}, with password: #{tenant_owner_password}"
-            )
-
-          {:error, changeset} ->
-            print_changeset_errors.(
-              "Could not create tenant owner #{tenant_owner_email}",
-              changeset
-            )
+            {:error, changeset} ->
+              print_changeset_errors.("Could not create tenant user #{attrs.email}", changeset)
+          end
         end
 
       user ->
-        case TenantAccounts.update_user(tenant, user, %{
-               email: tenant_owner_email,
-               full_name: tenant_owner_name,
-               role: "owner",
-               locale: "en",
-               timezone: "Asia/Kolkata"
-             }) do
+        attrs = Map.drop(attrs, [:password])
+
+        case TenantAccounts.update_user(tenant, user, attrs) do
           {:ok, user} ->
             confirm_tenant_user.(user)
-            IO.puts("Updated tenant owner: #{tenant_owner_email}")
+            IO.puts("Updated tenant #{attrs.role}: #{attrs.email}")
 
           {:error, changeset} ->
-            print_changeset_errors.(
-              "Could not update tenant owner #{tenant_owner_email}",
-              changeset
-            )
+            print_changeset_errors.("Could not update tenant user #{attrs.email}", changeset)
         end
     end
-  else
-    IO.puts("""
-    Skipping tenant owner for #{tenant.name}.
-    Set TENANT_OWNER_PASSWORD or SEED_PASSWORD to at least 8 characters.
-    """)
   end
 
-  seed_product = fn attrs ->
+  upsert_tenant_user.(%{
+    email: tenant_owner_email,
+    full_name: tenant_owner_name,
+    role: "owner",
+    locale: "en",
+    timezone: "Asia/Kolkata"
+  })
+
+  upsert_tenant_user.(%{
+    email: "admin@#{tenant.domain}",
+    full_name: "Acme Admin",
+    role: "admin",
+    locale: "en",
+    timezone: "Asia/Kolkata"
+  })
+
+  upsert_tenant_user.(%{
+    email: "member@#{tenant.domain}",
+    full_name: "Acme Member",
+    role: "member",
+    locale: "en",
+    timezone: "Asia/Kolkata"
+  })
+
+  settings = TenantSettings.get_or_create_site_settings!(tenant)
+
+  {:ok, _settings} =
+    TenantSettings.update_site_settings(tenant, settings, %{
+      site_name: tenant.name,
+      tagline: "Company sites, blogs, product pages, resumes, and site-aware AI chat.",
+      support_email: "support@#{tenant.domain}",
+      logo_url: "/images/logo.png",
+      dark_logo_url: "/images/logo.png",
+      locale: "en",
+      timezone: "Asia/Kolkata"
+    })
+
+  upsert_product = fn attrs ->
     product =
       TenantRepoManager.with_repo(tenant, fn repo ->
         repo.one(from product in Product, where: product.slug == ^attrs.slug, limit: 1)
       end)
 
     case product do
-      nil ->
-        case Catalog.create_product(tenant, attrs) do
-          {:ok, product} ->
-            IO.puts("Created tenant product: #{product.name}")
-            product
+      nil -> Catalog.create_product(tenant, attrs)
+      product -> Catalog.update_product(tenant, product, attrs)
+    end
+    |> case do
+      {:ok, product} ->
+        IO.puts("Seeded product: #{product.name}")
+        product
 
-          {:error, changeset} ->
-            print_changeset_errors.("Could not create tenant product #{attrs.name}", changeset)
-            nil
-        end
-
-      product ->
-        case Catalog.update_product(tenant, product, attrs) do
-          {:ok, product} ->
-            IO.puts("Updated tenant product: #{product.name}")
-            product
-
-          {:error, changeset} ->
-            print_changeset_errors.("Could not update tenant product #{attrs.name}", changeset)
-            product
-        end
+      {:error, changeset} ->
+        print_changeset_errors.("Could not seed product #{attrs.slug}", changeset)
+        nil
     end
   end
 
-  seed_product.(%{
-    name: "Company Profile Website",
-    slug: "company-profile-website",
-    sku: "ACME-WEB-001",
-    description: "A polished profile site for teams that need a fast public presence.",
-    status: "active",
-    price: 149_900,
-    currency: "INR",
-    stock_quantity: 100,
-    active: true
-  })
+  services = [
+    {"company-profile-website", "Company Profile Website", 149_900},
+    {"ai-chat-add-on", "AI Chat Add-on", 49_900},
+    {"product-feature-microsite", "Product Feature Microsite", 199_900},
+    {"resume-website", "Resume Website", 79_900},
+    {"managed-blog", "Managed Blog", 69_900}
+  ]
 
-  seed_product.(%{
-    name: "AI Chat Add-on",
-    slug: "ai-chat-add-on",
-    sku: "ACME-AI-001",
-    description: "A site-aware assistant that answers visitor questions from tenant content.",
-    status: "active",
-    price: 49_900,
-    currency: "INR",
-    stock_quantity: 100,
-    active: true
-  })
+  Enum.each(services, fn {slug, name, price} ->
+    upsert_product.(%{
+      name: name,
+      slug: slug,
+      sku: "ACME-#{slug |> String.upcase() |> String.replace("-", "-")}",
+      description: MangoCMS.Seeds.Faker.sentence(name),
+      status: "active",
+      price: price,
+      currency: "INR",
+      stock_quantity: 100,
+      active: true
+    })
+  end)
 
-  seed_product.(%{
-    name: "Product Feature Microsite",
-    slug: "product-feature-microsite",
-    sku: "ACME-PROD-001",
-    description: "Focused landing pages for product launches, feature tours, and proof points.",
-    status: "active",
-    price: 199_900,
-    currency: "INR",
-    stock_quantity: 100,
-    active: true
-  })
-
-  seed_content_type = fn attrs, fields ->
+  upsert_content_type = fn attrs, fields ->
     content_type =
       case ContentEngine.get_content_type_by_slug(tenant, attrs.slug) do
         nil ->
           case ContentEngine.create_content_type(tenant, attrs) do
             {:ok, content_type} ->
-              IO.puts("Created content type: #{content_type.name}")
               content_type
 
             {:error, changeset} ->
-              print_changeset_errors.("Could not create content type #{attrs.slug}", changeset)
+              print_changeset_errors.("Could not create #{attrs.slug}", changeset)
               nil
           end
 
         content_type ->
           case ContentEngine.update_content_type(tenant, content_type, attrs) do
             {:ok, content_type} ->
-              IO.puts("Updated content type: #{content_type.name}")
               content_type
 
             {:error, changeset} ->
-              print_changeset_errors.("Could not update content type #{attrs.slug}", changeset)
+              print_changeset_errors.("Could not update #{attrs.slug}", changeset)
               content_type
           end
       end
@@ -498,29 +492,15 @@ if tenant do
 
       Enum.each(fields, fn field_attrs ->
         case Map.get(existing_fields, field_attrs.field_key) do
-          nil ->
-            case ContentEngine.create_content_type_field(tenant, content_type, field_attrs) do
-              {:ok, field} ->
-                IO.puts("Created content field: #{content_type.slug}.#{field.field_key}")
+          nil -> ContentEngine.create_content_type_field(tenant, content_type, field_attrs)
+          field -> ContentEngine.update_content_type_field(tenant, field, field_attrs)
+        end
+        |> case do
+          {:ok, _field} ->
+            :ok
 
-              {:error, changeset} ->
-                print_changeset_errors.(
-                  "Could not create content field #{content_type.slug}.#{field_attrs.field_key}",
-                  changeset
-                )
-            end
-
-          field ->
-            case ContentEngine.update_content_type_field(tenant, field, field_attrs) do
-              {:ok, field} ->
-                IO.puts("Updated content field: #{content_type.slug}.#{field.field_key}")
-
-              {:error, changeset} ->
-                print_changeset_errors.(
-                  "Could not update content field #{content_type.slug}.#{field_attrs.field_key}",
-                  changeset
-                )
-            end
+          {:error, changeset} ->
+            print_changeset_errors.("Could not seed field #{field_attrs.field_key}", changeset)
         end
       end)
     end
@@ -528,42 +508,30 @@ if tenant do
     content_type
   end
 
-  seed_entry = fn content_type, attrs ->
+  upsert_entry = fn content_type, attrs ->
     case ContentEngine.get_entry_by_slug(tenant, content_type, attrs.slug) do
-      nil ->
-        case ContentEngine.create_entry(tenant, content_type, attrs) do
-          {:ok, entry} ->
-            {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
-            IO.puts("Created content entry: #{entry.title || entry.slug}")
-            entry
+      nil -> ContentEngine.create_entry(tenant, content_type, attrs)
+      entry -> ContentEngine.update_entry(tenant, entry, attrs)
+    end
+    |> case do
+      {:ok, entry} ->
+        {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
+        entry
 
-          {:error, changeset} ->
-            print_changeset_errors.("Could not create content entry #{attrs.slug}", changeset)
-            nil
-        end
-
-      entry ->
-        case ContentEngine.update_entry(tenant, entry, attrs) do
-          {:ok, entry} ->
-            {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
-            IO.puts("Updated content entry: #{entry.title || entry.slug}")
-            entry
-
-          {:error, changeset} ->
-            print_changeset_errors.("Could not update content entry #{attrs.slug}", changeset)
-            entry
-        end
+      {:error, changeset} ->
+        print_changeset_errors.("Could not seed entry #{attrs.slug}", changeset)
+        nil
     end
   end
 
-  product_type =
-    seed_content_type.(
+  service_type =
+    upsert_content_type.(
       %{
-        name: "Products",
-        slug: "products",
-        description: "Dynamic product-style entries for cards, pricing, and feature grids.",
+        name: "Services",
+        slug: "services",
+        description: "Offerings that can power service cards and product-style sections.",
         status: "active",
-        settings: %{"icon" => "shopping-bag"}
+        settings: %{"icon" => "sparkles"}
       },
       [
         %{
@@ -572,7 +540,6 @@ if tenant do
           field_type: "string",
           required: true,
           indexed: true,
-          filterable: false,
           sortable: true,
           position: 10
         },
@@ -590,7 +557,6 @@ if tenant do
           label: "Rating",
           field_key: "rating",
           field_type: "number",
-          required: false,
           indexed: true,
           filterable: true,
           sortable: true,
@@ -600,96 +566,45 @@ if tenant do
           label: "On Sale",
           field_key: "on_sale",
           field_type: "boolean",
-          required: false,
           indexed: true,
           filterable: true,
-          sortable: false,
           position: 40
         },
-        %{
-          label: "Image URL",
-          field_key: "image_url",
-          field_type: "image",
-          required: false,
-          indexed: false,
-          filterable: false,
-          sortable: false,
-          position: 50
-        },
+        %{label: "Image URL", field_key: "image_url", field_type: "image", position: 50},
         %{
           label: "Description",
           field_key: "description",
           field_type: "text",
-          required: false,
           indexed: true,
-          filterable: false,
-          sortable: false,
           position: 60
         }
       ]
     )
 
-  if product_type do
-    seed_entry.(product_type, %{
-      title: "Company Profile Website",
-      slug: "company-profile-website",
-      payload: %{
-        "name" => "Company Profile Website",
-        "price" => 149_900,
-        "rating" => 4.9,
-        "on_sale" => true,
-        "image_url" => "/images/logo.png",
-        "description" => "A polished company website with pages, testimonials, and contact flows."
-      }
-    })
-
-    seed_entry.(product_type, %{
-      title: "AI Chat Add-on",
-      slug: "ai-chat-add-on",
-      payload: %{
-        "name" => "AI Chat Add-on",
-        "price" => 49_900,
-        "rating" => 4.8,
-        "on_sale" => false,
-        "image_url" => "/images/logo.png",
-        "description" => "A tenant-aware assistant that answers questions from website content."
-      }
-    })
-
-    seed_entry.(product_type, %{
-      title: "Product Feature Microsite",
-      slug: "product-feature-microsite",
-      payload: %{
-        "name" => "Product Feature Microsite",
-        "price" => 199_900,
-        "rating" => 4.7,
-        "on_sale" => true,
-        "image_url" => "/images/logo.png",
-        "description" => "A focused product story with feature grids, proof points, and CTAs."
-      }
-    })
-
-    seed_entry.(product_type, %{
-      title: "Resume Website",
-      slug: "resume-website",
-      payload: %{
-        "name" => "Resume Website",
-        "price" => 79_900,
-        "rating" => 4.6,
-        "on_sale" => true,
-        "image_url" => "/images/logo.png",
-        "description" =>
-          "A clean personal site for experience, projects, references, and contact links."
-      }
-    })
+  if service_type do
+    Enum.with_index(services, 1)
+    |> Enum.each(fn {{slug, name, price}, index} ->
+      upsert_entry.(service_type, %{
+        title: name,
+        slug: slug,
+        payload: %{
+          "name" => name,
+          "price" => price,
+          "rating" => Float.round(4.4 + index / 10, 1),
+          "on_sale" => rem(index, 2) == 1,
+          "image_url" => "/images/logo.png",
+          "description" => MangoCMS.Seeds.Faker.sentence(name)
+        }
+      })
+    end)
   end
 
   review_type =
-    seed_content_type.(
+    upsert_content_type.(
       %{
         name: "Customer Reviews",
         slug: "customer_reviews",
-        description: "Reusable customer proof for review grids and testimonial sections.",
+        description: "Customer proof and testimonial entries.",
         status: "active",
         settings: %{"icon" => "star"}
       },
@@ -700,9 +615,15 @@ if tenant do
           field_type: "string",
           required: true,
           indexed: true,
-          filterable: false,
           sortable: true,
           position: 10
+        },
+        %{
+          label: "Company",
+          field_key: "company",
+          field_type: "string",
+          indexed: true,
+          position: 20
         },
         %{
           label: "Rating",
@@ -712,7 +633,7 @@ if tenant do
           indexed: true,
           filterable: true,
           sortable: true,
-          position: 20
+          position: 30
         },
         %{
           label: "Quote",
@@ -720,611 +641,481 @@ if tenant do
           field_type: "text",
           required: true,
           indexed: true,
-          filterable: false,
-          sortable: false,
-          position: 30
+          position: 40
         },
         %{
           label: "Reviewed At",
           field_key: "reviewed_at",
           field_type: "datetime",
-          required: false,
           indexed: true,
           filterable: true,
           sortable: true,
-          position: 40
+          position: 50
         }
       ]
     )
 
   if review_type do
-    seed_entry.(review_type, %{
-      title: "Aditi Sharma Review",
-      slug: "aditi-sharma-review",
-      payload: %{
-        "customer_name" => "Aditi Sharma",
-        "rating" => 5,
-        "quote" =>
-          "We launched a fast, clean company website without pulling our engineering team away.",
-        "reviewed_at" => days_ago_iso.(21)
-      }
-    })
+    Enum.each(1..6, fn index ->
+      name = MangoCMS.Seeds.Faker.person_name()
+      company = MangoCMS.Seeds.Faker.company_name()
 
-    seed_entry.(review_type, %{
-      title: "Rahul Mehta Review",
-      slug: "rahul-mehta-review",
-      payload: %{
-        "customer_name" => "Rahul Mehta",
-        "rating" => 5,
-        "quote" =>
-          "The local-first tenant setup feels simple, fast, and reliable for small business sites.",
-        "reviewed_at" => days_ago_iso.(7)
-      }
-    })
-
-    seed_entry.(review_type, %{
-      title: "Priya Nair Review",
-      slug: "priya-nair-review",
-      payload: %{
-        "customer_name" => "Priya Nair",
-        "rating" => 5,
-        "quote" =>
-          "MangoCMS gave our product launch a sharp microsite, review cards, and fast updates.",
-        "reviewed_at" => days_ago_iso.(3)
-      }
-    })
-
-    seed_entry.(review_type, %{
-      title: "Omar Khan Review",
-      slug: "omar-khan-review",
-      payload: %{
-        "customer_name" => "Omar Khan",
-        "rating" => 4,
-        "quote" =>
-          "The tenant admin is simple enough for our team to update content without developer help.",
-        "reviewed_at" => days_ago_iso.(32)
-      }
-    })
+      upsert_entry.(review_type, %{
+        title: "#{name} Review",
+        slug: "review-#{index}",
+        payload: %{
+          "customer_name" => name,
+          "company" => company,
+          "rating" => if(index <= 4, do: 5, else: 4),
+          "quote" =>
+            "#{company} launched a sharper tenant website and kept updates inside the CMS.",
+          "reviewed_at" =>
+            DateTime.utc_now(:second)
+            |> DateTime.add(-index * 86_400, :second)
+            |> DateTime.to_iso8601()
+        }
+      })
+    end)
   end
 
-  team_type =
-    seed_content_type.(
+  blog_type =
+    upsert_content_type.(
       %{
-        name: "Team Members",
-        slug: "team_members",
-        description: "People records for team grids, resume pages, and profile sections.",
+        name: "Blog Posts",
+        slug: "blog_posts",
+        description: "Blog articles for tenant sites.",
         status: "active",
-        settings: %{"icon" => "users"}
+        settings: %{"icon" => "document-text"}
       },
       [
         %{
-          label: "Full Name",
-          field_key: "full_name",
+          label: "Title",
+          field_key: "title",
           field_type: "string",
           required: true,
           indexed: true,
-          filterable: false,
           sortable: true,
           position: 10
         },
         %{
-          label: "Role",
-          field_key: "role",
-          field_type: "string",
+          label: "Excerpt",
+          field_key: "excerpt",
+          field_type: "text",
           required: true,
           indexed: true,
-          filterable: true,
-          sortable: true,
           position: 20
         },
         %{
-          label: "Biography",
-          field_key: "biography",
-          field_type: "text",
-          required: false,
+          label: "Author",
+          field_key: "author",
+          field_type: "string",
           indexed: true,
-          filterable: false,
-          sortable: false,
+          filterable: true,
           position: 30
         },
         %{
-          label: "Avatar URL",
-          field_key: "avatar_url",
-          field_type: "image",
-          required: false,
-          indexed: false,
-          filterable: false,
-          sortable: false,
+          label: "Published At",
+          field_key: "published_at",
+          field_type: "datetime",
+          indexed: true,
+          filterable: true,
+          sortable: true,
           position: 40
         }
       ]
     )
 
-  if team_type do
-    seed_entry.(team_type, %{
-      title: "Maya Iyer",
-      slug: "maya-iyer",
-      payload: %{
-        "full_name" => "Maya Iyer",
-        "role" => "Founder",
-        "biography" => "Builds practical websites and content systems for growing teams.",
-        "avatar_url" => "/images/logo.png"
-      }
-    })
-
-    seed_entry.(team_type, %{
-      title: "Arjun Rao",
-      slug: "arjun-rao",
-      payload: %{
-        "full_name" => "Arjun Rao",
-        "role" => "Product Lead",
-        "biography" => "Turns product stories into clear pages, cards, and launch content.",
-        "avatar_url" => "/images/logo.png"
-      }
-    })
-
-    seed_entry.(team_type, %{
-      title: "Neha Kapoor",
-      slug: "neha-kapoor",
-      payload: %{
-        "full_name" => "Neha Kapoor",
-        "role" => "Customer Success",
-        "biography" =>
-          "Helps tenants turn their services, blogs, and reviews into polished pages.",
-        "avatar_url" => "/images/logo.png"
-      }
-    })
-  end
-
-  seed_page = fn attrs ->
-    case Pages.get_page_by_slug(tenant, attrs.slug) do
-      nil ->
-        case Pages.create_page(tenant, attrs) do
-          {:ok, page} ->
-            IO.puts("Created tenant page: #{page.title}")
-            page
-
-          {:error, changeset} ->
-            print_changeset_errors.("Could not create tenant page #{attrs.slug}", changeset)
-            nil
-        end
-
-      page ->
-        case Pages.update_page(tenant, page, attrs) do
-          {:ok, page} ->
-            IO.puts("Updated tenant page: #{page.title}")
-            page
-
-          {:error, changeset} ->
-            print_changeset_errors.("Could not update tenant page #{attrs.slug}", changeset)
-            page
-        end
-    end
-  end
-
-  seed_section = fn page, seed_key, attrs ->
-    source_attrs = Map.get(attrs, :source, %{})
-    mappings = Map.get(attrs, :mappings, [])
-
-    attrs =
-      attrs
-      |> Map.drop([:source, :mappings])
-      |> Map.update(:settings, %{"seed_key" => seed_key}, fn settings ->
-        settings
-        |> case do
-          value when is_map(value) -> value
-          _other -> %{}
-        end
-        |> Map.put("seed_key", seed_key)
-      end)
-
-    section =
-      tenant
-      |> Pages.list_sections(page)
-      |> Enum.find(fn section ->
-        is_map(section.settings) and section.settings["seed_key"] == seed_key
-      end)
-
-    print_section_error = fn action, error ->
-      case error do
-        {:error, {type, changeset}} ->
-          print_changeset_errors.(
-            "Could not #{action} page section #{page.slug}.#{seed_key} #{type}",
-            changeset
-          )
-
-        {:error, changeset} ->
-          print_changeset_errors.(
-            "Could not #{action} page section #{page.slug}.#{seed_key}",
-            changeset
-          )
+  if blog_type do
+    Enum.each(
+      ["Local-first CMS design", "Building tenant pages", "When to use AI chat"],
+      fn title ->
+        upsert_entry.(blog_type, %{
+          title: title,
+          slug:
+            title |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-"),
+          payload: %{
+            "title" => title,
+            "excerpt" => MangoCMS.Seeds.Faker.sentence(title),
+            "author" => MangoCMS.Seeds.Faker.person_name(),
+            "published_at" => DateTime.utc_now(:second) |> DateTime.to_iso8601()
+          }
+        })
       end
-    end
+    )
+  end
 
-    case section do
+  node = fn name, id, props, classes, children ->
+    %{
+      "type" => "component",
+      "name" => name,
+      "id" => id,
+      "props" => props,
+      "classes" => classes,
+      "children" => children
+    }
+  end
+
+  leaf = fn name, id, props, classes ->
+    %{"type" => "component", "name" => name, "id" => id, "props" => props, "classes" => classes}
+  end
+
+  column = fn id, class, children ->
+    node.("column", id, %{}, %{"display" => class}, children)
+  end
+
+  row = fn id, columns ->
+    node.(
+      "row",
+      id,
+      %{"gutter" => "default"},
+      %{
+        "display" =>
+          "mx-auto grid w-full max-w-desktop grid-cols-12 gap-6 px-4 py-10 sm:px-6 lg:px-8"
+      },
+      columns
+    )
+  end
+
+  section = fn id, class, children ->
+    node.("section", id, %{}, %{"display" => class, "padding" => "py-16"}, children)
+  end
+
+  heading = fn id, text, level, classes ->
+    leaf.("heading", id, %{"text" => text, "level" => Integer.to_string(level)}, %{
+      "display" => classes
+    })
+  end
+
+  paragraph = fn id, text, classes ->
+    leaf.("paragraph", id, %{"text" => text}, %{"display" => classes})
+  end
+
+  button = fn id, text, href ->
+    leaf.("button", id, %{"text" => text, "href" => href, "target" => "_self"}, %{
+      "daisy_ui" => "btn btn-primary btn-lg"
+    })
+  end
+
+  image = fn id, src, alt ->
+    leaf.("image", id, %{"src" => src, "alt" => alt}, %{
+      "display" => "aspect-video w-full rounded-xl object-cover shadow-xl"
+    })
+  end
+
+  cta_tree =
+    ContentTree.normalize_paths([
+      section.("global_cta_section", "bg-primary text-primary-content", [
+        row.("global_cta_row", [
+          column.("global_cta_col", "col-span-12 text-center", [
+            heading.(
+              "global_cta_heading",
+              "Ready to publish a faster tenant site?",
+              2,
+              "text-3xl font-bold text-primary-content"
+            ),
+            paragraph.(
+              "global_cta_copy",
+              "Start with a profile, blog, product page, resume, or AI chat experience.",
+              "mx-auto mt-4 max-w-3xl text-lg text-primary-content/80"
+            ),
+            button.("global_cta_button", "Open admin", "/admin/dashboard")
+          ])
+        ])
+      ])
+    ])
+
+  global_cta =
+    case Pages.list_global_sections(tenant) |> Enum.find(&(&1.name == "Primary CTA")) do
       nil ->
-        case Pages.create_section_configuration(tenant, page, attrs, source_attrs, mappings) do
-          {:ok, section} ->
-            IO.puts("Created tenant page section: #{page.slug}.#{seed_key}")
-            section
+        {:ok, section} =
+          Pages.create_global_section(tenant, %{name: "Primary CTA", content_tree: cta_tree})
 
-          {:error, _reason} = error ->
-            print_section_error.("create", error)
-            nil
-        end
+        section
 
       section ->
-        case Pages.update_section_configuration(tenant, section, attrs, source_attrs, mappings) do
-          {:ok, section} ->
-            IO.puts("Updated tenant page section: #{page.slug}.#{seed_key}")
-            section
+        {:ok, section} =
+          Pages.update_global_section(tenant, section, %{
+            name: "Primary CTA",
+            content_tree: cta_tree
+          })
 
-          {:error, _reason} = error ->
-            print_section_error.("update", error)
-            section
-        end
+        section
+    end
+
+  global_node = fn id, global_section ->
+    node.(
+      "global_section",
+      id,
+      %{"global_section_id" => global_section.id, "name" => global_section.name},
+      %{"display" => ""},
+      global_section.content_tree
+    )
+  end
+
+  upsert_page = fn attrs ->
+    case Pages.get_page_by_slug(tenant, attrs.slug) do
+      nil -> Pages.create_page(tenant, attrs)
+      page -> Pages.update_page(tenant, page, attrs)
+    end
+    |> case do
+      {:ok, page} ->
+        IO.puts("Seeded page: /#{page.slug}")
+        page
+
+      {:error, changeset} ->
+        print_changeset_errors.("Could not seed page #{attrs.slug}", changeset)
+        nil
     end
   end
 
-  welcome_page =
-    seed_page.(%{
-      title: "#{tenant.name} Welcome",
-      slug: "welcome",
-      type: "landing",
-      status: "published",
-      seo: %{
-        "title" => "#{tenant.name} Welcome",
-        "description" => "A seeded tenant page with fixed sections rendered by MangoCMS."
-      }
-    })
+  welcome_tree =
+    ContentTree.normalize_paths([
+      section.("welcome_hero", "bg-base-100", [
+        row.("welcome_hero_row", [
+          column.("welcome_hero_copy", "col-span-12 lg:col-span-7", [
+            heading.(
+              "welcome_hero_title",
+              "#{tenant.name} builds websites with MangoCMS",
+              1,
+              "text-5xl font-extrabold tracking-tight text-base-content"
+            ),
+            paragraph.(
+              "welcome_hero_subtitle",
+              "Create company profiles, blogs, product feature pages, resumes, and site-aware AI chat from one tenant-isolated admin.",
+              "mt-5 max-w-3xl text-xl leading-8 text-base-content/75"
+            ),
+            button.("welcome_hero_button", "Explore services", "/services")
+          ]),
+          column.("welcome_hero_media", "col-span-12 lg:col-span-5", [
+            image.("welcome_hero_image", "/images/logo.png", "#{tenant.name} logo")
+          ])
+        ])
+      ]),
+      section.("welcome_services", "bg-base-200", [
+        row.("welcome_services_row", [
+          column.("welcome_services_col", "col-span-12", [
+            heading.(
+              "welcome_services_heading",
+              "Services ready for small and medium tenant sites",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "welcome_services_copy",
+              "Use the builder to reshape this page, then save a version before publishing changes.",
+              "mt-3 text-lg text-base-content/70"
+            )
+          ])
+        ])
+      ]),
+      global_node.("welcome_global_cta", global_cta)
+    ])
 
-  if welcome_page do
-    seed_section.(welcome_page, "hero", %{
-      type: "hero",
-      template_id: "default",
-      mode: "fixed",
-      position: 10,
-      fixed_data: %{
-        "eyebrow" => "Tenant page",
-        "title" => "Welcome to #{tenant.name}",
-        "subtitle" =>
-          "This fixed page section is stored in the tenant database and rendered from /welcome.",
-        "cta_label" => "Open dashboard",
-        "cta_href" => "/admin/dashboard"
-      }
-    })
+  upsert_page.(%{
+    title: "#{tenant.name} Welcome",
+    slug: "welcome",
+    type: "landing",
+    status: "published",
+    seo: %{
+      "title" => "#{tenant.name} Welcome",
+      "subtitle" => "Local-first tenant site builder",
+      "description" => "A seeded AST-backed MangoCMS tenant page."
+    },
+    content_tree: welcome_tree
+  })
 
-    seed_section.(welcome_page, "intro", %{
-      type: "text",
-      template_id: "default",
-      mode: "fixed",
-      position: 20,
-      fixed_data: %{
-        "title" => "Phase 3 page schema",
-        "body" =>
-          "Pages can now contain ordered sections with fixed or dynamic mode. Dynamic sections can query tenant content entries and map fields into cards."
-      }
-    })
+  services_tree =
+    ContentTree.normalize_paths([
+      section.("services_intro", "bg-base-100", [
+        row.("services_intro_row", [
+          column.("services_intro_copy", "col-span-12 lg:col-span-8", [
+            heading.(
+              "services_intro_title",
+              "Profile sites, blogs, product pages, resumes, and AI chat",
+              1,
+              "text-5xl font-extrabold tracking-tight text-base-content"
+            ),
+            paragraph.(
+              "services_intro_copy_text",
+              "Seeded service records also exist in Content Types so dynamic sections can be added from tenant admin.",
+              "mt-5 text-xl leading-8 text-base-content/75"
+            )
+          ]),
+          column.("services_intro_action", "col-span-12 lg:col-span-4 lg:text-right", [
+            button.("services_intro_button", "View customers", "/customers")
+          ])
+        ])
+      ]),
+      section.("services_cards", "bg-base-200", [
+        row.("services_cards_row", [
+          column.("services_card_1", "col-span-12 md:col-span-6 lg:col-span-4", [
+            heading.(
+              "services_card_1_title",
+              "Company Profile",
+              3,
+              "text-2xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "services_card_1_copy",
+              "A polished public presence for teams, services, proof, and contact.",
+              "mt-3 text-base text-base-content/70"
+            )
+          ]),
+          column.("services_card_2", "col-span-12 md:col-span-6 lg:col-span-4", [
+            heading.(
+              "services_card_2_title",
+              "Product Feature Site",
+              3,
+              "text-2xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "services_card_2_copy",
+              "Focused pages for launches, feature tours, and conversion CTAs.",
+              "mt-3 text-base text-base-content/70"
+            )
+          ]),
+          column.("services_card_3", "col-span-12 md:col-span-6 lg:col-span-4", [
+            heading.(
+              "services_card_3_title",
+              "AI Chat",
+              3,
+              "text-2xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "services_card_3_copy",
+              "A future-ready assistant that answers questions from website content.",
+              "mt-3 text-base text-base-content/70"
+            )
+          ])
+        ])
+      ]),
+      global_node.("services_global_cta", global_cta)
+    ])
 
-    if product_type do
-      seed_section.(welcome_page, "featured_products", %{
-        type: "feature_grid",
-        template_id: "cards",
-        mode: "dynamic",
-        position: 30,
-        fixed_data: %{
-          "eyebrow" => "Dynamic section",
-          "title" => "Featured services",
-          "subtitle" => "These cards are rendered from the tenant content engine."
-        },
-        source: %{
-          content_type_id: product_type.id,
-          status: "published",
-          filters: %{"field" => "on_sale", "op" => "==", "value" => "true"},
-          sort: %{"field" => "rating", "direction" => "desc"},
-          limit: 3,
-          offset: 0
-        },
-        mappings: [
-          %{"slot" => "title", "source_path" => "title", "formatter" => "text", "position" => 20},
-          %{
-            "slot" => "subtitle",
-            "source_path" => "payload.description",
-            "formatter" => "excerpt",
-            "position" => 30
-          },
-          %{
-            "slot" => "image",
-            "source_path" => "payload.image_url",
-            "formatter" => "image",
-            "position" => 50
-          },
-          %{
-            "slot" => "price",
-            "source_path" => "payload.price",
-            "formatter" => "currency",
-            "position" => 60
-          },
-          %{"slot" => "cta_href", "source_path" => "slug", "formatter" => "url", "position" => 70}
-        ]
-      })
-    end
-  end
+  upsert_page.(%{
+    title: "Services",
+    slug: "services",
+    type: "page",
+    status: "published",
+    seo: %{
+      "title" => "Services",
+      "subtitle" => "What #{tenant.name} offers",
+      "description" => "Seeded MangoCMS services page."
+    },
+    content_tree: services_tree
+  })
 
-  company_page =
-    seed_page.(%{
-      title: "Company Profile",
-      slug: "company-profile",
-      type: "page",
-      status: "published",
-      seo: %{
-        "title" => "Company Profile",
-        "description" =>
-          "A demo company profile page with fixed story sections and a dynamic team grid."
-      }
-    })
+  customers_tree =
+    ContentTree.normalize_paths([
+      section.("customers_intro", "bg-base-100", [
+        row.("customers_intro_row", [
+          column.("customers_intro_col", "col-span-12", [
+            heading.(
+              "customers_intro_title",
+              "Customer stories and positive reviews",
+              1,
+              "text-5xl font-extrabold tracking-tight text-base-content"
+            ),
+            paragraph.(
+              "customers_intro_copy",
+              "The tenant database also includes seeded Customer Review entries for dynamic card sections.",
+              "mt-5 max-w-3xl text-xl leading-8 text-base-content/75"
+            )
+          ])
+        ])
+      ]),
+      section.("customers_quotes", "bg-base-200", [
+        row.("customers_quotes_row", [
+          column.("customers_quote_1", "col-span-12 md:col-span-4", [
+            paragraph.(
+              "customers_quote_1_copy",
+              "\"We launched a clean company website without pulling engineering away.\"",
+              "text-lg italic text-base-content/80"
+            ),
+            heading.(
+              "customers_quote_1_name",
+              "Aditi Sharma",
+              3,
+              "mt-4 text-lg font-bold text-base-content"
+            )
+          ]),
+          column.("customers_quote_2", "col-span-12 md:col-span-4", [
+            paragraph.(
+              "customers_quote_2_copy",
+              "\"The local-first tenant setup is fast and easy to operate.\"",
+              "text-lg italic text-base-content/80"
+            ),
+            heading.(
+              "customers_quote_2_name",
+              "Rahul Mehta",
+              3,
+              "mt-4 text-lg font-bold text-base-content"
+            )
+          ]),
+          column.("customers_quote_3", "col-span-12 md:col-span-4", [
+            paragraph.(
+              "customers_quote_3_copy",
+              "\"Our product launch page finally feels simple to update.\"",
+              "text-lg italic text-base-content/80"
+            ),
+            heading.(
+              "customers_quote_3_name",
+              "Priya Nair",
+              3,
+              "mt-4 text-lg font-bold text-base-content"
+            )
+          ])
+        ])
+      ]),
+      global_node.("customers_global_cta", global_cta)
+    ])
 
-  if company_page do
-    seed_section.(company_page, "company_hero", %{
-      type: "hero",
-      template_id: "default",
-      mode: "fixed",
-      position: 10,
-      fixed_data: %{
-        "eyebrow" => "Company profile",
-        "title" => "Tell your company story without waiting on engineering",
-        "subtitle" =>
-          "This fixed hero lives on the page section itself. Tenant admins can update the copy, image, and call to action directly.",
-        "cta_label" => "View services",
-        "cta_href" => "/services",
-        "image_url" => "/images/logo.png"
-      }
-    })
+  upsert_page.(%{
+    title: "Customer Stories",
+    slug: "customers",
+    type: "page",
+    status: "published",
+    seo: %{
+      "title" => "Customer Stories",
+      "subtitle" => "Reviews",
+      "description" => "Seeded customer proof page."
+    },
+    content_tree: customers_tree
+  })
 
-    seed_section.(company_page, "company_story", %{
-      type: "text",
-      template_id: "default",
-      mode: "fixed",
-      position: 20,
-      fixed_data: %{
-        "eyebrow" => "Fixed section",
-        "title" => "One local-first place for the essentials",
-        "body" =>
-          "Use fixed sections for content that belongs to one page: positioning, founders notes, trust copy, and campaign-specific CTAs. MangoCMS keeps this content in the tenant database so each site remains isolated and fast."
-      }
-    })
-
-    if team_type do
-      seed_section.(company_page, "company_team", %{
-        type: "feature_grid",
-        template_id: "cards",
-        mode: "dynamic",
-        position: 30,
-        fixed_data: %{
-          "eyebrow" => "Dynamic team",
-          "title" => "Meet the people behind the work",
-          "subtitle" =>
-            "These cards are pulled from the Team Members content type and mapped into card slots."
-        },
-        source: %{
-          content_type_id: team_type.id,
-          status: "published",
-          filters: %{},
-          sort: %{"field" => "full_name", "direction" => "asc"},
-          limit: 6,
-          offset: 0
-        },
-        mappings: [
-          %{
-            "slot" => "title",
-            "source_path" => "payload.full_name",
-            "formatter" => "text",
-            "position" => 20
-          },
-          %{
-            "slot" => "subtitle",
-            "source_path" => "payload.role",
-            "formatter" => "text",
-            "position" => 30
-          },
-          %{
-            "slot" => "body",
-            "source_path" => "payload.biography",
-            "formatter" => "excerpt",
-            "settings" => %{"limit" => 160},
-            "position" => 40
-          },
-          %{
-            "slot" => "image",
-            "source_path" => "payload.avatar_url",
-            "formatter" => "image",
-            "position" => 50
-          }
-        ]
-      })
-    end
-  end
-
-  services_page =
-    seed_page.(%{
-      title: "Services",
-      slug: "services",
-      type: "page",
-      status: "published",
-      seo: %{
-        "title" => "Services",
-        "description" =>
-          "A demo services page with fixed intro copy and dynamic product/service cards."
-      }
-    })
-
-  if services_page do
-    seed_section.(services_page, "services_hero", %{
-      type: "hero",
-      template_id: "default",
-      mode: "fixed",
-      position: 10,
-      fixed_data: %{
-        "eyebrow" => "Services",
-        "title" => "Launch profile sites, blogs, product pages, resumes, and AI chat",
-        "subtitle" =>
-          "A fixed page hero can frame the offer while dynamic grids stay fresh from reusable content entries.",
-        "cta_label" => "Read customer stories",
-        "cta_href" => "/customers",
-        "image_url" => "/images/logo.png"
-      }
-    })
-
-    if product_type do
-      seed_section.(services_page, "services_catalog", %{
-        type: "feature_grid",
-        template_id: "cards",
-        mode: "dynamic",
-        position: 20,
-        fixed_data: %{
-          "eyebrow" => "Dynamic services",
-          "title" => "Plan-driven service cards",
-          "subtitle" =>
-            "The source query sorts Product entries by rating and maps name, description, image, price, and slug into card slots."
-        },
-        source: %{
-          content_type_id: product_type.id,
-          status: "published",
-          filters: %{},
-          sort: %{"field" => "rating", "direction" => "desc"},
-          limit: 6,
-          offset: 0
-        },
-        mappings: [
-          %{
-            "slot" => "title",
-            "source_path" => "payload.name",
-            "formatter" => "text",
-            "position" => 20
-          },
-          %{
-            "slot" => "subtitle",
-            "source_path" => "payload.description",
-            "formatter" => "excerpt",
-            "settings" => %{"limit" => 140},
-            "position" => 30
-          },
-          %{
-            "slot" => "image",
-            "source_path" => "payload.image_url",
-            "formatter" => "image",
-            "position" => 50
-          },
-          %{
-            "slot" => "price",
-            "source_path" => "payload.price",
-            "formatter" => "currency",
-            "settings" => %{"currency" => "INR"},
-            "position" => 60
-          },
-          %{
-            "slot" => "cta_href",
-            "source_path" => "slug",
-            "formatter" => "url",
-            "position" => 70
-          }
-        ]
-      })
-    end
-
-    seed_section.(services_page, "services_cta", %{
-      type: "cta",
-      template_id: "default",
-      mode: "fixed",
-      position: 30,
-      fixed_data: %{
-        "eyebrow" => "Fixed CTA",
-        "title" => "Need a tailored tenant website?",
-        "subtitle" =>
-          "Use fixed CTA sections when the message belongs to a single page or campaign.",
-        "cta_label" => "Open admin",
-        "cta_href" => "/admin/dashboard"
-      }
-    })
-  end
-
-  customers_page =
-    seed_page.(%{
-      title: "Customer Stories",
-      slug: "customers",
-      type: "page",
-      status: "published",
-      seo: %{
-        "title" => "Customer Stories",
-        "description" =>
-          "A demo customer stories page with a fixed hero and dynamic testimonial cards."
-      }
-    })
-
-  if customers_page do
-    seed_section.(customers_page, "customers_hero", %{
-      type: "hero",
-      template_id: "default",
-      mode: "fixed",
-      position: 10,
-      fixed_data: %{
-        "eyebrow" => "Customers",
-        "title" => "Positive reviews from teams building faster tenant sites",
-        "subtitle" =>
-          "This page combines fixed campaign copy with dynamic review cards filtered from the tenant content engine.",
-        "cta_label" => "Explore services",
-        "cta_href" => "/services"
-      }
-    })
-
-    if review_type do
-      seed_section.(customers_page, "five_star_reviews", %{
-        type: "testimonial",
-        template_id: "cards",
-        mode: "dynamic",
-        position: 20,
-        fixed_data: %{
-          "eyebrow" => "Dynamic reviews",
-          "title" => "Recent five-star feedback",
-          "subtitle" =>
-            "This section filters Customer Reviews where rating is greater than or equal to five."
-        },
-        source: %{
-          content_type_id: review_type.id,
-          status: "published",
-          filters: %{"field" => "rating", "op" => ">=", "value" => 5},
-          sort: %{"field" => "reviewed_at", "direction" => "desc"},
-          limit: 6,
-          offset: 0
-        },
-        mappings: [
-          %{
-            "slot" => "title",
-            "source_path" => "payload.customer_name",
-            "formatter" => "text",
-            "position" => 20
-          },
-          %{
-            "slot" => "subtitle",
-            "source_path" => "payload.reviewed_at",
-            "formatter" => "date",
-            "position" => 30
-          },
-          %{
-            "slot" => "body",
-            "source_path" => "payload.quote",
-            "formatter" => "excerpt",
-            "settings" => %{"limit" => 220},
-            "position" => 40
-          },
-          %{
-            "slot" => "badge",
-            "source_path" => "payload.rating",
-            "formatter" => "number",
-            "position" => 50
-          }
-        ]
-      })
-    end
-  end
+  upsert_page.(%{
+    title: "Resume",
+    slug: "resume",
+    type: "page",
+    status: "published",
+    seo: %{
+      "title" => "Resume",
+      "subtitle" => "Personal site",
+      "description" => "Seeded resume page."
+    },
+    content_tree:
+      ContentTree.normalize_paths([
+        section.("resume_intro", "bg-base-100", [
+          row.("resume_intro_row", [
+            column.("resume_intro_col", "col-span-12 lg:col-span-8", [
+              heading.(
+                "resume_intro_title",
+                "A resume website managed in MangoCMS",
+                1,
+                "text-5xl font-extrabold tracking-tight text-base-content"
+              ),
+              paragraph.(
+                "resume_intro_copy",
+                "Show experience, projects, references, and contact links with the same builder used for business pages.",
+                "mt-5 text-xl leading-8 text-base-content/75"
+              ),
+              button.("resume_intro_button", "Contact me", "mailto:hello@#{tenant.domain}")
+            ])
+          ])
+        ]),
+        global_node.("resume_global_cta", global_cta)
+      ])
+  })
 end
+
+IO.puts("Seed complete.")

@@ -5,7 +5,18 @@ defmodule MangoCMS.Tenant.Pages do
 
   alias MangoCMS.Platform.Tenant
   alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.Pages.{Page, PageSection, SectionMapping, SectionSource}
+  alias MangoCMS.Tenant.Accounts.User
+
+  alias MangoCMS.Tenant.Pages.{
+    GlobalSection,
+    GlobalSectionVersion,
+    Page,
+    PageSection,
+    PageVersion,
+    SectionMapping,
+    SectionSource
+  }
+
   alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 
   @spec list_pages(Tenant.t()) :: [Page.t()]
@@ -79,6 +90,232 @@ defmodule MangoCMS.Tenant.Pages do
   @spec change_page(Page.t(), map()) :: Ecto.Changeset.t()
   def change_page(%Page{} = page, attrs \\ %{}) do
     Page.changeset(page, attrs)
+  end
+
+  @spec save_page_with_lock(Tenant.t(), Page.t(), map(), integer(), User.t() | nil) ::
+          {:ok, Page.t()} | {:error, :stale} | {:error, Ecto.Changeset.t()}
+  def save_page_with_lock(%Tenant{} = tenant, %Page{} = page, attrs, socket_version, user \\ nil)
+      when is_integer(socket_version) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.transaction(fn ->
+        current_page = repo.get!(Page, page.id)
+
+        if current_page.content_tree_version != socket_version do
+          repo.rollback(:stale)
+        end
+
+        {:ok, _version} =
+          create_page_version_in_repo(repo, current_page, "auto", nil, user, %{
+            change_summary: "Saved page builder changes"
+          })
+
+        current_page
+        |> Page.tree_changeset(attrs)
+        |> repo.update()
+        |> case do
+          {:ok, updated_page} -> updated_page
+          {:error, changeset} -> repo.rollback(changeset)
+        end
+      end)
+    end)
+    |> case do
+      {:ok, page} -> {:ok, page}
+      {:error, :stale} -> {:error, :stale}
+      {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+    end
+  end
+
+  @spec publish_page(Tenant.t(), Page.t(), User.t() | nil) ::
+          {:ok, Page.t()} | {:error, Ecto.Changeset.t()}
+  def publish_page(%Tenant{} = tenant, %Page{} = page, user \\ nil) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.transaction(fn ->
+        current_page = repo.get!(Page, page.id)
+
+        if current_page.status != "published" do
+          {:ok, _version} =
+            create_page_version_in_repo(repo, current_page, "publish_checkpoint", nil, user, %{
+              change_summary: "Published page"
+            })
+        end
+
+        current_page
+        |> Page.tree_changeset(%{status: "published"})
+        |> repo.update()
+        |> case do
+          {:ok, updated_page} -> updated_page
+          {:error, changeset} -> repo.rollback(changeset)
+        end
+      end)
+    end)
+    |> unwrap_transaction()
+  end
+
+  @spec archive_page(Tenant.t(), Page.t()) :: {:ok, Page.t()} | {:error, Ecto.Changeset.t()}
+  def archive_page(%Tenant{} = tenant, %Page{} = page) do
+    update_page(tenant, page, %{status: "archived"})
+  end
+
+  @spec create_page_version(
+          Tenant.t(),
+          Page.t(),
+          String.t(),
+          String.t() | nil,
+          User.t() | nil,
+          map()
+        ) ::
+          {:ok, PageVersion.t()} | {:error, Ecto.Changeset.t()}
+  def create_page_version(
+        %Tenant{} = tenant,
+        %Page{} = page,
+        snapshot_type,
+        label \\ nil,
+        user \\ nil,
+        attrs \\ %{}
+      ) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      create_page_version_in_repo(repo, page, snapshot_type, label, user, attrs)
+    end)
+  end
+
+  @spec list_page_versions(Tenant.t(), Page.t() | String.t()) :: [PageVersion.t()]
+  def list_page_versions(%Tenant{} = tenant, page) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      page = resolve_page!(repo, page)
+
+      PageVersion
+      |> where([version], version.page_id == ^page.id)
+      |> order_by([version], desc: version.version_number)
+      |> preload(:created_by)
+      |> repo.all()
+    end)
+  end
+
+  @spec get_page_version!(Tenant.t(), String.t()) :: PageVersion.t()
+  def get_page_version!(%Tenant{} = tenant, id) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      PageVersion
+      |> preload(:created_by)
+      |> repo.get!(id)
+    end)
+  end
+
+  @spec restore_page_to_version(Tenant.t(), Page.t(), PageVersion.t(), User.t() | nil) ::
+          {:ok, Page.t()} | {:error, Ecto.Changeset.t()}
+  def restore_page_to_version(
+        %Tenant{} = tenant,
+        %Page{} = page,
+        %PageVersion{} = version,
+        user \\ nil
+      ) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.transaction(fn ->
+        current_page = repo.get!(Page, page.id)
+
+        {:ok, _version} =
+          create_page_version_in_repo(repo, current_page, "auto", "Pre-restore snapshot", user, %{
+            change_summary: "Saved before restoring version #{version.version_number}",
+            restored_from: version.version_number
+          })
+
+        current_page
+        |> Page.tree_changeset(%{
+          content_tree: version.content_tree,
+          seo: current_page.seo || %{},
+          title: current_page.title,
+          slug: current_page.slug,
+          type: current_page.type,
+          status: current_page.status
+        })
+        |> repo.update()
+        |> case do
+          {:ok, updated_page} -> updated_page
+          {:error, changeset} -> repo.rollback(changeset)
+        end
+      end)
+    end)
+    |> unwrap_transaction()
+  end
+
+  @spec prune_auto_page_versions(Tenant.t(), Page.t() | String.t(), pos_integer()) ::
+          non_neg_integer()
+  def prune_auto_page_versions(%Tenant{} = tenant, page, keep_limit \\ 50) when keep_limit > 0 do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      page = resolve_page!(repo, page)
+
+      keep_ids =
+        PageVersion
+        |> where([version], version.page_id == ^page.id and version.snapshot_type == "auto")
+        |> order_by([version], desc: version.version_number)
+        |> limit(^keep_limit)
+        |> select([version], version.id)
+        |> repo.all()
+
+      {count, _} =
+        PageVersion
+        |> where([version], version.page_id == ^page.id and version.snapshot_type == "auto")
+        |> where([version], version.id not in ^keep_ids)
+        |> repo.delete_all()
+
+      count
+    end)
+  end
+
+  @spec list_global_sections(Tenant.t()) :: [GlobalSection.t()]
+  def list_global_sections(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      GlobalSection
+      |> order_by([section], asc: section.name)
+      |> repo.all()
+    end)
+  end
+
+  @spec get_global_section!(Tenant.t(), String.t()) :: GlobalSection.t()
+  def get_global_section!(%Tenant{} = tenant, id) do
+    TenantRepoManager.with_repo(tenant, fn repo -> repo.get!(GlobalSection, id) end)
+  end
+
+  @spec create_global_section(Tenant.t(), map()) ::
+          {:ok, GlobalSection.t()} | {:error, Ecto.Changeset.t()}
+  def create_global_section(%Tenant{} = tenant, attrs) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      %GlobalSection{}
+      |> GlobalSection.changeset(attrs)
+      |> repo.insert()
+    end)
+  end
+
+  @spec update_global_section(Tenant.t(), GlobalSection.t(), map(), User.t() | nil) ::
+          {:ok, GlobalSection.t()} | {:error, Ecto.Changeset.t()}
+  def update_global_section(
+        %Tenant{} = tenant,
+        %GlobalSection{} = global_section,
+        attrs,
+        user \\ nil
+      ) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.transaction(fn ->
+        {:ok, _version} =
+          create_global_section_version_in_repo(repo, global_section, "auto", nil, user, %{
+            change_summary: "Saved global section changes"
+          })
+
+        global_section
+        |> GlobalSection.changeset(attrs)
+        |> repo.update()
+        |> case do
+          {:ok, updated_global_section} -> updated_global_section
+          {:error, changeset} -> repo.rollback(changeset)
+        end
+      end)
+    end)
+    |> unwrap_transaction()
+  end
+
+  @spec delete_global_section(Tenant.t(), GlobalSection.t()) ::
+          {:ok, GlobalSection.t()} | {:error, Ecto.Changeset.t()}
+  def delete_global_section(%Tenant{} = tenant, %GlobalSection{} = global_section) do
+    TenantRepoManager.with_repo(tenant, fn repo -> repo.delete(global_section) end)
   end
 
   @spec list_sections(Tenant.t(), Page.t() | String.t()) :: [PageSection.t()]
@@ -468,6 +705,72 @@ defmodule MangoCMS.Tenant.Pages do
       {key, value} -> {key, value}
     end)
   end
+
+  defp create_page_version_in_repo(repo, %Page{} = page, snapshot_type, label, user, attrs) do
+    page_id = page.id
+
+    next_version_number =
+      PageVersion
+      |> where([version], version.page_id == ^page_id)
+      |> select([version], max(version.version_number))
+      |> repo.one()
+      |> Kernel.||(0)
+      |> Kernel.+(1)
+
+    attrs =
+      attrs
+      |> stringify_keys()
+      |> Map.merge(%{
+        "page_id" => page.id,
+        "created_by_id" => user_id(user),
+        "content_tree" => page.content_tree || [],
+        "version_number" => next_version_number,
+        "label" => label,
+        "snapshot_type" => snapshot_type
+      })
+
+    %PageVersion{}
+    |> PageVersion.changeset(attrs)
+    |> repo.insert()
+  end
+
+  defp create_global_section_version_in_repo(
+         repo,
+         %GlobalSection{} = global_section,
+         snapshot_type,
+         label,
+         user,
+         attrs
+       ) do
+    global_section_id = global_section.id
+
+    next_version_number =
+      GlobalSectionVersion
+      |> where([version], version.global_section_id == ^global_section_id)
+      |> select([version], max(version.version_number))
+      |> repo.one()
+      |> Kernel.||(0)
+      |> Kernel.+(1)
+
+    attrs =
+      attrs
+      |> stringify_keys()
+      |> Map.merge(%{
+        "global_section_id" => global_section.id,
+        "created_by_id" => user_id(user),
+        "content_tree" => global_section.content_tree || [],
+        "version_number" => next_version_number,
+        "label" => label,
+        "snapshot_type" => snapshot_type
+      })
+
+    %GlobalSectionVersion{}
+    |> GlobalSectionVersion.changeset(attrs)
+    |> repo.insert()
+  end
+
+  defp user_id(%User{id: id}) when is_binary(id), do: id
+  defp user_id(_user), do: nil
 
   defp unwrap_transaction({:ok, value}), do: {:ok, value}
   defp unwrap_transaction({:error, {type, changeset}}), do: {:error, {type, changeset}}

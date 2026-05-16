@@ -76,7 +76,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Sections.Text do
         placeholder="Write the section body directly here."
         multiline
         class={[
-          "mt-4 min-h-32 whitespace-pre-line text-base leading-7 text-base-content/70",
+          "mt-4 whitespace-pre-line text-base leading-7 text-base-content/70",
           fixed_class_value(@form, "body")
         ]}
         data-builder-element="text"

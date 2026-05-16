@@ -12,7 +12,7 @@ defmodule MangoCMSWeb.PageComponents do
   def tenant_page(assigns) do
     ~H"""
     <main id="tenant-page" class="bg-base-100 text-base-content">
-      <div class="mx-auto grid max-w-desktop grid-cols-12 gap-5 px-4 py-6 sm:px-6 lg:px-8">
+      <div class={tenant_page_row_class(@page)}>
         <.page_section
           :for={section <- @sections}
           section={section}
@@ -301,6 +301,25 @@ defmodule MangoCMSWeb.PageComponents do
   defp safe_map(value) when is_map(value), do: value
   defp safe_map(_value), do: %{}
 
+  defp string_key_map(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_atom(key) -> {Atom.to_string(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp string_key_map(_value), do: %{}
+
+  defp non_empty_value(value, fallback) when is_binary(value) do
+    case String.trim(value) do
+      "" -> fallback
+      text -> text
+    end
+  end
+
+  defp non_empty_value(value, _fallback) when not is_nil(value), do: value
+  defp non_empty_value(_value, fallback), do: fallback
+
   defp present?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp text_or(value, fallback) when is_binary(value) do
@@ -325,6 +344,68 @@ defmodule MangoCMSWeb.PageComponents do
       settings_value(section, "extra_classes")
     ]
   end
+
+  defp tenant_page_row_class(page) do
+    [
+      "mx-auto grid grid-cols-12",
+      row_gutter_class(page),
+      row_padding_x_class(page),
+      row_padding_y_class(page),
+      row_max_width_class(page),
+      row_setting(page, "background_class"),
+      row_setting(page, "extra_classes")
+    ]
+  end
+
+  defp row_gutter_class(page) do
+    case row_setting(page, "gutter", "default") do
+      "none" -> "gap-0"
+      "tight" -> "gap-2"
+      "loose" -> "gap-6"
+      "spacious" -> "gap-8"
+      _default -> "gap-4"
+    end
+  end
+
+  defp row_padding_x_class(page) do
+    case row_setting(page, "padding_x", "default") do
+      "none" -> "px-0"
+      "wide" -> "px-6 sm:px-8 lg:px-12"
+      _default -> "px-4 sm:px-6 lg:px-8"
+    end
+  end
+
+  defp row_padding_y_class(page) do
+    case row_setting(page, "padding_y", "default") do
+      "none" -> "py-0"
+      "small" -> "py-4"
+      "large" -> "py-10"
+      _default -> "py-6"
+    end
+  end
+
+  defp row_max_width_class(page) do
+    case row_setting(page, "max_width", "desktop") do
+      "full" -> "max-w-full"
+      "7xl" -> "max-w-7xl"
+      _desktop -> "max-w-desktop"
+    end
+  end
+
+  defp row_setting(page, key, fallback \\ nil)
+
+  defp row_setting(%{seo: seo}, key, fallback) when is_map(seo) do
+    seo
+    |> row_settings()
+    |> Map.get(key)
+    |> non_empty_value(fallback)
+  end
+
+  defp row_setting(_page, _key, fallback), do: fallback
+
+  defp row_settings(%{"row" => row}) when is_map(row), do: string_key_map(row)
+  defp row_settings(%{row: row}) when is_map(row), do: string_key_map(row)
+  defp row_settings(_seo), do: %{}
 
   defp section_width_class(section) do
     case settings_value(section, "width", "full") do

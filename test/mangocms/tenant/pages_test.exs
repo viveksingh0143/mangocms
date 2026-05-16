@@ -102,6 +102,27 @@ defmodule MangoCMS.Tenant.PagesTest do
     entry
   end
 
+  defp content_tree_fixture(text) do
+    MangoCMS.ContentTree.normalize_paths([
+      %{
+        "type" => "component",
+        "name" => "section",
+        "id" => "section_test",
+        "props" => %{},
+        "classes" => %{"display" => "w-full"},
+        "children" => [
+          %{
+            "type" => "component",
+            "name" => "heading",
+            "id" => "heading_test",
+            "props" => %{"text" => text, "level" => "1"},
+            "classes" => %{"display" => "text-4xl font-bold"}
+          }
+        ]
+      }
+    ])
+  end
+
   test "stores pages and ordered sections in the tenant database" do
     tenant = tenant_fixture()
 
@@ -159,6 +180,106 @@ defmodule MangoCMS.Tenant.PagesTest do
       })
 
     refute Pages.get_published_page_by_slug(tenant, "draft-page")
+  end
+
+  test "saves content trees with optimistic locking and snapshots previous state" do
+    tenant = tenant_fixture()
+    tree = content_tree_fixture("Initial")
+
+    {:ok, page} =
+      Pages.create_page(tenant, %{
+        title: "AST Page",
+        slug: "ast-page",
+        type: "page",
+        status: "draft",
+        content_tree: tree
+      })
+
+    updated_tree =
+      MangoCMS.ContentTree.update_node_props(tree, "heading_test", %{"text" => "Updated"})
+
+    assert {:ok, updated_page} =
+             Pages.save_page_with_lock(
+               tenant,
+               page,
+               %{
+                 title: page.title,
+                 slug: page.slug,
+                 type: page.type,
+                 status: page.status,
+                 seo: page.seo,
+                 content_tree: updated_tree
+               },
+               page.content_tree_version
+             )
+
+    assert updated_page.content_tree_version == page.content_tree_version + 1
+
+    assert get_in(updated_page.content_tree, [
+             Access.at(0),
+             "children",
+             Access.at(0),
+             "props",
+             "text"
+           ]) == "Updated"
+
+    assert [%{snapshot_type: "auto", content_tree: ^tree}] =
+             Pages.list_page_versions(tenant, page)
+
+    assert {:error, :stale} =
+             Pages.save_page_with_lock(
+               tenant,
+               page,
+               %{
+                 title: page.title,
+                 slug: page.slug,
+                 type: page.type,
+                 status: page.status,
+                 seo: page.seo,
+                 content_tree: tree
+               },
+               page.content_tree_version
+             )
+  end
+
+  test "restores a page version without mutating immutable version records" do
+    tenant = tenant_fixture()
+    tree = content_tree_fixture("Before redesign")
+
+    {:ok, page} =
+      Pages.create_page(tenant, %{
+        title: "Versioned Page",
+        slug: "versioned-page",
+        type: "page",
+        status: "draft",
+        content_tree: tree
+      })
+
+    {:ok, version} = Pages.create_page_version(tenant, page, "manual", "Before redesign")
+
+    changed_tree =
+      MangoCMS.ContentTree.update_node_props(tree, "heading_test", %{"text" => "After redesign"})
+
+    {:ok, changed_page} =
+      Pages.save_page_with_lock(
+        tenant,
+        page,
+        %{
+          title: page.title,
+          slug: page.slug,
+          type: page.type,
+          status: page.status,
+          seo: page.seo,
+          content_tree: changed_tree
+        },
+        page.content_tree_version
+      )
+
+    assert {:ok, restored_page} = Pages.restore_page_to_version(tenant, changed_page, version)
+
+    assert restored_page.content_tree == tree
+    assert restored_page.content_tree_version == changed_page.content_tree_version + 1
+    assert Enum.count(Pages.list_page_versions(tenant, page)) == 3
   end
 
   test "stores dynamic section source and mappings and resolves render items" do

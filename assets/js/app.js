@@ -227,10 +227,174 @@ const BuilderCanvas = {
   },
 }
 
+const AstContentEditable = {
+  mounted() {
+    this.lastSent = this.el.textContent || ""
+    this.timer = null
+
+    this.pushText = () => {
+      const value = this.el.textContent || ""
+      if (value === this.lastSent) return
+      this.lastSent = value
+      this.pushEvent("update_text_property", {
+        id: this.el.dataset.nodeId,
+        property: this.el.dataset.property || "text",
+        value,
+      })
+    }
+
+    this.el.addEventListener("input", () => {
+      window.clearTimeout(this.timer)
+      this.timer = window.setTimeout(this.pushText, 1200)
+    })
+
+    this.el.addEventListener("blur", () => {
+      window.clearTimeout(this.timer)
+      this.pushText()
+    })
+
+    this.el.addEventListener("paste", event => {
+      event.preventDefault()
+      const text = (event.clipboardData || window.clipboardData).getData("text/plain")
+      document.execCommand("insertText", false, text)
+    })
+  },
+
+  destroyed() {
+    window.clearTimeout(this.timer)
+  },
+}
+
+const AstBuilderCanvas = {
+  mounted() {
+    this.draggingNodeId = null
+    this.draggingPalette = null
+    this.dropIndicator = document.createElement("div")
+    this.dropIndicator.className = "pointer-events-none h-2 rounded-full bg-primary/70 shadow shadow-primary/30"
+
+    this.clearDropIndicator = () => {
+      if (this.dropIndicator.parentNode) this.dropIndicator.remove()
+    }
+
+    this.closestDropTarget = event => {
+      return event.target.closest("[data-drop-target-id]") || this.el.querySelector("#editor-canvas-root")
+    }
+
+    this.dropPosition = (event, target) => {
+      if (!target || target.dataset.dropTargetId === "root") return "into"
+      const rect = target.getBoundingClientRect()
+      if (event.clientY < rect.top + rect.height * 0.25) return "before"
+      if (event.clientY > rect.bottom - rect.height * 0.25) return "after"
+      return "into"
+    }
+
+    this.showDropIndicator = event => {
+      const target = this.closestDropTarget(event)
+      const position = this.dropPosition(event, target)
+      if (!target || target.dataset.dropTargetId === "root") {
+        this.el.querySelector("#editor-canvas-root")?.appendChild(this.dropIndicator)
+        return
+      }
+
+      if (position === "before") target.before(this.dropIndicator)
+      if (position === "after") target.after(this.dropIndicator)
+      if (position === "into") target.appendChild(this.dropIndicator)
+    }
+
+    this.handleDragStart = event => {
+      const paletteItem = event.target.closest("[data-palette-name]")
+      if (paletteItem) {
+        this.draggingPalette = {
+          name: paletteItem.dataset.paletteName,
+          variant: paletteItem.dataset.paletteVariant || "default",
+        }
+        event.dataTransfer.effectAllowed = "copy"
+        event.dataTransfer.setData("text/plain", `palette:${this.draggingPalette.name}`)
+        return
+      }
+
+      const node = event.target.closest("[data-node-id]")
+      if (!node) return
+      this.draggingNodeId = node.dataset.nodeId
+      event.dataTransfer.effectAllowed = "move"
+      event.dataTransfer.setData("text/plain", this.draggingNodeId)
+    }
+
+    this.handleDragEnd = () => {
+      this.draggingNodeId = null
+      this.draggingPalette = null
+      this.clearDropIndicator()
+    }
+
+    this.handleKeyDown = event => {
+      const key = event.key.toLowerCase()
+      if ((event.metaKey || event.ctrlKey) && key === "z" && event.shiftKey) {
+        event.preventDefault()
+        this.pushEvent("redo", {})
+      } else if ((event.metaKey || event.ctrlKey) && key === "z") {
+        event.preventDefault()
+        this.pushEvent("undo", {})
+      }
+    }
+
+    document.addEventListener("dragstart", this.handleDragStart)
+    document.addEventListener("dragend", this.handleDragEnd)
+    window.addEventListener("keydown", this.handleKeyDown)
+
+    this.el.addEventListener("dragover", event => {
+      if (!this.draggingNodeId && !this.draggingPalette) return
+      event.preventDefault()
+      this.showDropIndicator(event)
+    })
+
+    this.el.addEventListener("drop", event => {
+      if (!this.draggingNodeId && !this.draggingPalette) return
+      event.preventDefault()
+
+      const target = this.closestDropTarget(event)
+      const targetId = target?.dataset.dropTargetId || "root"
+      const position = this.dropPosition(event, target)
+      this.clearDropIndicator()
+
+      if (this.draggingPalette) {
+        this.pushEvent("drop_palette_node", {
+          name: this.draggingPalette.name,
+          variant: this.draggingPalette.variant,
+          target_id: targetId,
+          position,
+        })
+        this.draggingPalette = null
+        return
+      }
+
+      this.pushEvent("drop_node", {
+        dragged_id: this.draggingNodeId,
+        target_id: targetId,
+        position,
+      })
+      this.draggingNodeId = null
+    })
+  },
+
+  destroyed() {
+    document.removeEventListener("dragstart", this.handleDragStart)
+    document.removeEventListener("dragend", this.handleDragEnd)
+    window.removeEventListener("keydown", this.handleKeyDown)
+    this.clearDropIndicator()
+  },
+}
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, BuilderCanvas, BuilderSortable, ContentEditableInput},
+  hooks: {
+    ...colocatedHooks,
+    AstBuilderCanvas,
+    AstContentEditable,
+    BuilderCanvas,
+    BuilderSortable,
+    ContentEditableInput,
+  },
 })
 
 // Show progress bar on live navigation and form submits

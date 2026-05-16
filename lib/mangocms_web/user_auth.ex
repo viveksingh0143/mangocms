@@ -177,6 +177,12 @@ defmodule MangoCMSWeb.UserAuth do
     end
   end
 
+  def on_mount(:mount_tenant_user, _params, session, socket) do
+    current_tenant = socket.assigns[:current_tenant]
+    user = tenant_user_from_session(current_tenant, session)
+    {:cont, Phoenix.Component.assign(socket, :current_user, user)}
+  end
+
   def platform_admin_user?(%User{} = user),
     do: Authorization.platform_admin_user?(user)
 

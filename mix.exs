@@ -97,6 +97,7 @@ defmodule MangoCMS.MixProject do
       {:igniter, "~> 0.5", only: [:dev]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:faker, "~> 0.18", only: [:dev, :test], runtime: false},
 
       # Test
       {:lazy_html, ">= 0.1.0", only: :test},

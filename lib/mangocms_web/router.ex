@@ -228,7 +228,14 @@ defmodule MangoCMSWeb.Router do
   scope "/", MangoCMSWeb do
     pipe_through [:browser, :require_tenant]
 
-    get "/:slug", PageController, :show
+    live_session :tenant_public_pages,
+      on_mount: [
+        {MangoCMSWeb.TenantMount, :require_tenant},
+        {MangoCMSWeb.UserAuth, :mount_tenant_user}
+      ],
+      session: {MangoCMSWeb.UserAuth, :live_session, []} do
+      live "/:slug", Public.PageLive, :show
+    end
   end
 
   # Other scopes may use custom stacks.

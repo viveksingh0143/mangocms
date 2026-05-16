@@ -182,29 +182,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
   end
 
   describe "page sections and public render" do
-    test "builder adds, selects, resizes, and reorders sections", %{conn: conn} do
+    test "builder edits AST content, saves snapshots, and renders the public page", %{conn: conn} do
       tenant = tenant_fixture()
       page = page_fixture(tenant, title: "Builder", slug: "builder")
-
-      {:ok, first_section} =
-        Pages.create_section(tenant, page, %{
-          type: "hero",
-          template_id: "default",
-          mode: "fixed",
-          fixed_data: %{"title" => "First"},
-          settings: %{"width" => "full"},
-          position: 10
-        })
-
-      {:ok, second_section} =
-        Pages.create_section(tenant, page, %{
-          type: "text",
-          template_id: "default",
-          mode: "fixed",
-          fixed_data: %{"title" => "Second"},
-          settings: %{"width" => "full"},
-          position: 20
-        })
 
       {conn, _user} =
         conn |> host_conn(tenant.domain, 4000) |> register_and_log_in_tenant_user(tenant)
@@ -212,75 +192,50 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       {:ok, builder_live, _html} = live(conn, ~p"/admin/pages/#{page}/builder")
 
       assert has_element?(builder_live, "#page-builder")
-      assert has_element?(builder_live, "#builder-page-form")
+      assert has_element?(builder_live, "#ast-builder-page-form")
+      assert has_element?(builder_live, "#builder-palette")
+      assert has_element?(builder_live, "#builder-inspector-sidebar")
+      assert has_element?(builder_live, "#editor-canvas-root")
 
-      assert has_element?(
-               builder_live,
-               ~s|#builder-public-page-link[href="http://#{tenant.domain}:4000/#{page.slug}"]|
+      assert has_element?(builder_live, "[data-node-name='section']")
+      assert has_element?(builder_live, "[data-node-name='row']")
+      assert has_element?(builder_live, "[data-node-name='column']")
+      assert has_element?(builder_live, "[data-node-name='heading']")
+
+      assert builder_live
+             |> element("[data-node-name='heading']")
+             |> render_click()
+
+      assert has_element?(builder_live, "#builder-node-inspector-form")
+
+      assert builder_live
+             |> form("#builder-node-inspector-form",
+               node: %{
+                 props: %{"text" => "Updated AST heading"},
+                 classes: %{"display" => "text-4xl font-bold text-primary"}
+               }
              )
+             |> render_change()
 
-      assert has_element?(builder_live, "#builder-add-text")
-      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
-      assert has_element?(builder_live, "#builder-section-gear-#{first_section.id}")
-      assert has_element?(builder_live, "#builder-delete-section-#{first_section.id}")
-      refute has_element?(builder_live, "#builder-section-properties-panel")
+      assert render(builder_live) =~ "Updated AST heading"
+      assert has_element?(builder_live, ".text-primary")
 
-      assert builder_live
-             |> element("#builder-select-section-#{second_section.id}")
-             |> render_click()
-
-      refute has_element?(builder_live, "#builder-section-properties-panel")
-
-      assert builder_live
-             |> element("#builder-section-gear-#{first_section.id}")
-             |> render_click()
-
-      assert has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
-      assert has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
-      assert has_element?(builder_live, "#builder_hero_title_#{first_section.id}_editable")
-
-      render_hook(builder_live, "select_canvas_element", %{
-        "section_id" => first_section.id,
-        "kind" => "link",
-        "field" => "cta_label"
+      render_hook(builder_live, "drop_palette_node", %{
+        "name" => "section",
+        "variant" => "default",
+        "target_id" => "root",
+        "position" => "into"
       })
 
-      assert has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
-      refute has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
-      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
-
-      render_hook(builder_live, "select_canvas_element", %{
-        "section_id" => first_section.id,
-        "kind" => "image"
-      })
-
-      assert has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
-      refute has_element?(builder_live, "#builder_section_cta_href_#{first_section.id}")
-      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
-
-      render_hook(builder_live, "select_canvas_element", %{
-        "section_id" => first_section.id,
-        "kind" => "text",
-        "field" => "title"
-      })
-
-      assert has_element?(builder_live, "#builder_section_text_value_title_#{first_section.id}")
-      refute has_element?(builder_live, "#builder_section_image_url_#{first_section.id}")
-      assert has_element?(builder_live, "#builder-section-form-#{first_section.id}")
+      assert render(builder_live) =~ "2 root blocks"
 
       assert builder_live
-             |> element("#builder-section-gear-#{first_section.id}")
-             |> render_click()
-
-      assert builder_live
-             |> form("#builder-page-form",
+             |> form("#ast-builder-page-form",
                page: %{
                  title: "Builder Page Updated",
                  slug: page.slug,
-                 type: page.type,
-                 status: page.status,
+                 status: "published",
                  seo: %{
-                   "title" => "Builder Page Updated",
                    "subtitle" => "Inline subtitle",
                    "description" => "Builder SEO description"
                  }
@@ -291,98 +246,28 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
       page = Pages.get_page!(tenant, page.id)
       assert page.title == "Builder Page Updated"
       assert page.seo["subtitle"] == "Inline subtitle"
+      assert length(page.content_tree) == 2
+      assert page.content_tree_version == 2
+      assert [%{snapshot_type: "auto"}] = Pages.list_page_versions(tenant, page)
+
+      public_conn =
+        build_conn()
+        |> host_conn(tenant.domain)
+        |> get(~p"/builder")
+
+      public_html = html_response(public_conn, 200)
+      assert public_html =~ "Updated AST heading"
+      refute public_html =~ "data-node-id"
 
       assert builder_live
-             |> element("#builder-section-width-half-#{first_section.id}")
-             |> render_click()
-
-      assert Pages.get_section!(tenant, first_section.id).settings["width"] == "half"
-
-      assert builder_live
-             |> form("#builder-section-form-#{first_section.id}",
-               section: %{fixed_data: %{"title_classes" => "text-primary"}}
-             )
-             |> render_change()
-
-      assert has_element?(
-               builder_live,
-               "#builder_hero_title_#{first_section.id}_editable.text-primary"
-             )
-
-      assert builder_live
-             |> element("#builder-section-gear-#{first_section.id}")
+             |> element("#builder-toggle-versions-button")
              |> render_click()
 
       assert builder_live
-             |> form("#builder-section-form-#{first_section.id}",
-               section: %{settings: %{"extra_classes" => "shadow-xl ring-1"}}
-             )
-             |> render_change()
-
-      assert has_element?(builder_live, ".shadow-xl")
-
-      assert builder_live
-             |> element("#builder-move-down-#{first_section.id}")
-             |> render_click()
-
-      assert Enum.map(Pages.list_sections(tenant, page), & &1.id) == [
-               second_section.id,
-               first_section.id
-             ]
-
-      first_section = Pages.get_section!(tenant, first_section.id)
-
-      assert builder_live
-             |> element("#builder-section-gear-#{first_section.id}")
-             |> render_click()
-
-      assert has_element?(builder_live, "#builder-section-properties-panel")
-
-      upload =
-        file_input(builder_live, "#builder-section-form-#{first_section.id}", :section_image, [
-          %{
-            name: "hero.png",
-            content: "uploaded image",
-            type: "image/png"
-          }
-        ])
-
-      render_upload(upload, "hero.png")
-
-      assert builder_live
-             |> form("#builder-section-form-#{first_section.id}",
-               section: %{
-                 type: "hero",
-                 template_id: "default",
-                 mode: "fixed",
-                 position: first_section.position,
-                 fixed_data: %{
-                   "title" => "Updated builder title",
-                   "subtitle" => "Updated from builder"
-                 }
-               }
-             )
+             |> form("#builder-save-version-form", version: %{label: "Before polish"})
              |> render_submit()
 
-      assert Pages.get_section!(tenant, first_section.id).fixed_data["title"] ==
-               "Updated builder title"
-
-      assert Pages.get_section!(tenant, first_section.id).fixed_data["image_url"] =~
-               "/uploads/tenants/#{tenant.id}/sections/#{first_section.id}/images/"
-
-      assert builder_live |> element("#builder-add-text") |> render_click()
-      assert length(Pages.list_sections(tenant, page)) == 3
-
-      [new_section | _rest] =
-        tenant
-        |> Pages.list_sections(page)
-        |> Enum.reject(&(&1.id in [first_section.id, second_section.id]))
-
-      assert builder_live
-             |> element("#builder-delete-section-#{new_section.id}")
-             |> render_click()
-
-      assert length(Pages.list_sections(tenant, page)) == 2
+      assert Enum.any?(Pages.list_page_versions(tenant, page), &(&1.snapshot_type == "manual"))
     end
 
     test "creates a fixed section and renders the published page by slug", %{conn: conn} do
@@ -461,7 +346,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
         |> host_conn(tenant.domain)
         |> get(~p"/draft")
 
-      assert response(conn, 404) == "Page not found"
+      assert redirected_to(conn) == "/"
     end
 
     test "creates a dynamic section with source query and mappings", %{conn: conn} do
