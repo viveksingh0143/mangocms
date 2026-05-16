@@ -79,6 +79,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       draggable="true"
       phx-click="select_element"
       phx-value-id={@node_id}
+      phx-value-source="canvas"
       class={[
         "group relative my-1 rounded-md border border-dashed border-base-300 transition hover:border-primary/60 hover:bg-primary/5",
         canvas_wrapper_class(@node),

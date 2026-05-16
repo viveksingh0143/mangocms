@@ -285,6 +285,97 @@ const AutoGrowTextArea = {
   },
 }
 
+const scheduleFlashDismissals = root => {
+  root.querySelectorAll("[data-auto-dismiss-flash='true']").forEach(flash => {
+    if (flash.dataset.dismissScheduled === "true") return
+
+    flash.dataset.dismissScheduled = "true"
+    window.setTimeout(() => {
+      if (!flash.isConnected || flash.hidden) return
+
+      const closeButton = flash.querySelector("button[aria-label]")
+      if (closeButton) {
+        closeButton.click()
+      } else {
+        flash.remove()
+      }
+    }, 3000)
+  })
+}
+
+const ensureConfirmDialog = () => {
+  let dialog = document.getElementById("app-confirm-dialog")
+  if (dialog) return dialog
+
+  dialog = document.createElement("dialog")
+  dialog.id = "app-confirm-dialog"
+  dialog.className = "modal"
+  dialog.innerHTML = `
+    <div class="modal-box max-w-md">
+      <h3 class="text-lg font-semibold">Confirm action</h3>
+      <p class="py-4 text-sm text-base-content/70" data-confirm-message></p>
+      <div class="modal-action">
+        <button type="button" class="btn btn-ghost" data-confirm-cancel>Cancel</button>
+        <button type="button" class="btn btn-error" data-confirm-accept>Confirm</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  `
+  document.body.appendChild(dialog)
+  return dialog
+}
+
+document.addEventListener("click", event => {
+  const trigger = event.target.closest("[data-confirm]")
+  if (!trigger || trigger.dataset.confirmed === "true") {
+    if (trigger) delete trigger.dataset.confirmed
+    return
+  }
+
+  event.preventDefault()
+  event.stopImmediatePropagation()
+
+  const dialog = ensureConfirmDialog()
+  const message = dialog.querySelector("[data-confirm-message]")
+  const accept = dialog.querySelector("[data-confirm-accept]")
+  const cancel = dialog.querySelector("[data-confirm-cancel]")
+
+  message.textContent = trigger.dataset.confirm || "Are you sure?"
+
+  const cleanup = () => {
+    accept.removeEventListener("click", confirmAction)
+    cancel.removeEventListener("click", cancelAction)
+  }
+
+  const cancelAction = () => {
+    cleanup()
+    dialog.close()
+  }
+
+  const confirmAction = () => {
+    cleanup()
+    dialog.close()
+    trigger.dataset.confirmed = "true"
+    trigger.click()
+  }
+
+  accept.addEventListener("click", confirmAction, {once: true})
+  cancel.addEventListener("click", cancelAction, {once: true})
+  dialog.showModal()
+}, true)
+
+document.addEventListener("DOMContentLoaded", () => scheduleFlashDismissals(document))
+window.addEventListener("phx:page-loading-stop", () => scheduleFlashDismissals(document))
+new MutationObserver(mutations => {
+  mutations.forEach(mutation => {
+    mutation.addedNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) scheduleFlashDismissals(node)
+    })
+  })
+}).observe(document.documentElement, {childList: true, subtree: true})
+
 const AstBuilderCanvas = {
   mounted() {
     this.draggingNodeId = null
@@ -357,9 +448,24 @@ const AstBuilderCanvas = {
       }
     }
 
+    this.scrollNodeIntoView = ({id, source}) => {
+      window.requestAnimationFrame(() => {
+        const canvasNode = document.getElementById(`canvas-node-${id}`)
+        const layerNode = document.querySelector(`[data-layer-node-id="${id}"]`)
+
+        if (source === "layers") {
+          canvasNode?.scrollIntoView({block: "center", inline: "nearest", behavior: "smooth"})
+          return
+        }
+
+        layerNode?.scrollIntoView({block: "center", inline: "nearest", behavior: "smooth"})
+      })
+    }
+
     document.addEventListener("dragstart", this.handleDragStart)
     document.addEventListener("dragend", this.handleDragEnd)
     window.addEventListener("keydown", this.handleKeyDown)
+    this.handleEvent("builder:focus-node", this.scrollNodeIntoView)
 
     this.el.addEventListener("dragover", event => {
       if (!this.draggingNodeId && !this.draggingPalette) return

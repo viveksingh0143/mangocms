@@ -119,6 +119,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      |> assign(:global_sections, Pages.list_global_sections(tenant))
      |> assign(:versions, Pages.list_page_versions(tenant, page))
      |> assign(:show_versions?, false)
+     |> assign(:right_sidebar_open?, true)
      |> assign(:manual_version_label, "")}
   end
 
@@ -200,15 +201,30 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   def handle_event("toggle_versions", _params, socket) do
-    {:noreply, update(socket, :show_versions?, &(!&1))}
+    {:noreply,
+     socket
+     |> assign(:right_sidebar_open?, true)
+     |> update(:show_versions?, &(!&1))}
+  end
+
+  def handle_event("close_right_sidebar", _params, socket) do
+    {:noreply, assign(socket, right_sidebar_open?: false, show_versions?: false)}
   end
 
   # ---------------------------------------------------------------------------
   # Canvas tree mutations
   # ---------------------------------------------------------------------------
 
-  def handle_event("select_element", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :selected_id, id)}
+  def handle_event("select_element", %{"id" => id} = params, socket) do
+    source = Map.get(params, "source", "canvas")
+
+    {:noreply,
+     socket
+     |> assign(:selected_id, id)
+     |> assign(:left_tab, if(source == "canvas", do: "layers", else: socket.assigns.left_tab))
+     |> assign(:right_sidebar_open?, true)
+     |> assign(:show_versions?, false)
+     |> push_event("builder:focus-node", %{id: id, source: source})}
   end
 
   def handle_event("set_viewport", %{"viewport" => viewport}, socket) do
@@ -428,7 +444,11 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       <section
         id="page-builder"
         phx-hook="AstBuilderCanvas"
-        class="grid h-[calc(100vh-10rem)] min-h-[38rem] grid-cols-[18rem_minmax(0,1fr)_20rem] gap-3 overflow-hidden"
+        class={[
+          "grid h-[calc(100vh-10rem)] min-h-[38rem] gap-3 overflow-hidden",
+          @right_sidebar_open? && "grid-cols-[18rem_minmax(0,1fr)_20rem]",
+          !@right_sidebar_open? && "grid-cols-[18rem_minmax(0,1fr)]"
+        ]}
       >
         <aside
           id="builder-palette"
@@ -572,6 +592,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         </main>
 
         <aside
+          :if={@right_sidebar_open?}
           id="builder-inspector-sidebar"
           class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
@@ -679,6 +700,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         type="button"
         phx-click="select_element"
         phx-value-id={@node_id}
+        phx-value-source="layers"
+        data-layer-node-id={@node_id}
         class={[
           "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
           @selected_id == @node_id && "bg-primary/10 text-primary"
@@ -725,15 +748,26 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         <h2 class="font-semibold">{human_name(@name)}</h2>
         <p class="text-xs text-base-content/60">{@node_id}</p>
       </div>
-      <button
-        :if={@clipboard}
-        id="builder-paste-node-button"
-        type="button"
-        phx-click="paste_node"
-        class="btn btn-sm"
-      >
-        Paste
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          :if={@clipboard}
+          id="builder-paste-node-button"
+          type="button"
+          phx-click="paste_node"
+          class="btn btn-sm"
+        >
+          Paste
+        </button>
+        <button
+          id="builder-close-inspector-button"
+          type="button"
+          phx-click="close_right_sidebar"
+          class="btn btn-ghost btn-sm btn-circle"
+          aria-label="Close properties"
+        >
+          <.icon name="hero-x-mark" class="size-4" />
+        </button>
+      </div>
     </div>
 
     <div :if={!@selected_node} class="p-4 text-sm text-base-content/60">
@@ -935,7 +969,18 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   defp version_history(assigns) do
     ~H"""
     <div class="border-b border-base-300 p-4">
-      <h2 class="font-semibold">Version History</h2>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="font-semibold">Version History</h2>
+        <button
+          id="builder-close-versions-button"
+          type="button"
+          phx-click="close_right_sidebar"
+          class="btn btn-ghost btn-sm btn-circle"
+          aria-label="Close versions"
+        >
+          <.icon name="hero-x-mark" class="size-4" />
+        </button>
+      </div>
       <.form
         for={to_form(%{"label" => @manual_version_label}, as: :version)}
         id="builder-save-version-form"
