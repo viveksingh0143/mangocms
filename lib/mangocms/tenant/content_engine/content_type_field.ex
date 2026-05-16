@@ -8,22 +8,23 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
 
-  @field_types ~w(string text number boolean datetime image video url select json)
+  @field_types ~w(string text number boolean datetime image video gallery url select json)
 
   @type t :: %__MODULE__{}
 
   schema "content_type_fields" do
-    field :label, :string
-    field :field_key, :string
-    field :field_type, :string, default: "string"
-    field :required, :boolean, default: false
-    field :indexed, :boolean, default: false
-    field :filterable, :boolean, default: false
-    field :sortable, :boolean, default: false
-    field :settings, :map, default: %{}
-    field :position, :integer, default: 0
+    field(:label, :string)
+    field(:field_key, :string)
+    field(:field_type, :string, default: "string")
+    field(:required, :boolean, default: false)
+    field(:indexed, :boolean, default: false)
+    field(:filterable, :boolean, default: false)
+    field(:sortable, :boolean, default: false)
+    field(:unique, :boolean, default: false)
+    field(:settings, :map, default: %{})
+    field(:position, :integer, default: 0)
 
-    belongs_to :content_type, ContentType
+    belongs_to(:content_type, ContentType)
 
     timestamps()
   end
@@ -41,6 +42,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
       :indexed,
       :filterable,
       :sortable,
+      :unique,
       :settings,
       :position
     ])
@@ -84,7 +86,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   end
 
   defp put_indexed_for_queryable_fields(changeset) do
-    if get_field(changeset, :filterable) == true or get_field(changeset, :sortable) == true do
+    if get_field(changeset, :filterable) == true or get_field(changeset, :sortable) == true or
+         get_field(changeset, :unique) == true do
       put_change(changeset, :indexed, true)
     else
       changeset

@@ -37,24 +37,27 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
           <.input field={@form[:position]} type="number" label="Position" min="0" />
           <div class="rounded-lg border border-base-300 bg-base-200 p-4">
             <.input field={@form[:required]} type="checkbox" label="Required" />
+            <.input field={@form[:unique]} type="checkbox" label="Unique" />
             <.input field={@form[:indexed]} type="checkbox" label="Indexed" />
             <.input field={@form[:filterable]} type="checkbox" label="Filterable" />
             <.input field={@form[:sortable]} type="checkbox" label="Sortable" />
           </div>
         </div>
 
-        <.input
-          id="content_type_field_options_text"
-          name="content_type_field[options_text]"
-          type="textarea"
-          label="Select options"
-          value={@options_text}
-          rows="3"
-          placeholder="Starter\nPro\nEnterprise"
-        />
-        <p class="-mt-1 text-xs text-base-content/60">
-          Used when field type is select. Put one option per line.
-        </p>
+        <div :if={@selected_field_type == "select"} id="content-type-field-options-panel">
+          <.input
+            id="content_type_field_options_text"
+            name="content_type_field[options_text]"
+            type="textarea"
+            label="Select options"
+            value={@options_text}
+            rows="3"
+            placeholder="Starter\nPro\nEnterprise"
+          />
+          <p class="-mt-1 text-xs text-base-content/60">
+            Put one option per line.
+          </p>
+        </div>
 
         <div class="mt-6 flex items-center justify-end gap-3">
           <.button navigate={@patch} class="btn btn-ghost">Cancel</.button>
@@ -76,6 +79,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
      |> assign(assigns)
      |> assign(:field_type_options, @field_type_options)
      |> assign(:options_text, options_text(field))
+     |> assign(:selected_field_type, field.field_type || "string")
      |> assign_form(changeset)}
   end
 
@@ -91,6 +95,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
     {:noreply,
      socket
      |> assign(:options_text, Map.get(field_params, "options_text", ""))
+     |> assign(:selected_field_type, Map.get(params, "field_type", "string"))
      |> assign_form(changeset)}
   end
 
@@ -137,6 +142,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
   end
 
   defp normalize_field_params(params) do
+    field_type = Map.get(params, "field_type", "string")
     options_text = Map.get(params, "options_text", "")
 
     options =
@@ -151,10 +157,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
       |> normalize_settings()
 
     settings =
-      if options == [] do
-        Map.delete(settings, "options")
-      else
-        Map.put(settings, "options", options)
+      cond do
+        field_type != "select" -> Map.delete(settings, "options")
+        options == [] -> Map.delete(settings, "options")
+        true -> Map.put(settings, "options", options)
       end
 
     params

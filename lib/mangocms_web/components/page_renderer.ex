@@ -64,7 +64,7 @@ defmodule MangoCMSWeb.PageRenderer do
         <PageElements.anchor props={@props} classes={@classes} />
       <% "dynamic_form" -> %>
         <PageElements.dynamic_form props={@props} classes={@classes} />
-      <% "global_section" -> %>
+      <% "section_ref" -> %>
         <.render_tree tree={@children} />
       <% _other -> %>
         <PageElements.unknown props={@props} classes={@classes}>

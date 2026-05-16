@@ -420,7 +420,7 @@ if tenant do
   upsert_product = fn attrs ->
     product =
       TenantRepoManager.with_repo(tenant, fn repo ->
-        repo.one(from product in Product, where: product.slug == ^attrs.slug, limit: 1)
+        repo.one(from(product in Product, where: product.slug == ^attrs.slug, limit: 1))
       end)
 
     case product do
@@ -456,7 +456,16 @@ if tenant do
       price: price,
       currency: "INR",
       stock_quantity: 100,
-      active: true
+      active: true,
+      custom_fields: %{
+        "delivery" => "7 business days",
+        "support_level" => if(price > 100_000, do: "priority", else: "standard"),
+        "features" => [
+          "Tenant-isolated content",
+          "Responsive sections",
+          "AI-ready website copy"
+        ]
+      }
     })
   end)
 
@@ -802,6 +811,54 @@ if tenant do
     })
   end
 
+  slider_row = fn id, children ->
+    node.(
+      "row",
+      id,
+      %{
+        "gutter" => "slider",
+        "component" => "slider_track",
+        "settings" => %{
+          "items_visible" => %{"desktop" => 3, "tablet" => 2, "mobile" => 1},
+          "interval_ms" => 5000,
+          "transition" => "slide"
+        }
+      },
+      %{
+        "display" =>
+          "mx-auto flex w-full max-w-desktop snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 py-8 sm:px-6 lg:px-8"
+      },
+      children
+    )
+  end
+
+  slider_card = fn id, children ->
+    column.(
+      id,
+      "w-80 shrink-0 snap-start rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm",
+      children
+    )
+  end
+
+  upsert_section = fn attrs ->
+    case Pages.list_sections(tenant) |> Enum.find(&(&1.name == attrs.name)) do
+      nil ->
+        Pages.create_section(tenant, attrs)
+
+      section ->
+        Pages.update_section(tenant, section, attrs)
+    end
+    |> case do
+      {:ok, section} ->
+        IO.puts("Seeded section: #{section.name}")
+        section
+
+      {:error, changeset} ->
+        print_changeset_errors.("Could not seed section #{attrs.name}", changeset)
+        nil
+    end
+  end
+
   cta_tree =
     ContentTree.normalize_paths([
       section.("global_cta_section", "bg-primary text-primary-content", [
@@ -825,30 +882,205 @@ if tenant do
     ])
 
   global_cta =
-    case Pages.list_global_sections(tenant) |> Enum.find(&(&1.name == "Primary CTA")) do
-      nil ->
-        {:ok, section} =
-          Pages.create_global_section(tenant, %{name: "Primary CTA", content_tree: cta_tree})
+    upsert_section.(%{
+      name: "Primary CTA",
+      template_key: "cta.primary",
+      group_label: "Marketing",
+      mode: "static",
+      content_tree: cta_tree,
+      settings: %{
+        "section_type" => "cta",
+        "variant" => "primary",
+        "editable_fields" => ["title", "body", "button"]
+      },
+      source_config: %{"kind" => "fixed"},
+      filters: %{},
+      loop_settings: %{"enabled" => false, "limit" => 1}
+    })
 
-        section
+  review_slider_tree =
+    ContentTree.normalize_paths([
+      section.("review_slider_section", "bg-base-100", [
+        row.("review_slider_header_row", [
+          column.("review_slider_header", "col-span-12", [
+            heading.(
+              "review_slider_title",
+              "Loved by growing website teams",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "review_slider_intro",
+              "This section is dynamic-ready and loops customer review records into slider cards.",
+              "mt-3 max-w-3xl text-base text-base-content/70"
+            ),
+            paragraph.(
+              "review_slider_settings",
+              "Slider: 3 desktop / 2 tablet / 1 mobile visible, 5s interval, slide transition.",
+              "mt-2 text-xs font-semibold uppercase tracking-wide text-primary"
+            )
+          ])
+        ]),
+        slider_row.(
+          "review_slider_cards",
+          Enum.map(1..4, fn index ->
+            slider_card.("review_slider_card_#{index}", [
+              paragraph.(
+                "review_slider_quote_#{index}",
+                "MangoCMS helped us publish faster without losing tenant isolation or design control.",
+                "text-base leading-7 text-base-content/80"
+              ),
+              heading.(
+                "review_slider_name_#{index}",
+                Enum.at(["Vivek Singh", "Priya Sharma", "Aarav Mehta", "Neha Kapoor"], index - 1),
+                3,
+                "mt-5 text-lg font-semibold text-base-content"
+              ),
+              paragraph.(
+                "review_slider_company_#{index}",
+                Enum.at(
+                  ["Acme Studio", "Northstar Labs", "Saffron Cloud", "Bluepine Works"],
+                  index - 1
+                ),
+                "mt-1 text-sm text-base-content/60"
+              )
+            ])
+          end)
+        )
+      ])
+    ])
 
-      section ->
-        {:ok, section} =
-          Pages.update_global_section(tenant, section, %{
-            name: "Primary CTA",
-            content_tree: cta_tree
-          })
+  global_review_slider =
+    upsert_section.(%{
+      name: "Customer Review Slider",
+      template_key: "slider.customer_reviews",
+      group_label: "Proof",
+      mode: "dynamic",
+      content_tree: review_slider_tree,
+      settings: %{
+        "section_type" => "slider",
+        "variant" => "customer_reviews",
+        "items_visible" => %{"desktop" => 3, "tablet" => 2, "mobile" => 1},
+        "interval_ms" => 5000,
+        "transition" => "slide",
+        "controls" => %{"arrows" => true, "dots" => true, "pause_on_hover" => true}
+      },
+      source_config: %{
+        "kind" => "content_type",
+        "content_type_slug" => "customer_reviews",
+        "sort" => %{"field" => "reviewed_at", "direction" => "desc"},
+        "mappings" => %{
+          "title" => "payload.customer_name",
+          "subtitle" => "payload.company",
+          "body" => "payload.quote",
+          "rating" => "payload.rating"
+        }
+      },
+      filters: %{"rules" => [%{"field" => "rating", "op" => ">=", "value" => 4}]},
+      loop_settings: %{
+        "enabled" => true,
+        "limit" => 6,
+        "layout" => "slider",
+        "item_component" => "review_card"
+      }
+    })
 
-        section
-    end
+  product_slider_tree =
+    ContentTree.normalize_paths([
+      section.("product_slider_section", "bg-base-200", [
+        row.("product_slider_header_row", [
+          column.("product_slider_header", "col-span-12 md:col-span-8", [
+            heading.(
+              "product_slider_title",
+              "Popular website packages",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "product_slider_intro",
+              "A product slider section can loop active products or service content entries.",
+              "mt-3 max-w-3xl text-base text-base-content/70"
+            ),
+            paragraph.(
+              "product_slider_settings",
+              "Slider: 4 desktop / 2 tablet / 1 mobile visible, 4s interval, fade transition.",
+              "mt-2 text-xs font-semibold uppercase tracking-wide text-primary"
+            )
+          ]),
+          column.("product_slider_action", "col-span-12 md:col-span-4 md:text-right", [
+            button.("product_slider_button", "See all services", "/services")
+          ])
+        ]),
+        slider_row.(
+          "product_slider_cards",
+          Enum.map(services, fn {_slug, name, price} ->
+            slider_card.(
+              "product_slider_card_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
+              [
+                heading.(
+                  "product_slider_card_title_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
+                  name,
+                  3,
+                  "text-xl font-semibold text-base-content"
+                ),
+                paragraph.(
+                  "product_slider_card_price_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
+                  "From Rs. #{div(price, 100)}",
+                  "mt-3 text-2xl font-bold text-primary"
+                ),
+                paragraph.(
+                  "product_slider_card_copy_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
+                  MangoCMS.Seeds.Faker.sentence(name),
+                  "mt-3 text-sm leading-6 text-base-content/70"
+                )
+              ]
+            )
+          end)
+        )
+      ])
+    ])
 
-  global_node = fn id, global_section ->
+  global_product_slider =
+    upsert_section.(%{
+      name: "Product Slider",
+      template_key: "slider.products",
+      group_label: "Commerce",
+      mode: "dynamic",
+      content_tree: product_slider_tree,
+      settings: %{
+        "section_type" => "slider",
+        "variant" => "products",
+        "items_visible" => %{"desktop" => 4, "tablet" => 2, "mobile" => 1},
+        "interval_ms" => 4000,
+        "transition" => "fade",
+        "controls" => %{"arrows" => true, "dots" => true, "pause_on_hover" => true}
+      },
+      source_config: %{
+        "kind" => "product",
+        "sort" => %{"field" => "inserted_at", "direction" => "desc"},
+        "mappings" => %{
+          "title" => "name",
+          "body" => "description",
+          "price" => "price",
+          "href" => "slug"
+        }
+      },
+      filters: %{"rules" => [%{"field" => "active", "op" => "=", "value" => true}]},
+      loop_settings: %{
+        "enabled" => true,
+        "limit" => 8,
+        "layout" => "slider",
+        "item_component" => "product_card"
+      }
+    })
+
+  section_node = fn id, section ->
     node.(
-      "global_section",
+      "section_ref",
       id,
-      %{"global_section_id" => global_section.id, "name" => global_section.name},
+      %{"section_id" => section.id, "name" => section.name},
       %{"display" => ""},
-      global_section.content_tree
+      section.content_tree
     )
   end
 
@@ -908,7 +1140,7 @@ if tenant do
           ])
         ])
       ]),
-      global_node.("welcome_global_cta", global_cta)
+      section_node.("welcome_global_cta", global_cta)
     ])
 
   upsert_page.(%{
@@ -946,6 +1178,7 @@ if tenant do
           ])
         ])
       ]),
+      section_node.("services_product_slider", global_product_slider),
       section.("services_cards", "bg-base-200", [
         row.("services_cards_row", [
           column.("services_card_1", "col-span-12 md:col-span-6 lg:col-span-4", [
@@ -989,7 +1222,7 @@ if tenant do
           ])
         ])
       ]),
-      global_node.("services_global_cta", global_cta)
+      section_node.("services_global_cta", global_cta)
     ])
 
   upsert_page.(%{
@@ -1024,6 +1257,7 @@ if tenant do
           ])
         ])
       ]),
+      section_node.("customers_review_slider", global_review_slider),
       section.("customers_quotes", "bg-base-200", [
         row.("customers_quotes_row", [
           column.("customers_quote_1", "col-span-12 md:col-span-4", [
@@ -1067,7 +1301,7 @@ if tenant do
           ])
         ])
       ]),
-      global_node.("customers_global_cta", global_cta)
+      section_node.("customers_global_cta", global_cta)
     ])
 
   upsert_page.(%{
@@ -1113,7 +1347,7 @@ if tenant do
             ])
           ])
         ]),
-        global_node.("resume_global_cta", global_cta)
+        section_node.("resume_global_cta", global_cta)
       ])
   })
 end

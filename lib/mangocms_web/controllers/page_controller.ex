@@ -25,8 +25,6 @@ defmodule MangoCMSWeb.PageController do
       page ->
         render(conn, :show,
           page: page,
-          sections: page.sections,
-          section_items: Pages.section_render_items(tenant, page.sections),
           can_edit_page: Authorization.can?(conn.assigns[:current_user], :tenant, :manage_pages)
         )
     end

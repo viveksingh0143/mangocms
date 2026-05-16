@@ -2,8 +2,6 @@ defmodule MangoCMS.Tenant.Pages.Page do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias MangoCMS.Tenant.Pages.PageSection
-
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
@@ -23,7 +21,6 @@ defmodule MangoCMS.Tenant.Pages.Page do
     field :content_tree, {:array, :map}, default: []
     field :content_tree_version, :integer, default: 1
 
-    has_many :sections, PageSection
     has_many :versions, MangoCMS.Tenant.Pages.PageVersion
 
     timestamps()

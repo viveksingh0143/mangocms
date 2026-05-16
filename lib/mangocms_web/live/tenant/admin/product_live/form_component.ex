@@ -58,6 +58,21 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
           placeholder="Short product description."
         />
 
+        <.input
+          id="product_custom_fields_json"
+          name="product[custom_fields_json]"
+          type="textarea"
+          label="Custom fields"
+          value={@custom_fields_json}
+          rows="6"
+          placeholder={
+            ~s({"material":"Cotton","warranty":"1 year","gallery":["/uploads/example.jpg"]})
+          }
+        />
+        <p class="-mt-3 text-xs text-base-content/60">
+          Store product-specific fields as JSON until product field definitions become a dedicated editor.
+        </p>
+
         <div class="mt-6 rounded-lg border border-base-300 bg-base-200 p-4">
           <.input field={@form[:active]} type="checkbox" label="Visible in tenant catalog" />
         </div>
@@ -82,20 +97,29 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
      |> assign(assigns)
      |> assign(:status_options, @status_options)
      |> assign(:currency_options, @currency_options)
+     |> assign(:custom_fields_json, custom_fields_json(product))
      |> assign_form(changeset)}
   end
 
   @impl true
   def handle_event("validate", %{"product" => product_params}, socket) do
+    {product_params, custom_fields_json} = normalize_product_params(product_params)
+
     changeset =
       socket.assigns.product
       |> TenantCatalog.change_product(product_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply,
+     socket
+     |> assign(:custom_fields_json, custom_fields_json)
+     |> assign_form(changeset)}
   end
 
   def handle_event("save", %{"product" => product_params}, socket) do
+    {product_params, custom_fields_json} = normalize_product_params(product_params)
+
+    socket = assign(socket, :custom_fields_json, custom_fields_json)
     save_product(socket, socket.assigns.action, product_params)
   end
 
@@ -135,6 +159,31 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.FormComponent do
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
+  end
+
+  defp normalize_product_params(params) do
+    custom_fields_json = Map.get(params, "custom_fields_json", "")
+
+    custom_fields =
+      case Jason.decode(custom_fields_json) do
+        {:ok, decoded} when is_map(decoded) -> decoded
+        _other -> %{}
+      end
+
+    params =
+      params
+      |> Map.drop(["custom_fields_json"])
+      |> Map.put("custom_fields", custom_fields)
+
+    {params, custom_fields_json}
+  end
+
+  defp custom_fields_json(product) do
+    product.custom_fields
+    |> case do
+      value when is_map(value) and map_size(value) > 0 -> Jason.encode!(value, pretty: true)
+      _other -> ""
+    end
   end
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})

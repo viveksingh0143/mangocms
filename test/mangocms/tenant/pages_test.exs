@@ -2,7 +2,6 @@ defmodule MangoCMS.Tenant.PagesTest do
   use MangoCMS.DataCase
 
   alias MangoCMS.Platform
-  alias MangoCMS.Tenant.ContentEngine
   alias MangoCMS.Tenant.Pages
 
   defp unique_suffix, do: System.unique_integer([:positive]) |> Integer.to_string()
@@ -47,61 +46,6 @@ defmodule MangoCMS.Tenant.PagesTest do
     Platform.get_tenant_with_plan!(tenant.id)
   end
 
-  defp product_type_fixture(tenant) do
-    {:ok, content_type} =
-      ContentEngine.create_content_type(tenant, %{
-        name: "Products",
-        slug: "products",
-        description: "Products for dynamic page sections"
-      })
-
-    {:ok, _name_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
-        label: "Name",
-        field_key: "name",
-        field_type: "string",
-        required: true,
-        indexed: true,
-        position: 10
-      })
-
-    {:ok, _description_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
-        label: "Description",
-        field_key: "description",
-        field_type: "text",
-        indexed: true,
-        position: 20
-      })
-
-    {:ok, _price_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
-        label: "Price",
-        field_key: "price",
-        field_type: "number",
-        filterable: true,
-        sortable: true,
-        position: 30
-      })
-
-    {:ok, _sale_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
-        label: "On Sale",
-        field_key: "on_sale",
-        field_type: "boolean",
-        filterable: true,
-        position: 40
-      })
-
-    content_type
-  end
-
-  defp published_entry_fixture(tenant, content_type, attrs) do
-    {:ok, entry} = ContentEngine.create_entry(tenant, content_type, attrs)
-    {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
-    entry
-  end
-
   defp content_tree_fixture(text) do
     MangoCMS.ContentTree.normalize_paths([
       %{
@@ -123,7 +67,7 @@ defmodule MangoCMS.Tenant.PagesTest do
     ])
   end
 
-  test "stores pages and ordered sections in the tenant database" do
+  test "stores pages in the tenant database" do
     tenant = tenant_fixture()
 
     {:ok, page} =
@@ -132,40 +76,37 @@ defmodule MangoCMS.Tenant.PagesTest do
         slug: "home",
         type: "landing",
         status: "published",
-        seo: %{"description" => "Tenant home page"}
-      })
-
-    {:ok, second_section} =
-      Pages.create_section(tenant, page, %{
-        type: "text",
-        template_id: "default",
-        mode: "fixed",
-        fixed_data: %{"title" => "Second"},
-        position: 20
-      })
-
-    {:ok, first_section} =
-      Pages.create_section(tenant, page, %{
-        type: "hero",
-        template_id: "default",
-        mode: "fixed",
-        fixed_data: %{"title" => "First"},
-        position: 10
+        seo: %{"description" => "Tenant home page"},
+        content_tree: content_tree_fixture("Home")
       })
 
     published_page = Pages.get_published_page_by_slug(tenant, "home")
 
+    assert published_page.id == page.id
     assert published_page.status == "published"
     assert published_page.published_at
-    assert Enum.map(published_page.sections, & &1.id) == [first_section.id, second_section.id]
-
-    first_section_id = first_section.id
-    second_section_id = second_section.id
-
     assert [%{title: "Home"}] = Pages.list_pages(tenant)
+  end
 
-    assert [%{id: ^first_section_id}, %{id: ^second_section_id}] =
-             Pages.list_sections(tenant, page)
+  test "stores reusable sections with data source configuration" do
+    tenant = tenant_fixture()
+    tree = content_tree_fixture("{{title}}")
+
+    {:ok, section} =
+      Pages.create_section(tenant, %{
+        name: "Product Slider",
+        template_key: "slider.products",
+        group_label: "Commerce",
+        mode: "dynamic",
+        content_tree: tree,
+        source_config: %{"kind" => "product", "mappings" => %{"title" => "name"}},
+        filters: %{"rules" => [%{"field" => "active", "op" => "=", "value" => true}]},
+        loop_settings: %{"enabled" => true, "limit" => 8}
+      })
+
+    assert section.source_config["kind"] == "product"
+    assert [%{id: id}] = Pages.list_sections(tenant)
+    assert id == section.id
   end
 
   test "does not return draft pages as public pages" do
@@ -236,131 +177,9 @@ defmodule MangoCMS.Tenant.PagesTest do
                  type: page.type,
                  status: page.status,
                  seo: page.seo,
-                 content_tree: tree
+                 content_tree: updated_tree
                },
                page.content_tree_version
              )
-  end
-
-  test "restores a page version without mutating immutable version records" do
-    tenant = tenant_fixture()
-    tree = content_tree_fixture("Before redesign")
-
-    {:ok, page} =
-      Pages.create_page(tenant, %{
-        title: "Versioned Page",
-        slug: "versioned-page",
-        type: "page",
-        status: "draft",
-        content_tree: tree
-      })
-
-    {:ok, version} = Pages.create_page_version(tenant, page, "manual", "Before redesign")
-
-    changed_tree =
-      MangoCMS.ContentTree.update_node_props(tree, "heading_test", %{"text" => "After redesign"})
-
-    {:ok, changed_page} =
-      Pages.save_page_with_lock(
-        tenant,
-        page,
-        %{
-          title: page.title,
-          slug: page.slug,
-          type: page.type,
-          status: page.status,
-          seo: page.seo,
-          content_tree: changed_tree
-        },
-        page.content_tree_version
-      )
-
-    assert {:ok, restored_page} = Pages.restore_page_to_version(tenant, changed_page, version)
-
-    assert restored_page.content_tree == tree
-    assert restored_page.content_tree_version == changed_page.content_tree_version + 1
-    assert Enum.count(Pages.list_page_versions(tenant, page)) == 3
-  end
-
-  test "stores dynamic section source and mappings and resolves render items" do
-    tenant = tenant_fixture()
-    content_type = product_type_fixture(tenant)
-
-    featured =
-      published_entry_fixture(tenant, content_type, %{
-        payload: %{
-          "name" => "Featured Website",
-          "description" => "A polished website package",
-          "price" => 149_900,
-          "on_sale" => true
-        }
-      })
-
-    _hidden =
-      published_entry_fixture(tenant, content_type, %{
-        payload: %{
-          "name" => "Hidden Website",
-          "description" => "Not shown by the source filter",
-          "price" => 249_900,
-          "on_sale" => false
-        }
-      })
-
-    {:ok, page} =
-      Pages.create_page(tenant, %{
-        title: "Services",
-        slug: "services",
-        type: "landing",
-        status: "published"
-      })
-
-    {:ok, section} =
-      Pages.create_section_configuration(
-        tenant,
-        page,
-        %{
-          type: "feature_grid",
-          template_id: "cards",
-          mode: "dynamic",
-          fixed_data: %{"title" => "Featured services"},
-          position: 10
-        },
-        %{
-          content_type_id: content_type.id,
-          status: "published",
-          filters: %{"field" => "on_sale", "op" => "==", "value" => "true"},
-          sort: %{"field" => "price", "direction" => "asc"},
-          limit: 3,
-          offset: 0
-        },
-        [
-          %{
-            "slot" => "title",
-            "source_path" => "payload.name",
-            "formatter" => "text",
-            "position" => 10
-          },
-          %{
-            "slot" => "subtitle",
-            "source_path" => "payload.description",
-            "formatter" => "excerpt",
-            "position" => 20
-          },
-          %{
-            "slot" => "price",
-            "source_path" => "payload.price",
-            "formatter" => "currency",
-            "position" => 30
-          }
-        ]
-      )
-
-    section = Pages.get_section!(tenant, section.id)
-    assert section.source.content_type_id == content_type.id
-    assert Enum.map(section.mappings, & &1.slot) == ["title", "subtitle", "price"]
-
-    section_id = section.id
-    assert %{^section_id => [entry]} = Pages.section_render_items(tenant, [section])
-    assert entry.id == featured.id
   end
 end

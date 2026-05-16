@@ -21,8 +21,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
     indexed: false,
     filterable: true,
     sortable: true,
-    position: 10,
-    options_text: ""
+    position: 10
   }
 
   defp unique_suffix, do: System.unique_integer([:positive]) |> Integer.to_string()

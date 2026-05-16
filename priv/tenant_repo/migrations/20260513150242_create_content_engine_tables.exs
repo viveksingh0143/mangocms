@@ -3,139 +3,155 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
 
   def up do
     create_if_not_exists table(:content_types, primary_key: false) do
-      add :id, :binary_id, primary_key: true
-      add :name, :string, null: false
-      add :slug, :string, null: false
-      add :description, :string
-      add :status, :string, null: false, default: "active"
-      add :settings, :map, null: false, default: %{}
+      add(:id, :binary_id, primary_key: true)
+      add(:name, :string, null: false)
+      add(:slug, :string, null: false)
+      add(:description, :string)
+      add(:status, :string, null: false, default: "active")
+      add(:settings, :map, null: false, default: %{})
 
       timestamps(type: :utc_datetime)
     end
 
-    create_if_not_exists unique_index(:content_types, [:slug])
-    create_if_not_exists index(:content_types, [:status])
+    create_if_not_exists(unique_index(:content_types, [:slug]))
+    create_if_not_exists(index(:content_types, [:status]))
 
     create_if_not_exists table(:content_type_fields, primary_key: false) do
-      add :id, :binary_id, primary_key: true
+      add(:id, :binary_id, primary_key: true)
 
-      add :content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
+      add(:content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
         null: false
+      )
 
-      add :label, :string, null: false
-      add :field_key, :string, null: false
-      add :field_type, :string, null: false
-      add :required, :boolean, null: false, default: false
-      add :indexed, :boolean, null: false, default: false
-      add :filterable, :boolean, null: false, default: false
-      add :sortable, :boolean, null: false, default: false
-      add :settings, :map, null: false, default: %{}
-      add :position, :integer, null: false, default: 0
+      add(:label, :string, null: false)
+      add(:field_key, :string, null: false)
+      add(:field_type, :string, null: false)
+      add(:required, :boolean, null: false, default: false)
+      add(:indexed, :boolean, null: false, default: false)
+      add(:filterable, :boolean, null: false, default: false)
+      add(:sortable, :boolean, null: false, default: false)
+      add(:unique, :boolean, null: false, default: false)
+      add(:settings, :map, null: false, default: %{})
+      add(:position, :integer, null: false, default: 0)
 
       timestamps(type: :utc_datetime)
     end
 
-    create_if_not_exists unique_index(:content_type_fields, [:content_type_id, :field_key])
-    create_if_not_exists index(:content_type_fields, [:content_type_id])
-    create_if_not_exists index(:content_type_fields, [:field_type])
-    create_if_not_exists index(:content_type_fields, [:indexed])
-    create_if_not_exists index(:content_type_fields, [:filterable])
-    create_if_not_exists index(:content_type_fields, [:sortable])
+    create_if_not_exists(unique_index(:content_type_fields, [:content_type_id, :field_key]))
+    create_if_not_exists(index(:content_type_fields, [:content_type_id]))
+    create_if_not_exists(index(:content_type_fields, [:field_type]))
+    create_if_not_exists(index(:content_type_fields, [:indexed]))
+    create_if_not_exists(index(:content_type_fields, [:filterable]))
+    create_if_not_exists(index(:content_type_fields, [:sortable]))
+    create_if_not_exists(index(:content_type_fields, [:unique]))
 
     create_if_not_exists table(:content_entries, primary_key: false) do
-      add :id, :binary_id, primary_key: true
+      add(:id, :binary_id, primary_key: true)
 
-      add :content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
+      add(:content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
         null: false
+      )
 
-      add :title, :string
-      add :slug, :string, null: false
-      add :status, :string, null: false, default: "draft"
-      add :payload, :map, null: false, default: %{}
-      add :published_at, :utc_datetime
-      add :deleted_at, :utc_datetime
+      add(:title, :string)
+      add(:slug, :string, null: false)
+      add(:status, :string, null: false, default: "draft")
+      add(:payload, :map, null: false, default: %{})
+      add(:published_at, :utc_datetime)
+      add(:deleted_at, :utc_datetime)
 
       timestamps(type: :utc_datetime)
     end
 
-    create_if_not_exists unique_index(:content_entries, [:content_type_id, :slug])
-    create_if_not_exists index(:content_entries, [:content_type_id])
-    create_if_not_exists index(:content_entries, [:status])
-    create_if_not_exists index(:content_entries, [:published_at])
-    create_if_not_exists index(:content_entries, [:deleted_at])
+    create_if_not_exists(unique_index(:content_entries, [:content_type_id, :slug]))
+    create_if_not_exists(index(:content_entries, [:content_type_id]))
+    create_if_not_exists(index(:content_entries, [:status]))
+    create_if_not_exists(index(:content_entries, [:published_at]))
+    create_if_not_exists(index(:content_entries, [:deleted_at]))
 
     create_if_not_exists table(:content_entry_indexes, primary_key: false) do
-      add :id, :binary_id, primary_key: true
+      add(:id, :binary_id, primary_key: true)
 
-      add :content_entry_id,
-          references(:content_entries, type: :binary_id, on_delete: :delete_all),
-          null: false
-
-      add :content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
+      add(
+        :content_entry_id,
+        references(:content_entries, type: :binary_id, on_delete: :delete_all),
         null: false
+      )
 
-      add :field_key, :string, null: false
-      add :field_type, :string, null: false
-      add :string_value, :string
-      add :number_value, :float
-      add :bool_value, :boolean
-      add :datetime_value, :utc_datetime
+      add(:content_type_id, references(:content_types, type: :binary_id, on_delete: :delete_all),
+        null: false
+      )
+
+      add(:field_key, :string, null: false)
+      add(:field_type, :string, null: false)
+      add(:string_value, :string)
+      add(:number_value, :float)
+      add(:bool_value, :boolean)
+      add(:datetime_value, :utc_datetime)
 
       timestamps(updated_at: false, type: :utc_datetime)
     end
 
-    create_if_not_exists unique_index(:content_entry_indexes, [:content_entry_id, :field_key])
-    create_if_not_exists index(:content_entry_indexes, [:content_entry_id])
-    create_if_not_exists index(:content_entry_indexes, [:content_type_id, :field_key])
+    create_if_not_exists(unique_index(:content_entry_indexes, [:content_entry_id, :field_key]))
+    create_if_not_exists(index(:content_entry_indexes, [:content_entry_id]))
+    create_if_not_exists(index(:content_entry_indexes, [:content_type_id, :field_key]))
 
-    create_if_not_exists index(:content_entry_indexes, [
-                           :content_type_id,
-                           :field_key,
-                           :string_value
-                         ])
+    create_if_not_exists(
+      index(:content_entry_indexes, [
+        :content_type_id,
+        :field_key,
+        :string_value
+      ])
+    )
 
-    create_if_not_exists index(:content_entry_indexes, [
-                           :content_type_id,
-                           :field_key,
-                           :number_value
-                         ])
+    create_if_not_exists(
+      index(:content_entry_indexes, [
+        :content_type_id,
+        :field_key,
+        :number_value
+      ])
+    )
 
-    create_if_not_exists index(:content_entry_indexes, [:content_type_id, :field_key, :bool_value])
+    create_if_not_exists(
+      index(:content_entry_indexes, [:content_type_id, :field_key, :bool_value])
+    )
 
-    create_if_not_exists index(:content_entry_indexes, [
-                           :content_type_id,
-                           :field_key,
-                           :datetime_value
-                         ])
+    create_if_not_exists(
+      index(:content_entry_indexes, [
+        :content_type_id,
+        :field_key,
+        :datetime_value
+      ])
+    )
   end
 
   def down do
-    drop_if_exists index(:content_entry_indexes, [:content_type_id, :field_key, :datetime_value])
-    drop_if_exists index(:content_entry_indexes, [:content_type_id, :field_key, :bool_value])
-    drop_if_exists index(:content_entry_indexes, [:content_type_id, :field_key, :number_value])
-    drop_if_exists index(:content_entry_indexes, [:content_type_id, :field_key, :string_value])
-    drop_if_exists index(:content_entry_indexes, [:content_type_id, :field_key])
-    drop_if_exists index(:content_entry_indexes, [:content_entry_id])
-    drop_if_exists unique_index(:content_entry_indexes, [:content_entry_id, :field_key])
-    drop_if_exists table(:content_entry_indexes)
+    drop_if_exists(index(:content_entry_indexes, [:content_type_id, :field_key, :datetime_value]))
+    drop_if_exists(index(:content_entry_indexes, [:content_type_id, :field_key, :bool_value]))
+    drop_if_exists(index(:content_entry_indexes, [:content_type_id, :field_key, :number_value]))
+    drop_if_exists(index(:content_entry_indexes, [:content_type_id, :field_key, :string_value]))
+    drop_if_exists(index(:content_entry_indexes, [:content_type_id, :field_key]))
+    drop_if_exists(index(:content_entry_indexes, [:content_entry_id]))
+    drop_if_exists(unique_index(:content_entry_indexes, [:content_entry_id, :field_key]))
+    drop_if_exists(table(:content_entry_indexes))
 
-    drop_if_exists index(:content_entries, [:deleted_at])
-    drop_if_exists index(:content_entries, [:published_at])
-    drop_if_exists index(:content_entries, [:status])
-    drop_if_exists index(:content_entries, [:content_type_id])
-    drop_if_exists unique_index(:content_entries, [:content_type_id, :slug])
-    drop_if_exists table(:content_entries)
+    drop_if_exists(index(:content_entries, [:deleted_at]))
+    drop_if_exists(index(:content_entries, [:published_at]))
+    drop_if_exists(index(:content_entries, [:status]))
+    drop_if_exists(index(:content_entries, [:content_type_id]))
+    drop_if_exists(unique_index(:content_entries, [:content_type_id, :slug]))
+    drop_if_exists(table(:content_entries))
 
-    drop_if_exists index(:content_type_fields, [:sortable])
-    drop_if_exists index(:content_type_fields, [:filterable])
-    drop_if_exists index(:content_type_fields, [:indexed])
-    drop_if_exists index(:content_type_fields, [:field_type])
-    drop_if_exists index(:content_type_fields, [:content_type_id])
-    drop_if_exists unique_index(:content_type_fields, [:content_type_id, :field_key])
-    drop_if_exists table(:content_type_fields)
+    drop_if_exists(index(:content_type_fields, [:unique]))
+    drop_if_exists(index(:content_type_fields, [:sortable]))
+    drop_if_exists(index(:content_type_fields, [:filterable]))
+    drop_if_exists(index(:content_type_fields, [:indexed]))
+    drop_if_exists(index(:content_type_fields, [:field_type]))
+    drop_if_exists(index(:content_type_fields, [:content_type_id]))
+    drop_if_exists(unique_index(:content_type_fields, [:content_type_id, :field_key]))
+    drop_if_exists(table(:content_type_fields))
 
-    drop_if_exists index(:content_types, [:status])
-    drop_if_exists unique_index(:content_types, [:slug])
-    drop_if_exists table(:content_types)
+    drop_if_exists(index(:content_types, [:status]))
+    drop_if_exists(unique_index(:content_types, [:slug]))
+    drop_if_exists(table(:content_types))
   end
 end

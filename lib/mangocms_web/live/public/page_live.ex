@@ -23,13 +23,9 @@ defmodule MangoCMSWeb.Public.PageLive do
          |> push_navigate(to: "/")}
 
       page ->
-        sections = page.sections || []
-
         {:ok,
          assign(socket,
            page: page,
-           sections: sections,
-           section_items: Pages.section_render_items(tenant, sections),
            can_edit_page:
              Authorization.can?(socket.assigns[:current_user], :tenant, :manage_pages)
          )}
@@ -53,11 +49,9 @@ defmodule MangoCMSWeb.Public.PageLive do
       <%= if PageRenderer.tree_present?(@page.content_tree) do %>
         <PageRenderer.render_tree tree={@page.content_tree} />
       <% else %>
-        <MangoCMSWeb.PageComponents.tenant_page
-          page={@page}
-          sections={@sections}
-          section_items={@section_items}
-        />
+        <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <h1 class="text-4xl font-bold tracking-tight">{@page.title}</h1>
+        </section>
       <% end %>
     </main>
 

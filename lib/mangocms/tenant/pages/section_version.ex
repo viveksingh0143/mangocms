@@ -1,13 +1,13 @@
-defmodule MangoCMS.Tenant.Pages.GlobalSectionVersion do
+defmodule MangoCMS.Tenant.Pages.SectionVersion do
   @moduledoc """
-  Immutable append-only snapshot of a tenant global section content tree.
+  Immutable append-only snapshot of a tenant section content tree.
   """
 
   use Ecto.Schema
   import Ecto.Changeset
 
   alias MangoCMS.Tenant.Accounts.User
-  alias MangoCMS.Tenant.Pages.GlobalSection
+  alias MangoCMS.Tenant.Pages.Section
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -17,7 +17,7 @@ defmodule MangoCMS.Tenant.Pages.GlobalSectionVersion do
 
   @type t :: %__MODULE__{}
 
-  schema "global_section_versions" do
+  schema "section_versions" do
     field :content_tree, {:array, :map}
     field :version_number, :integer
     field :label, :string
@@ -25,18 +25,18 @@ defmodule MangoCMS.Tenant.Pages.GlobalSectionVersion do
     field :snapshot_type, :string, default: "auto"
     field :restored_from, :integer
 
-    belongs_to :global_section, GlobalSection
+    belongs_to :section, Section
     belongs_to :created_by, User
 
     timestamps(updated_at: false)
   end
 
-  @doc "Builds an immutable global section version changeset."
+  @doc "Builds an immutable section version changeset."
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
-  def changeset(global_section_version, attrs) do
-    global_section_version
+  def changeset(section_version, attrs) do
+    section_version
     |> cast(attrs, [
-      :global_section_id,
+      :section_id,
       :created_by_id,
       :content_tree,
       :version_number,
@@ -46,14 +46,14 @@ defmodule MangoCMS.Tenant.Pages.GlobalSectionVersion do
       :restored_from
     ])
     |> normalize_tree()
-    |> validate_required([:global_section_id, :content_tree, :version_number, :snapshot_type])
+    |> validate_required([:section_id, :content_tree, :version_number, :snapshot_type])
     |> validate_number(:version_number, greater_than: 0)
     |> validate_inclusion(:snapshot_type, @snapshot_types)
     |> validate_length(:label, max: 160)
     |> validate_length(:change_summary, max: 500)
-    |> foreign_key_constraint(:global_section_id)
+    |> foreign_key_constraint(:section_id)
     |> foreign_key_constraint(:created_by_id)
-    |> unique_constraint([:global_section_id, :version_number])
+    |> unique_constraint([:section_id, :version_number])
   end
 
   defp normalize_tree(changeset) do

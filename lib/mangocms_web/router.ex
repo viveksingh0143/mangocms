@@ -3,160 +3,160 @@ defmodule MangoCMSWeb.Router do
   import MangoCMSWeb.UserAuth
 
   pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, html: {MangoCMSWeb.Layouts, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
-    plug MangoCMSWeb.Plugs.TenantResolver
-    plug :fetch_current_user
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, html: {MangoCMSWeb.Layouts, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+    plug(MangoCMSWeb.Plugs.TenantResolver)
+    plug(:fetch_current_user)
   end
 
   pipeline :require_tenant do
-    plug MangoCMSWeb.Plugs.RequireTenant
+    plug(MangoCMSWeb.Plugs.RequireTenant)
   end
 
   pipeline :require_platform_auth do
-    plug :require_platform_user
+    plug(:require_platform_user)
   end
 
   pipeline :require_platform_account_auth do
-    plug :require_platform_account_user
+    plug(:require_platform_account_user)
   end
 
   pipeline :require_tenant_auth do
-    plug :require_tenant_user
+    plug(:require_tenant_user)
   end
 
   pipeline :require_tenant_member_auth do
-    plug :require_tenant_member_user
+    plug(:require_tenant_member_user)
   end
 
   pipeline :redirect_platform_authenticated do
-    plug :redirect_if_platform_user
+    plug(:redirect_if_platform_user)
   end
 
   pipeline :redirect_platform_account_authenticated do
-    plug :redirect_if_platform_account_user
+    plug(:redirect_if_platform_account_user)
   end
 
   pipeline :redirect_tenant_authenticated do
-    plug :redirect_if_tenant_user
+    plug(:redirect_if_tenant_user)
   end
 
   pipeline :redirect_tenant_member_authenticated do
-    plug :redirect_if_tenant_member_user
+    plug(:redirect_if_tenant_member_user)
   end
 
   pipeline :require_platform_host do
-    plug MangoCMSWeb.Plugs.RequirePlatformHost
+    plug(MangoCMSWeb.Plugs.RequirePlatformHost)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   scope "/", MangoCMSWeb do
-    pipe_through :browser
+    pipe_through(:browser)
 
-    get "/", PageController, :home
+    get("/", PageController, :home)
   end
 
   scope "/platform/admin", MangoCMSWeb do
-    pipe_through [:browser, :require_platform_host, :redirect_platform_authenticated]
+    pipe_through([:browser, :require_platform_host, :redirect_platform_authenticated])
 
-    get "/login", AuthController, :new
-    post "/login", AuthController, :create
-    get "/register", AuthController, :register
-    post "/register", AuthController, :create_registration
-    get "/auth/:provider", OAuthController, :request
-    get "/auth/:provider/callback", OAuthController, :callback
-    post "/auth/:provider/callback", OAuthController, :callback
+    get("/login", AuthController, :new)
+    post("/login", AuthController, :create)
+    get("/register", AuthController, :register)
+    post("/register", AuthController, :create_registration)
+    get("/auth/:provider", OAuthController, :request)
+    get("/auth/:provider/callback", OAuthController, :callback)
+    post("/auth/:provider/callback", OAuthController, :callback)
   end
 
   scope "/platform", MangoCMSWeb do
-    pipe_through [:browser, :require_platform_host, :redirect_platform_account_authenticated]
+    pipe_through([:browser, :require_platform_host, :redirect_platform_account_authenticated])
 
-    get "/login", AuthController, :new
-    post "/login", AuthController, :create
-    get "/register", AuthController, :register
-    post "/register", AuthController, :create_registration
+    get("/login", AuthController, :new)
+    post("/login", AuthController, :create)
+    get("/register", AuthController, :register)
+    post("/register", AuthController, :create_registration)
   end
 
   scope "/platform/admin", MangoCMSWeb do
-    pipe_through [:browser, :require_platform_host, :require_platform_auth]
+    pipe_through([:browser, :require_platform_host, :require_platform_auth])
 
-    get "/dashboard", DashboardController, :platform_admin
-    get "/profile", AuthController, :edit_profile
-    put "/profile", AuthController, :update_profile
-    put "/profile/password", AuthController, :update_password
-    delete "/logout", AuthController, :delete
+    get("/dashboard", DashboardController, :platform_admin)
+    get("/profile", AuthController, :edit_profile)
+    put("/profile", AuthController, :update_profile)
+    put("/profile/password", AuthController, :update_password)
+    delete("/logout", AuthController, :delete)
   end
 
   scope "/platform", MangoCMSWeb do
-    pipe_through [:browser, :require_platform_host, :require_platform_account_auth]
+    pipe_through([:browser, :require_platform_host, :require_platform_account_auth])
 
-    get "/dashboard", DashboardController, :platform
-    get "/profile", AuthController, :edit_profile
-    put "/profile", AuthController, :update_profile
-    put "/profile/password", AuthController, :update_password
-    delete "/logout", AuthController, :delete
+    get("/dashboard", DashboardController, :platform)
+    get("/profile", AuthController, :edit_profile)
+    put("/profile", AuthController, :update_profile)
+    put("/profile/password", AuthController, :update_password)
+    delete("/logout", AuthController, :delete)
   end
 
   scope "/platform/admin", MangoCMSWeb.Platform.Admin do
-    pipe_through [:browser, :require_platform_host, :require_platform_auth]
+    pipe_through([:browser, :require_platform_host, :require_platform_auth])
 
     live_session :platform_admin,
       on_mount: [{MangoCMSWeb.UserAuth, :require_platform_user}],
       session: {MangoCMSWeb.UserAuth, :live_session, []} do
-      live "/plans", PlanLive.Index, :index
-      live "/plans/new", PlanLive.Index, :new
-      live "/plans/:id/edit", PlanLive.Index, :edit
-      live "/plans/:id", PlanLive.Show, :show
-      live "/plans/:id/show/edit", PlanLive.Show, :edit
+      live("/plans", PlanLive.Index, :index)
+      live("/plans/new", PlanLive.Index, :new)
+      live("/plans/:id/edit", PlanLive.Index, :edit)
+      live("/plans/:id", PlanLive.Show, :show)
+      live("/plans/:id/show/edit", PlanLive.Show, :edit)
 
-      live "/tenants", TenantLive.Index, :index
-      live "/tenants/new", TenantLive.Index, :new
-      live "/tenants/:id/edit", TenantLive.Index, :edit
-      live "/tenants/:id", TenantLive.Show, :show
-      live "/tenants/:id/show/edit", TenantLive.Show, :edit
+      live("/tenants", TenantLive.Index, :index)
+      live("/tenants/new", TenantLive.Index, :new)
+      live("/tenants/:id/edit", TenantLive.Index, :edit)
+      live("/tenants/:id", TenantLive.Show, :show)
+      live("/tenants/:id/show/edit", TenantLive.Show, :edit)
 
-      live "/users", UserLive.Index, :index
-      live "/users/new", UserLive.Index, :new
-      live "/users/:id/edit", UserLive.Index, :edit
+      live("/users", UserLive.Index, :index)
+      live("/users/new", UserLive.Index, :new)
+      live("/users/:id/edit", UserLive.Index, :edit)
     end
   end
 
   scope "/admin", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant, :redirect_tenant_authenticated]
+    pipe_through([:browser, :require_tenant, :redirect_tenant_authenticated])
 
-    get "/login", AuthController, :new
-    post "/login", AuthController, :create
-    get "/forgot-password", AuthController, :forgot_password
-    post "/forgot-password", AuthController, :send_reset_password
-    get "/reset-password/:token", AuthController, :reset_password
-    put "/reset-password/:token", AuthController, :update_reset_password
+    get("/login", AuthController, :new)
+    post("/login", AuthController, :create)
+    get("/forgot-password", AuthController, :forgot_password)
+    post("/forgot-password", AuthController, :send_reset_password)
+    get("/reset-password/:token", AuthController, :reset_password)
+    put("/reset-password/:token", AuthController, :update_reset_password)
   end
 
   scope "/admin", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant]
+    pipe_through([:browser, :require_tenant])
 
-    get "/confirm/:token", AuthController, :confirm
+    get("/confirm/:token", AuthController, :confirm)
   end
 
   scope "/admin", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant, :require_tenant_auth]
+    pipe_through([:browser, :require_tenant, :require_tenant_auth])
 
-    get "/dashboard", DashboardController, :tenant_admin
-    get "/profile", AuthController, :edit_profile
-    put "/profile", AuthController, :update_profile
-    put "/profile/password", AuthController, :update_password
-    delete "/logout", AuthController, :delete
+    get("/dashboard", DashboardController, :tenant_admin)
+    get("/profile", AuthController, :edit_profile)
+    put("/profile", AuthController, :update_profile)
+    put("/profile/password", AuthController, :update_password)
+    delete("/logout", AuthController, :delete)
   end
 
   scope "/admin", MangoCMSWeb.Tenant.Admin do
-    pipe_through [:browser, :require_tenant, :require_tenant_auth]
+    pipe_through([:browser, :require_tenant, :require_tenant_auth])
 
     live_session :tenant_admin,
       on_mount: [
@@ -164,69 +164,72 @@ defmodule MangoCMSWeb.Router do
         {MangoCMSWeb.UserAuth, :require_tenant_user}
       ],
       session: {MangoCMSWeb.UserAuth, :live_session, []} do
-      live "/products", ProductLive.Index, :index
-      live "/products/new", ProductLive.Index, :new
-      live "/products/:id/edit", ProductLive.Index, :edit
-      live "/products/:id", ProductLive.Show, :show
-      live "/products/:id/show/edit", ProductLive.Show, :edit
+      live("/products", ProductLive.Index, :index)
+      live("/products/new", ProductLive.Index, :new)
+      live("/products/:id/edit", ProductLive.Index, :edit)
+      live("/products/:id", ProductLive.Show, :show)
+      live("/products/:id/show/edit", ProductLive.Show, :edit)
 
-      live "/pages", PageLive.Index, :index
-      live "/pages/new", PageLive.Index, :new
-      live "/pages/:id/edit", PageLive.Index, :edit
-      live "/pages/:id/builder", PageLive.Builder, :builder
-      live "/pages/:id", PageLive.Show, :show
-      live "/pages/:id/sections/new", PageLive.Show, :new_section
-      live "/pages/:id/sections/:section_id/edit", PageLive.Show, :edit_section
+      live("/pages", PageLive.Index, :index)
+      live("/pages/new", PageLive.Index, :new)
+      live("/pages/:id/edit", PageLive.Index, :edit)
+      live("/pages/:id/builder", PageLive.Builder, :builder)
+      live("/pages/:id", PageLive.Show, :show)
 
-      live "/content-types", ContentTypeLive.Index, :index
-      live "/content-types/new", ContentTypeLive.Index, :new
-      live "/content-types/:id/edit", ContentTypeLive.Index, :edit
-      live "/content-types/:id", ContentTypeLive.Show, :show
-      live "/content-types/:id/fields/new", ContentTypeLive.Show, :new_field
-      live "/content-types/:id/fields/:field_id/edit", ContentTypeLive.Show, :edit_field
-      live "/content-types/:id/entries", ContentEntryLive.Index, :index
-      live "/content-types/:id/entries/new", ContentEntryLive.Index, :new
-      live "/content-types/:id/entries/:entry_id/edit", ContentEntryLive.Index, :edit
+      live("/sections", SectionLive.Index, :index)
+      live("/sections/new", SectionLive.Index, :new)
+      live("/sections/:id/edit", SectionLive.Index, :edit)
+      live("/sections/:id/builder", SectionLive.Builder, :builder)
 
-      live "/users", UserLive.Index, :index
-      live "/users/new", UserLive.Index, :new
-      live "/users/:id/edit", UserLive.Index, :edit
+      live("/content-types", ContentTypeLive.Index, :index)
+      live("/content-types/new", ContentTypeLive.Index, :new)
+      live("/content-types/:id/edit", ContentTypeLive.Index, :edit)
+      live("/content-types/:id", ContentTypeLive.Show, :show)
+      live("/content-types/:id/fields/new", ContentTypeLive.Show, :new_field)
+      live("/content-types/:id/fields/:field_id/edit", ContentTypeLive.Show, :edit_field)
+      live("/content-types/:id/entries", ContentEntryLive.Index, :index)
+      live("/content-types/:id/entries/new", ContentEntryLive.Index, :new)
+      live("/content-types/:id/entries/:entry_id/edit", ContentEntryLive.Index, :edit)
 
-      live "/settings", SettingsLive.Edit, :edit
+      live("/users", UserLive.Index, :index)
+      live("/users/new", UserLive.Index, :new)
+      live("/users/:id/edit", UserLive.Index, :edit)
+
+      live("/settings", SettingsLive.Edit, :edit)
     end
   end
 
   scope "/", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant, :redirect_tenant_member_authenticated]
+    pipe_through([:browser, :require_tenant, :redirect_tenant_member_authenticated])
 
-    get "/login", AuthController, :new
-    post "/login", AuthController, :create
-    get "/register", AuthController, :register
-    post "/register", AuthController, :create_registration
-    get "/forgot-password", AuthController, :forgot_password
-    post "/forgot-password", AuthController, :send_reset_password
-    get "/reset-password/:token", AuthController, :reset_password
-    put "/reset-password/:token", AuthController, :update_reset_password
+    get("/login", AuthController, :new)
+    post("/login", AuthController, :create)
+    get("/register", AuthController, :register)
+    post("/register", AuthController, :create_registration)
+    get("/forgot-password", AuthController, :forgot_password)
+    post("/forgot-password", AuthController, :send_reset_password)
+    get("/reset-password/:token", AuthController, :reset_password)
+    put("/reset-password/:token", AuthController, :update_reset_password)
   end
 
   scope "/", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant]
+    pipe_through([:browser, :require_tenant])
 
-    get "/confirm/:token", AuthController, :confirm
+    get("/confirm/:token", AuthController, :confirm)
   end
 
   scope "/", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant, :require_tenant_member_auth]
+    pipe_through([:browser, :require_tenant, :require_tenant_member_auth])
 
-    get "/dashboard", DashboardController, :tenant_member
-    get "/profile", AuthController, :edit_profile
-    put "/profile", AuthController, :update_profile
-    put "/profile/password", AuthController, :update_password
-    delete "/logout", AuthController, :delete
+    get("/dashboard", DashboardController, :tenant_member)
+    get("/profile", AuthController, :edit_profile)
+    put("/profile", AuthController, :update_profile)
+    put("/profile/password", AuthController, :update_password)
+    delete("/logout", AuthController, :delete)
   end
 
   scope "/", MangoCMSWeb do
-    pipe_through [:browser, :require_tenant]
+    pipe_through([:browser, :require_tenant])
 
     live_session :tenant_public_pages,
       on_mount: [
@@ -234,7 +237,7 @@ defmodule MangoCMSWeb.Router do
         {MangoCMSWeb.UserAuth, :mount_tenant_user}
       ],
       session: {MangoCMSWeb.UserAuth, :live_session, []} do
-      live "/:slug", Public.PageLive, :show
+      live("/:slug", Public.PageLive, :show)
     end
   end
 
@@ -253,10 +256,10 @@ defmodule MangoCMSWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: MangoCMSWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      live_dashboard("/dashboard", metrics: MangoCMSWeb.Telemetry)
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 end

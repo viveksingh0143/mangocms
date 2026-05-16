@@ -35,6 +35,8 @@
 @source inline("{sm:,md:,lg:,xl:}text-{xs,sm,base,lg,xl,2xl,3xl,4xl,5xl,6xl}");
 @source inline("{hover:,focus:,group-hover:}{bg,text,border}-{base-100,base-200,base-300,base-content,primary,secondary,accent,neutral,info,success,warning,error,white,black}");
 @source inline("tracking-{tight,normal,wide,wider,widest} uppercase lowercase capitalize italic not-italic");
+@source inline("{overflow-x-auto,overflow-y-hidden,snap-x,snap-mandatory,snap-start,scroll-smooth,shrink-0,w-72,w-80,w-96,basis-72,basis-80,basis-96}");
+@source inline("{sm:,md:,lg:,xl:}{w-72,w-80,w-96,basis-72,basis-80,basis-96,shrink-0}");
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */

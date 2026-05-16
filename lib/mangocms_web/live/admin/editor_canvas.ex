@@ -12,7 +12,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
   alias MangoCMSWeb.PageElements
 
   @accepted_types %{
-    "root" => ["section", "global_section"],
+    "root" => ["section", "section_ref"],
     "section" => ["row"],
     "row" => ["column"],
     "column" => [
@@ -24,9 +24,9 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       "button",
       "anchor",
       "dynamic_form",
-      "global_section"
+      "section_ref"
     ],
-    "global_section" => []
+    "section_ref" => []
   }
 
   attr :tree, :list, default: []
@@ -156,7 +156,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
             <.editable_node node={child} selected_id={@selected_id} />
           <% end %>
         </PageElements.column>
-      <% "global_section" -> %>
+      <% "section_ref" -> %>
         <%= for child <- @children do %>
           <.editable_node node={child} selected_id={@selected_id} />
         <% end %>

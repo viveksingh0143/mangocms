@@ -202,9 +202,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         <.input
           id={@input_id}
           name={@input_name}
-          type="text"
+          type={if(@field_def.field_type == "gallery", do: "textarea", else: "text")}
           label={@input_label}
           value={@input_value}
+          rows={if(@field_def.field_type == "gallery", do: "4", else: nil)}
           placeholder="/uploads/tenants/..."
         />
         <div
@@ -218,7 +219,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
               class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
             />
             <span class="btn btn-outline btn-sm w-full pointer-events-none">
-              Upload {String.downcase(@field_def.field_type)}
+              Upload {media_upload_label(@field_def)}
             </span>
           </div>
           <div class="mt-2 grid gap-1">
@@ -241,7 +242,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
       else
         allow_upload(socket, upload_name,
           accept: media_accept(field),
-          max_entries: 1,
+          max_entries: media_max_entries(field),
           max_file_size: media_max_file_size(field),
           auto_upload: true
         )
@@ -265,17 +266,36 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
          )}
       end)
       |> case do
-        [url | _rest] ->
-          Map.update(params, "payload", %{field.field_key => url}, fn payload ->
-            payload
-            |> safe_map()
-            |> Map.put(field.field_key, url)
+        urls when urls != [] ->
+          Map.update(params, "payload", media_payload_default(field, urls), fn payload ->
+            put_media_payload_value(safe_map(payload), field, urls)
           end)
 
         [] ->
           params
       end
     end)
+  end
+
+  defp media_payload_default(%ContentTypeField{field_type: "gallery"} = field, urls) do
+    %{field.field_key => urls}
+  end
+
+  defp media_payload_default(%ContentTypeField{} = field, [url | _rest]) do
+    %{field.field_key => url}
+  end
+
+  defp put_media_payload_value(payload, %ContentTypeField{field_type: "gallery"} = field, urls) do
+    existing =
+      payload
+      |> Map.get(field.field_key)
+      |> then(&coerce_payload_value(field, &1))
+
+    Map.put(payload, field.field_key, Enum.uniq(existing ++ urls))
+  end
+
+  defp put_media_payload_value(payload, %ContentTypeField{} = field, [url | _rest]) do
+    Map.put(payload, field.field_key, url)
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
@@ -335,6 +355,22 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end
   end
 
+  defp coerce_payload_value(%ContentTypeField{field_type: "gallery"}, value)
+       when is_binary(value) do
+    value
+    |> String.split(~r/[\n,]/, trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp coerce_payload_value(%ContentTypeField{field_type: "gallery"}, value)
+       when is_list(value) do
+    value
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
   defp coerce_payload_value(_field, value), do: value
 
   defp payload_input_type(%ContentTypeField{field_type: "text"}), do: "textarea"
@@ -345,6 +381,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   defp payload_input_type(%ContentTypeField{field_type: "url"}), do: "url"
   defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "text"
   defp payload_input_type(%ContentTypeField{field_type: "video"}), do: "text"
+  defp payload_input_type(%ContentTypeField{field_type: "gallery"}), do: "textarea"
   defp payload_input_type(%ContentTypeField{field_type: "select"}), do: "select"
   defp payload_input_type(_field), do: "text"
 
@@ -379,6 +416,11 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     Jason.encode!(value)
   end
 
+  defp format_payload_value(value, %ContentTypeField{field_type: "gallery"})
+       when is_list(value) do
+    Enum.join(value, "\n")
+  end
+
   defp format_payload_value(value, _field), do: value
 
   defp datetime_to_string(%DateTime{} = value), do: DateTime.to_iso8601(value)
@@ -402,7 +444,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     Enum.filter(fields, &media_field?/1)
   end
 
-  defp media_field?(%ContentTypeField{field_type: type}), do: type in ["image", "video"]
+  defp media_field?(%ContentTypeField{field_type: type}),
+    do: type in ["image", "video", "gallery"]
 
   defp media_upload_name(%ContentTypeField{id: id}) when is_binary(id), do: "payload_media_#{id}"
   defp media_upload_name(%ContentTypeField{field_key: key}), do: "payload_media_#{key}"
@@ -415,6 +458,12 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp media_directory(%ContentTypeField{field_type: "video"}), do: "videos"
   defp media_directory(_field), do: "images"
+
+  defp media_max_entries(%ContentTypeField{field_type: "gallery"}), do: 10
+  defp media_max_entries(_field), do: 1
+
+  defp media_upload_label(%ContentTypeField{field_type: "gallery"}), do: "gallery images"
+  defp media_upload_label(%ContentTypeField{field_type: type}), do: String.downcase(type)
 
   defp safe_map(value) when is_map(value), do: value
   defp safe_map(_value), do: %{}

@@ -15,7 +15,7 @@ defmodule MangoCMSWeb.Layouts do
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
   # and other static content.
-  embed_templates "layouts/*"
+  embed_templates("layouts/*")
 
   @doc """
   Renders your app layout.
@@ -31,13 +31,14 @@ defmodule MangoCMSWeb.Layouts do
       </Layouts.app>
 
   """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
 
-  attr :current_scope, :map,
+  attr(:current_scope, :map,
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+  )
 
-  slot :inner_block, required: true
+  slot(:inner_block, required: true)
 
   def app(assigns) do
     ~H"""
@@ -149,6 +150,12 @@ defmodule MangoCMSWeb.Layouts do
               permission: :manage_pages
             },
             %{
+              label: "Sections",
+              href: ~p"/admin/sections",
+              current: active == :sections,
+              permission: :manage_pages
+            },
+            %{
               label: "Content Types",
               href: ~p"/admin/content-types",
               current: active == :content,
@@ -209,26 +216,26 @@ defmodule MangoCMSWeb.Layouts do
   end
 
   @doc "Renders the platform admin layout with platform defaults."
-  attr :id, :string, default: "platform-admin-layout"
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :title, :string, required: true
-  attr :subtitle, :string, default: nil
-  attr :current_user, :any, required: true
-  attr :active, :atom, default: nil
-  attr :nav_items, :list, default: nil
-  attr :brand_label, :string, default: nil
-  attr :brand_href, :string, default: nil
-  attr :brand_logo_url, :string, default: nil
-  attr :brand_dark_logo_url, :string, default: nil
-  attr :profile_name, :string, default: nil
-  attr :profile_email, :string, default: nil
-  attr :profile_initials, :string, default: nil
-  attr :profile_avatar_url, :string, default: nil
-  attr :profile_href, :string, default: nil
-  attr :logout_href, :string, default: nil
+  attr(:id, :string, default: "platform-admin-layout")
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:current_user, :any, required: true)
+  attr(:active, :atom, default: nil)
+  attr(:nav_items, :list, default: nil)
+  attr(:brand_label, :string, default: nil)
+  attr(:brand_href, :string, default: nil)
+  attr(:brand_logo_url, :string, default: nil)
+  attr(:brand_dark_logo_url, :string, default: nil)
+  attr(:profile_name, :string, default: nil)
+  attr(:profile_email, :string, default: nil)
+  attr(:profile_initials, :string, default: nil)
+  attr(:profile_avatar_url, :string, default: nil)
+  attr(:profile_href, :string, default: nil)
+  attr(:logout_href, :string, default: nil)
 
-  slot :actions
-  slot :inner_block, required: true
+  slot(:actions)
+  slot(:inner_block, required: true)
 
   def platform_admin(assigns) do
     assigns =
@@ -281,28 +288,28 @@ defmodule MangoCMSWeb.Layouts do
   end
 
   @doc "Renders the tenant admin layout with tenant defaults."
-  attr :id, :string, default: "tenant-admin-layout"
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :title, :string, required: true
-  attr :subtitle, :string, default: nil
-  attr :current_user, :any, required: true
-  attr :current_tenant, :any, required: true
-  attr :active, :atom, default: nil
-  attr :nav_items, :list, default: nil
-  attr :brand_label, :string, default: nil
-  attr :brand_href, :string, default: nil
-  attr :brand_logo_url, :string, default: nil
-  attr :brand_dark_logo_url, :string, default: nil
-  attr :profile_name, :string, default: nil
-  attr :profile_email, :string, default: nil
-  attr :profile_initials, :string, default: nil
-  attr :profile_avatar_url, :string, default: nil
-  attr :profile_href, :string, default: nil
-  attr :logout_href, :string, default: nil
-  attr :current_tenant_settings, :any, default: nil
+  attr(:id, :string, default: "tenant-admin-layout")
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:current_user, :any, required: true)
+  attr(:current_tenant, :any, required: true)
+  attr(:active, :atom, default: nil)
+  attr(:nav_items, :list, default: nil)
+  attr(:brand_label, :string, default: nil)
+  attr(:brand_href, :string, default: nil)
+  attr(:brand_logo_url, :string, default: nil)
+  attr(:brand_dark_logo_url, :string, default: nil)
+  attr(:profile_name, :string, default: nil)
+  attr(:profile_email, :string, default: nil)
+  attr(:profile_initials, :string, default: nil)
+  attr(:profile_avatar_url, :string, default: nil)
+  attr(:profile_href, :string, default: nil)
+  attr(:logout_href, :string, default: nil)
+  attr(:current_tenant_settings, :any, default: nil)
 
-  slot :actions
-  slot :inner_block, required: true
+  slot(:actions)
+  slot(:inner_block, required: true)
 
   def tenant_admin(assigns) do
     assigns =
@@ -372,26 +379,26 @@ defmodule MangoCMSWeb.Layouts do
   Tailwind Plus custom elements and uses LiveView JS for the mobile menu and
   profile dropdown.
   """
-  attr :id, :string, default: "admin-layout"
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :title, :string, required: true
-  attr :subtitle, :string, default: nil
-  attr :nav_items, :list, default: []
-  attr :brand_label, :string, default: @brand_name
-  attr :brand_href, :string, default: "/"
-  attr :brand_logo_url, :string, default: nil
-  attr :brand_dark_logo_url, :string, default: nil
-  attr :profile_name, :string, default: "Admin"
-  attr :profile_email, :string, default: @admin_profile_email
-  attr :profile_initials, :string, default: "MC"
-  attr :profile_avatar_url, :string, default: nil
-  attr :profile_href, :string, default: nil
-  attr :logout_href, :string, default: nil
-  attr :login_href, :string, default: nil
-  attr :register_href, :string, default: nil
+  attr(:id, :string, default: "admin-layout")
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:nav_items, :list, default: [])
+  attr(:brand_label, :string, default: @brand_name)
+  attr(:brand_href, :string, default: "/")
+  attr(:brand_logo_url, :string, default: nil)
+  attr(:brand_dark_logo_url, :string, default: nil)
+  attr(:profile_name, :string, default: "Admin")
+  attr(:profile_email, :string, default: @admin_profile_email)
+  attr(:profile_initials, :string, default: "MC")
+  attr(:profile_avatar_url, :string, default: nil)
+  attr(:profile_href, :string, default: nil)
+  attr(:logout_href, :string, default: nil)
+  attr(:login_href, :string, default: nil)
+  attr(:register_href, :string, default: nil)
 
-  slot :actions
-  slot :inner_block, required: true
+  slot(:actions)
+  slot(:inner_block, required: true)
 
   def admin(assigns) do
     assigns =
@@ -673,11 +680,11 @@ defmodule MangoCMSWeb.Layouts do
     """
   end
 
-  attr :avatar_url, :string, default: nil
-  attr :initials, :string, required: true
-  attr :name, :string, required: true
-  attr :class, :string, default: "size-8"
-  attr :text_class, :string, default: "text-xs"
+  attr(:avatar_url, :string, default: nil)
+  attr(:initials, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:class, :string, default: "size-8")
+  attr(:text_class, :string, default: "text-xs")
 
   defp profile_avatar(assigns) do
     ~H"""
@@ -779,8 +786,8 @@ defmodule MangoCMSWeb.Layouts do
 
       <.flash_group flash={@flash} />
   """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:id, :string, default: "flash-group", doc: "the optional id of flash container")
 
   def flash_group(assigns) do
     ~H"""

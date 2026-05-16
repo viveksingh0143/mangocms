@@ -115,8 +115,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      |> assign(:left_tab, "blocks")
      |> assign(:blocks_collapsed, true)
      |> assign(:palette_query, "")
+     |> assign(:section_query, "")
      |> assign(:current_version, page.content_tree_version || 1)
-     |> assign(:global_sections, Pages.list_global_sections(tenant))
+     |> assign(:sections, Pages.list_sections(tenant))
      |> assign(:versions, Pages.list_page_versions(tenant, page))
      |> assign(:show_versions?, false)
      |> assign(:right_sidebar_open?, true)
@@ -239,7 +240,12 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     {:noreply, assign(socket, :palette_query, query || "")}
   end
 
-  def handle_event("set_left_tab", %{"tab" => tab}, socket) when tab in ~w(blocks layers) do
+  def handle_event("search_sections", %{"q" => query}, socket) do
+    {:noreply, assign(socket, :section_query, query || "")}
+  end
+
+  def handle_event("set_left_tab", %{"tab" => tab}, socket)
+      when tab in ~w(blocks sections layers) do
     {:noreply, assign(socket, :left_tab, tab)}
   end
 
@@ -454,7 +460,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
           id="builder-palette"
           class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
-          <div class="grid grid-cols-2 border-b border-base-300 p-2">
+          <div class="grid grid-cols-3 border-b border-base-300 p-2">
             <button
               id="builder-left-tab-blocks"
               type="button"
@@ -463,6 +469,15 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
               class={["btn btn-sm", @left_tab == "blocks" && "btn-active"]}
             >
               <.icon name="hero-squares-plus" class="size-4" /> Blocks
+            </button>
+            <button
+              id="builder-left-tab-sections"
+              type="button"
+              phx-click="set_left_tab"
+              phx-value-tab="sections"
+              class={["btn btn-sm", @left_tab == "sections" && "btn-active"]}
+            >
+              <.icon name="hero-rectangle-stack" class="size-4" /> Sections
             </button>
             <button
               id="builder-left-tab-layers"
@@ -508,9 +523,31 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
             <div class="min-h-0 flex-1 overflow-y-auto p-3">
               <.palette
                 groups={filtered_palette(@palette_query)}
-                global_sections={@global_sections}
                 collapsed={@blocks_collapsed}
               />
+            </div>
+          </div>
+
+          <div :if={@left_tab == "sections"} class="flex min-h-0 flex-1 flex-col">
+            <div class="border-b border-base-300 p-3">
+              <label class="input input-bordered input-sm flex items-center gap-2">
+                <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
+                <input
+                  id="builder-section-search"
+                  type="search"
+                  name="q"
+                  value={@section_query}
+                  phx-keyup="search_sections"
+                  placeholder="Search sections"
+                  class="grow"
+                />
+              </label>
+              <p class="mt-2 text-xs text-base-content/60">
+                Sections are reusable blocks. Static and dynamic sections are both inserted from here.
+              </p>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-3">
+              <.section_ref_picker sections={filtered_sections(@sections, @section_query)} />
             </div>
           </div>
 
@@ -545,24 +582,18 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
               />
             </div>
             <div class="mt-3 grid gap-3 lg:grid-cols-2">
-              <label class="form-control">
-                <span class="label-text">Subtitle</span>
-                <input
-                  type="text"
-                  name="page[seo][subtitle]"
-                  value={page_seo(@page, "subtitle")}
-                  class="input input-bordered"
-                />
-              </label>
-              <label class="form-control">
-                <span class="label-text">SEO description</span>
-                <input
-                  type="text"
-                  name="page[seo][description]"
-                  value={page_seo(@page, "description")}
-                  class="input input-bordered"
-                />
-              </label>
+              <.builder_input
+                id="builder-page-subtitle"
+                name="page[seo][subtitle]"
+                label="Subtitle"
+                value={page_seo(@page, "subtitle")}
+              />
+              <.builder_input
+                id="builder-page-seo-description"
+                name="page[seo][description]"
+                label="SEO description"
+                value={page_seo(@page, "description")}
+              />
             </div>
           </.form>
 
@@ -615,9 +646,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :groups, :list, required: true
-  attr :global_sections, :list, default: []
-  attr :collapsed, :boolean, default: false
+  attr(:groups, :list, required: true)
+  attr(:collapsed, :boolean, default: false)
 
   defp palette(assigns) do
     ~H"""
@@ -645,35 +675,67 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
           </button>
         </div>
       </details>
-
-      <details open={!@collapsed} class="collapse collapse-arrow border border-base-300 bg-base-100">
-        <summary class="collapse-title min-h-0 py-3 text-sm font-semibold">Global Sections</summary>
-        <div class="collapse-content grid gap-2">
-          <button
-            :for={section <- @global_sections}
-            id={"builder-add-global-section-#{section.id}"}
-            type="button"
-            draggable="true"
-            data-palette-name="global_section"
-            data-palette-variant={section.id}
-            phx-click="add_palette_node"
-            phx-value-name="global_section"
-            phx-value-variant={section.id}
-            class="btn btn-ghost justify-start"
-          >
-            <.icon name="hero-globe-alt" class="size-4" /> {section.name}
-          </button>
-          <p :if={@global_sections == []} class="text-sm text-base-content/60">
-            No global sections yet.
-          </p>
-        </div>
-      </details>
     </div>
     """
   end
 
-  attr :tree, :list, required: true
-  attr :selected_id, :string, default: nil
+  attr(:sections, :list, default: [])
+
+  defp section_ref_picker(assigns) do
+    assigns = assign(assigns, :groups, section_ref_groups(assigns.sections))
+
+    ~H"""
+    <div class="space-y-3">
+      <details
+        :for={{group, sections} <- @groups}
+        open
+        class="collapse collapse-arrow border border-base-300 bg-base-100"
+      >
+        <summary class="collapse-title min-h-0 py-3 text-sm font-semibold">
+          <span>{group}</span>
+          <span class="ml-2 text-xs font-normal text-base-content/50">{length(sections)}</span>
+        </summary>
+        <div class="collapse-content grid gap-2">
+          <button
+            :for={section <- sections}
+            id={"builder-add-section-#{section.id}"}
+            type="button"
+            draggable="true"
+            data-palette-name="section_ref"
+            data-palette-variant={section.id}
+            phx-click="add_palette_node"
+            phx-value-name="section_ref"
+            phx-value-variant={section.id}
+            class="rounded-lg border border-base-300 bg-base-100 p-3 text-left transition hover:border-primary hover:bg-primary/5"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold">{section.name}</p>
+                <p class="mt-1 text-xs text-base-content/60">
+                  {section_template_label(section)} · {section_mode_label(section)}
+                </p>
+                <p class="mt-1 text-xs text-base-content/60">
+                  {section_loop_label(section)}
+                </p>
+              </div>
+              <span class={section_mode_badge(section)}>{section.mode}</span>
+            </div>
+          </button>
+        </div>
+      </details>
+
+      <p
+        :if={@sections == []}
+        class="rounded-lg border border-dashed border-base-300 p-4 text-sm text-base-content/60"
+      >
+        No sections match your search.
+      </p>
+    </div>
+    """
+  end
+
+  attr(:tree, :list, required: true)
+  attr(:selected_id, :string, default: nil)
 
   defp layers_tree(assigns) do
     ~H"""
@@ -683,9 +745,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :node, :map, required: true
-  attr :selected_id, :string, default: nil
-  attr :depth, :integer, default: 0
+  attr(:node, :map, required: true)
+  attr(:selected_id, :string, default: nil)
+  attr(:depth, :integer, default: 0)
 
   defp layers_node(assigns) do
     assigns =
@@ -722,9 +784,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :selected_node, :map, default: nil
-  attr :clipboard, :map, default: nil
-  attr :uploads, :map, required: true
+  attr(:selected_node, :map, default: nil)
+  attr(:clipboard, :map, default: nil)
+  attr(:uploads, :map, required: true)
 
   defp inspector(assigns) do
     props = safe_map(assigns.selected_node && Map.get(assigns.selected_node, "props"))
@@ -863,37 +925,37 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :label, :string, required: true
-  attr :key_name, :string, required: true
-  attr :value, :string, default: ""
+  attr(:label, :string, required: true)
+  attr(:key_name, :string, required: true)
+  attr(:value, :string, default: "")
 
   defp prop_input(assigns) do
     ~H"""
-    <label class="form-control">
-      <span class="label-text">{@label}</span>
-      <input name={"node[props][#{@key_name}]"} value={@value} class="input input-bordered" />
-    </label>
+    <.builder_input
+      id={"builder-prop-#{@key_name}"}
+      name={"node[props][#{@key_name}]"}
+      label={@label}
+      value={@value}
+    />
     """
   end
 
-  attr :label, :string, required: true
-  attr :key_name, :string, required: true
-  attr :value, :string, default: ""
+  attr(:label, :string, required: true)
+  attr(:key_name, :string, required: true)
+  attr(:value, :string, default: "")
 
   defp seo_input(assigns) do
     ~H"""
-    <label class="form-control">
-      <span class="label-text">{@label}</span>
-      <input
-        name={"node[props][seo][#{@key_name}]"}
-        value={@value}
-        class="input input-bordered"
-      />
-    </label>
+    <.builder_input
+      id={"builder-seo-#{@key_name}"}
+      name={"node[props][seo][#{@key_name}]"}
+      label={@label}
+      value={@value}
+    />
     """
   end
 
-  attr :tokens, :list, default: []
+  attr(:tokens, :list, default: [])
 
   defp class_tags(assigns) do
     ~H"""
@@ -915,8 +977,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :suggestions, :list, default: []
-  attr :tokens, :list, default: []
+  attr(:suggestions, :list, default: [])
+  attr(:tokens, :list, default: [])
 
   defp class_suggestion_buttons(assigns) do
     assigns =
@@ -941,30 +1003,68 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     """
   end
 
-  attr :label, :string, required: true
-  attr :key_name, :string, required: true
-  attr :value, :string, default: ""
-  attr :placeholder, :string, default: ""
+  attr(:label, :string, required: true)
+  attr(:key_name, :string, required: true)
+  attr(:value, :string, default: "")
+  attr(:placeholder, :string, default: "")
 
   defp class_textarea(assigns) do
     ~H"""
-    <label class="form-control">
-      <span class="label-text">{@label}</span>
-      <textarea
-        id={"builder-style-#{@key_name}"}
-        name={"node[classes][#{@key_name}]"}
-        phx-hook="AutoGrowTextArea"
-        phx-debounce="300"
-        placeholder={@placeholder}
-        class="textarea textarea-bordered min-h-20 resize-none overflow-hidden font-mono text-xs"
-      >{@value}</textarea>
-    </label>
+    <.builder_input
+      id={"builder-style-#{@key_name}"}
+      type="textarea"
+      name={"node[classes][#{@key_name}]"}
+      label={@label}
+      value={@value}
+      placeholder={@placeholder}
+      input_class="textarea textarea-bordered min-h-20 resize-none overflow-hidden font-mono text-xs"
+      phx_hook="AutoGrowTextArea"
+      phx_debounce="300"
+    />
     """
   end
 
-  attr :versions, :list, default: []
-  attr :tree, :list, default: []
-  attr :manual_version_label, :string, default: ""
+  attr(:id, :string, required: true)
+  attr(:name, :string, required: true)
+  attr(:label, :string, required: true)
+  attr(:type, :string, default: "text")
+  attr(:value, :any, default: "")
+  attr(:placeholder, :string, default: "")
+  attr(:input_class, :string, default: nil)
+  attr(:phx_hook, :string, default: nil)
+  attr(:phx_debounce, :string, default: nil)
+
+  defp builder_input(assigns) do
+    ~H"""
+    <.input
+      :if={@type == "textarea"}
+      id={@id}
+      type="textarea"
+      name={@name}
+      label={@label}
+      value={@value}
+      placeholder={@placeholder}
+      class={@input_class || "w-full textarea"}
+      phx-hook={@phx_hook}
+      phx-debounce={@phx_debounce}
+    />
+    <.input
+      :if={@type != "textarea"}
+      id={@id}
+      type={@type}
+      name={@name}
+      label={@label}
+      value={@value}
+      placeholder={@placeholder}
+      class={@input_class || "w-full input"}
+      phx-debounce={@phx_debounce}
+    />
+    """
+  end
+
+  attr(:versions, :list, default: [])
+  attr(:tree, :list, default: [])
+  attr(:manual_version_label, :string, default: "")
 
   defp version_history(assigns) do
     ~H"""
@@ -1210,19 +1310,19 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     }
   end
 
-  defp new_node(socket, "global_section", section_id) do
-    global_section = Enum.find(socket.assigns.global_sections, &(&1.id == section_id))
+  defp new_node(socket, "section_ref", section_id) do
+    section = Enum.find(socket.assigns.sections, &(&1.id == section_id))
 
     %{
       "type" => "component",
-      "name" => "global_section",
-      "id" => node_id("global"),
+      "name" => "section_ref",
+      "id" => node_id("section-ref"),
       "props" => %{
-        "global_section_id" => section_id,
-        "name" => global_section && global_section.name
+        "section_id" => section_id,
+        "name" => section && section.name
       },
       "classes" => %{"display" => ""},
-      "children" => (global_section && global_section.content_tree) || []
+      "children" => (section && section.content_tree) || []
     }
   end
 
@@ -1302,7 +1402,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "props" => %{},
       "classes" => %{"display" => class},
       "children" => [
-        leaf_node("heading", %{"text" => "MangoCMS page section", "level" => "2"}, %{
+        leaf_node("heading", %{"text" => "MangoCMS section", "level" => "2"}, %{
           "display" => "text-3xl font-bold text-base-content"
         }),
         leaf_node("paragraph", %{"text" => "Edit this copy directly on the canvas."}, %{
@@ -1390,6 +1490,79 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   defp page_seo(%Page{seo: seo}, key), do: seo |> safe_map() |> Map.get(key, "")
+
+  defp filtered_sections(sections, query) when query in [nil, ""], do: sections
+
+  defp filtered_sections(sections, query) do
+    query = query |> String.downcase() |> String.trim()
+
+    Enum.filter(sections, fn section ->
+      [section.name, section.group_label, section.mode]
+      |> Enum.any?(fn value ->
+        value
+        |> to_string()
+        |> String.downcase()
+        |> String.contains?(query)
+      end)
+    end)
+  end
+
+  defp section_ref_groups(sections) do
+    sections
+    |> Enum.group_by(&section_group_label/1)
+    |> Enum.sort_by(fn {group, _sections} -> String.downcase(group) end)
+  end
+
+  defp section_group_label(%{group_label: value}) when is_binary(value) do
+    case String.trim(value) do
+      "" -> "General"
+      group -> group
+    end
+  end
+
+  defp section_group_label(_section), do: "General"
+
+  defp section_mode_label(%{mode: "dynamic"}), do: "Dynamic data"
+  defp section_mode_label(%{mode: "reference"}), do: "Reference"
+  defp section_mode_label(_section), do: "Static data"
+
+  defp section_template_label(%{template_key: value}) when is_binary(value) do
+    value
+    |> String.replace(".", " / ")
+    |> String.replace("_", " ")
+  end
+
+  defp section_template_label(_section), do: "custom"
+
+  defp section_loop_label(%{
+         settings: %{
+           "section_type" => "slider",
+           "items_visible" => visible,
+           "interval_ms" => interval,
+           "transition" => transition
+         }
+       }) do
+    "Visible #{visible_count(visible, "desktop")}/#{visible_count(visible, "tablet")}/#{visible_count(visible, "mobile")} · #{seconds(interval)}s · #{transition}"
+  end
+
+  defp section_loop_label(%{loop_settings: %{"enabled" => true, "limit" => limit}}),
+    do: "Loops #{limit || "records"} records"
+
+  defp section_loop_label(%{loop_settings: %{enabled: true, limit: limit}}),
+    do: "Loops #{limit || "records"} records"
+
+  defp section_loop_label(_section), do: "No loop"
+
+  defp visible_count(visible, key) when is_map(visible), do: Map.get(visible, key, "-")
+  defp visible_count(_visible, _key), do: "-"
+
+  defp seconds(interval) when is_integer(interval), do: div(interval, 1000)
+  defp seconds(interval) when is_binary(interval), do: interval
+  defp seconds(_interval), do: "-"
+
+  defp section_mode_badge(%{mode: "dynamic"}), do: "badge badge-info shrink-0"
+  defp section_mode_badge(%{mode: "reference"}), do: "badge badge-secondary shrink-0"
+  defp section_mode_badge(_section), do: "badge badge-ghost shrink-0"
 
   defp class_suggestions("section") do
     ~w(w-full bg-base-100 bg-base-200 bg-primary text-primary-content py-8 py-12 px-4 rounded-xl shadow-sm)

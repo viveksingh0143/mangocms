@@ -8,20 +8,21 @@ defmodule MangoCMS.Tenant.Catalog.Product do
   @valid_statuses ~w(draft active archived)
   @valid_currencies ~w(INR USD EUR GBP AUD SGD)
   @required_fields ~w(name slug status price currency)a
-  @optional_fields ~w(sku description stock_quantity active)a
+  @optional_fields ~w(sku description custom_fields stock_quantity active)a
 
   @type t :: %__MODULE__{}
 
   schema "products" do
-    field :name, :string
-    field :slug, :string
-    field :sku, :string
-    field :description, :string
-    field :status, :string, default: "draft"
-    field :price, :integer, default: 0
-    field :currency, :string, default: "INR"
-    field :stock_quantity, :integer, default: 0
-    field :active, :boolean, default: true
+    field(:name, :string)
+    field(:slug, :string)
+    field(:sku, :string)
+    field(:description, :string)
+    field(:custom_fields, :map, default: %{})
+    field(:status, :string, default: "draft")
+    field(:price, :integer, default: 0)
+    field(:currency, :string, default: "INR")
+    field(:stock_quantity, :integer, default: 0)
+    field(:active, :boolean, default: true)
 
     timestamps()
   end
@@ -32,6 +33,7 @@ defmodule MangoCMS.Tenant.Catalog.Product do
     product
     |> ensure_id()
     |> cast(attrs, @required_fields ++ @optional_fields)
+    |> normalize_map(:custom_fields)
     |> maybe_put_slug()
     |> normalize_change(:slug, &slugify/1)
     |> normalize_change(:sku, &String.trim/1)
@@ -76,6 +78,13 @@ defmodule MangoCMS.Tenant.Catalog.Product do
       put_change(changeset, field, nil)
     else
       changeset
+    end
+  end
+
+  defp normalize_map(changeset, field) do
+    case get_field(changeset, field) do
+      value when is_map(value) -> changeset
+      _other -> put_change(changeset, field, %{})
     end
   end
 

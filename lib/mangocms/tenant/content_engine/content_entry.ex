@@ -13,15 +13,15 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   @type t :: %__MODULE__{}
 
   schema "content_entries" do
-    field :title, :string
-    field :slug, :string
-    field :status, :string, default: "draft"
-    field :payload, :map, default: %{}
-    field :published_at, :utc_datetime
-    field :deleted_at, :utc_datetime
+    field(:title, :string)
+    field(:slug, :string)
+    field(:status, :string, default: "draft")
+    field(:payload, :map, default: %{})
+    field(:published_at, :utc_datetime)
+    field(:deleted_at, :utc_datetime)
 
-    belongs_to :content_type, ContentType
-    has_many :indexes, ContentEntryIndex
+    belongs_to(:content_type, ContentType)
+    has_many(:indexes, ContentEntryIndex)
 
     timestamps()
   end
@@ -132,6 +132,10 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   defp valid_value?(type, value, _settings) when type in ~w(string text image video url),
     do: is_binary(value)
 
+  defp valid_value?("gallery", value, _settings) do
+    is_list(value) and Enum.all?(value, &is_binary/1)
+  end
+
   defp valid_value?("number", value, _settings) do
     is_number(value) or parsable_float?(value)
   end
@@ -199,7 +203,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     |> String.trim("-")
   end
 
-  defp blank?(value), do: value in [nil, ""]
+  defp blank?(value), do: value in [nil, "", []]
 
   defp label(value) when is_binary(value) do
     value

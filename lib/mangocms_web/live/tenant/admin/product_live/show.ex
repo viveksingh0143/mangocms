@@ -114,6 +114,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
             {@product.description || "No description"}
           </p>
         </div>
+
+        <div class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors md:col-span-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">
+            Custom fields
+          </h2>
+          <pre class="mt-4 overflow-auto rounded-lg bg-base-200 p-4 text-xs text-base-content/80">{custom_fields_json(@product.custom_fields)}</pre>
+        </div>
       </section>
     </Layouts.tenant_admin>
     """
@@ -121,6 +128,12 @@ defmodule MangoCMSWeb.Tenant.Admin.ProductLive.Show do
 
   defp page_title(:show), do: "Show product"
   defp page_title(:edit), do: "Edit product"
+
+  defp custom_fields_json(value) when is_map(value) and map_size(value) > 0 do
+    Jason.encode!(value, pretty: true)
+  end
+
+  defp custom_fields_json(_value), do: "{}"
 
   defp human_status(status) when is_binary(status) do
     status

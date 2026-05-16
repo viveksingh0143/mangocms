@@ -20,7 +20,7 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   @default_limit 50
   @max_limit 200
-  @string_index_types ~w(string text image url select)
+  @string_index_types ~w(string text image video url select)
 
   @doc "Lists active and archived content types for a tenant."
   @spec list_content_types(Tenant.t()) :: [ContentType.t()]
@@ -200,11 +200,12 @@ defmodule MangoCMS.Tenant.ContentEngine do
       content_type = resolve_content_type!(repo, content_type)
 
       repo.one(
-        from entry in ContentEntry,
+        from(entry in ContentEntry,
           where:
             entry.content_type_id == ^content_type.id and entry.slug == ^slug and
               is_nil(entry.deleted_at),
           limit: 1
+        )
       )
     end)
   end
@@ -219,6 +220,7 @@ defmodule MangoCMS.Tenant.ContentEngine do
         changeset =
           %ContentEntry{content_type_id: content_type.id}
           |> ContentEntry.changeset(attrs, fields)
+          |> validate_unique_payload_fields(repo, content_type.id, fields, nil)
 
         case repo.insert(changeset) do
           {:ok, entry} ->
@@ -240,7 +242,12 @@ defmodule MangoCMS.Tenant.ContentEngine do
       fields = fields_for_type(repo, entry.content_type_id)
 
       repo.transaction(fn ->
-        case entry |> ContentEntry.changeset(attrs, fields) |> repo.update() do
+        changeset =
+          entry
+          |> ContentEntry.changeset(attrs, fields)
+          |> validate_unique_payload_fields(repo, entry.content_type_id, fields, entry.id)
+
+        case repo.update(changeset) do
           {:ok, entry} ->
             rebuild_entry_indexes!(repo, entry, fields)
             entry
@@ -385,6 +392,68 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp index_values(_field, _value), do: :skip
 
+  defp validate_unique_payload_fields(changeset, repo, content_type_id, fields, current_entry_id) do
+    if changeset.valid? do
+      payload = Ecto.Changeset.get_field(changeset, :payload) || %{}
+
+      Enum.reduce(unique_fields(fields), changeset, fn field, changeset ->
+        value = Map.get(payload, field.field_key)
+
+        if unique_conflict?(repo, content_type_id, field, value, current_entry_id) do
+          Ecto.Changeset.add_error(
+            changeset,
+            :payload,
+            "#{field.field_key} must be unique"
+          )
+        else
+          changeset
+        end
+      end)
+    else
+      changeset
+    end
+  end
+
+  defp unique_fields(fields) do
+    Enum.filter(fields, fn field ->
+      field.unique == true and ContentTypeField.queryable?(field)
+    end)
+  end
+
+  defp unique_conflict?(_repo, _content_type_id, _field, value, _current_entry_id)
+       when value in [nil, "", []],
+       do: false
+
+  defp unique_conflict?(repo, content_type_id, field, value, current_entry_id) do
+    case comparable_value(field, value) do
+      {:ok, comparable} ->
+        column = index_column(field)
+
+        query =
+          from(index in ContentEntryIndex,
+            join: entry in ContentEntry,
+            on: entry.id == index.content_entry_id,
+            where:
+              index.content_type_id == ^content_type_id and index.field_key == ^field.field_key and
+                field(index, ^column) == ^comparable and is_nil(entry.deleted_at),
+            select: index.content_entry_id,
+            limit: 1
+          )
+
+        query =
+          if is_binary(current_entry_id) do
+            where(query, [index, _entry], index.content_entry_id != ^current_entry_id)
+          else
+            query
+          end
+
+        repo.exists?(query)
+
+      :error ->
+        false
+    end
+  end
+
   defp fields_for_type(repo, content_type_id) do
     ContentTypeField
     |> where([field], field.content_type_id == ^content_type_id)
@@ -441,9 +510,10 @@ defmodule MangoCMS.Tenant.ContentEngine do
   end
 
   defp base_index_query(content_type_id, field) do
-    from index in ContentEntryIndex,
+    from(index in ContentEntryIndex,
       where: index.content_type_id == ^content_type_id and index.field_key == ^field.field_key,
       select: index.content_entry_id
+    )
   end
 
   defp apply_index_operator(query, %ContentTypeField{} = field, op, value) do
@@ -524,23 +594,25 @@ defmodule MangoCMS.Tenant.ContentEngine do
   defp apply_index_sort(query, content_type_id, field, :asc) do
     column = index_column(field)
 
-    from entry in query,
+    from(entry in query,
       join: index in ContentEntryIndex,
       on:
         index.content_entry_id == entry.id and index.content_type_id == ^content_type_id and
           index.field_key == ^field.field_key,
       order_by: [asc: field(index, ^column)]
+    )
   end
 
   defp apply_index_sort(query, content_type_id, field, :desc) do
     column = index_column(field)
 
-    from entry in query,
+    from(entry in query,
       join: index in ContentEntryIndex,
       on:
         index.content_entry_id == entry.id and index.content_type_id == ^content_type_id and
           index.field_key == ^field.field_key,
       order_by: [desc: field(index, ^column)]
+    )
   end
 
   defp maybe_offset(query, nil), do: query

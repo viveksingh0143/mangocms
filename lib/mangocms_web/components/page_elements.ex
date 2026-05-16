@@ -17,7 +17,7 @@ defmodule MangoCMSWeb.PageElements do
   attr :classes, :map, default: %{}
   slot :inner_block
 
-  @doc "Renders a full-width page section wrapper."
+  @doc "Renders a full-width section wrapper."
   @spec section(map()) :: Phoenix.LiveView.Rendered.t()
   def section(assigns) do
     ~H"""
