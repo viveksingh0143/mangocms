@@ -432,7 +432,7 @@ defmodule MangoCMSWeb.LandingComponents do
       <div class="mockup-browser border border-base-300 bg-base-300 shadow-2xl">
         <div class="mockup-browser-toolbar">
           <div class="input border border-base-300 bg-base-100 text-xs">
-            acme.localhost:4000/admin/products
+            acme.localhost:4000/admin/collections
           </div>
         </div>
         <div class="bg-base-100 p-6">
@@ -455,7 +455,7 @@ defmodule MangoCMSWeb.LandingComponents do
             <div class="card border border-base-300 bg-base-200">
               <div class="card-body">
                 <span class="text-sm text-base-content/60">Admin path</span>
-                <strong>/admin/products</strong>
+                <strong>/admin/collections</strong>
               </div>
             </div>
             <div class="card border border-base-300 bg-base-200">

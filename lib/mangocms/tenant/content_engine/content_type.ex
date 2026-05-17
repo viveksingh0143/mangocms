@@ -9,6 +9,9 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
   @timestamps_opts [type: :utc_datetime]
 
   @statuses ~w(active archived)
+  @archetypes ~w(content catalog category form)
+  @item_modes ~w(multiple single)
+  @environments ~w(sandbox live)
 
   @type t :: %__MODULE__{}
 
@@ -17,6 +20,9 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
     field :slug, :string
     field :description, :string
     field :status, :string, default: "active"
+    field :archetype, :string, default: "content"
+    field :item_mode, :string, default: "multiple"
+    field :environment, :string, default: "live"
     field :settings, :map, default: %{}
 
     has_many :fields, ContentTypeField
@@ -26,14 +32,26 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
   end
 
   def status_options, do: Enum.map(@statuses, &{label(&1), &1})
+  def archetype_options, do: Enum.map(@archetypes, &{label(&1), &1})
+  def item_mode_options, do: Enum.map(@item_modes, &{label(&1), &1})
+  def environment_options, do: Enum.map(@environments, &{label(&1), &1})
 
   def changeset(content_type, attrs) do
     content_type
-    |> cast(attrs, [:name, :slug, :description, :status, :settings])
+    |> cast(attrs, [
+      :name,
+      :slug,
+      :description,
+      :status,
+      :archetype,
+      :item_mode,
+      :environment,
+      :settings
+    ])
     |> normalize_map(:settings)
     |> maybe_put_slug()
     |> normalize_change(:slug, &slugify/1)
-    |> validate_required([:name, :slug, :status, :settings])
+    |> validate_required([:name, :slug, :status, :archetype, :item_mode, :environment, :settings])
     |> validate_length(:name, min: 2, max: 120)
     |> validate_length(:slug, min: 2, max: 120)
     |> validate_length(:description, max: 500)
@@ -41,6 +59,9 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
       message: "only lowercase letters, numbers, underscores and hyphens"
     )
     |> validate_inclusion(:status, @statuses)
+    |> validate_inclusion(:archetype, @archetypes)
+    |> validate_inclusion(:item_mode, @item_modes)
+    |> validate_inclusion(:environment, @environments)
     |> unique_constraint(:slug, name: :content_types_slug_index)
   end
 

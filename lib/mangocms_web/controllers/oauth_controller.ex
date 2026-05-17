@@ -113,7 +113,7 @@ defmodule MangoCMSWeb.OAuthController do
   defp login_path({:tenant, _tenant}), do: ~p"/admin/login"
 
   defp admin_home_path(:platform), do: ~p"/platform/admin/dashboard"
-  defp admin_home_path({:tenant, _tenant}), do: ~p"/admin/products"
+  defp admin_home_path({:tenant, _tenant}), do: ~p"/admin/collections"
 
   defp context_name(:platform), do: "platform"
   defp context_name({:tenant, _tenant}), do: "tenant"

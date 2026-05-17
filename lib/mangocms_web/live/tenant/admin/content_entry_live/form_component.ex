@@ -22,45 +22,32 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
       <.form
         for={@form}
         id="content-entry-form"
+        phx-hook="EntrySlugSync"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
       >
-        <div class="grid gap-5 md:grid-cols-3">
-          <.input field={@form[:title]} type="text" label="Title" placeholder="Budget Website" />
+        <div class="grid gap-5 md:grid-cols-2">
           <.input field={@form[:slug]} type="text" label="Slug" placeholder="budget-website" />
           <.input field={@form[:status]} type="select" label="Status" options={@status_options} />
         </div>
 
-        <div class="mt-4 rounded-lg border border-base-300 bg-base-200 p-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 class="font-semibold text-base-content">Payload</h3>
-              <p class="text-sm text-base-content/60">
-                Inputs are generated from the fields on {@content_type.name}.
-              </p>
-            </div>
-            <span class="rounded-full bg-base-100 px-2.5 py-1 text-xs font-semibold text-base-content/70">
-              {length(@fields)} fields
-            </span>
-          </div>
+        <div
+          :if={@payload_errors != []}
+          id="content-entry-payload-errors"
+          class="mt-4 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
+        >
+          <p :for={error <- @payload_errors}>{error}</p>
+        </div>
 
-          <div
-            :if={@payload_errors != []}
-            id="content-entry-payload-errors"
-            class="mt-4 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
-          >
-            <p :for={error <- @payload_errors}>{error}</p>
-          </div>
-
-          <div class="mt-5 grid gap-5 md:grid-cols-2">
-            <.payload_input
-              :for={field <- @fields}
-              form={@form}
-              field_def={field}
-              uploads={@media_uploads}
-            />
-          </div>
+        <div class="mt-5 grid gap-5">
+          <.payload_input
+            :for={field <- @fields}
+            form={@form}
+            field_def={field}
+            slug_source_field={@slug_source_field}
+            uploads={@media_uploads}
+          />
         </div>
 
         <div class="mt-6 flex items-center justify-end gap-3">
@@ -82,6 +69,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
      socket
      |> assign(assigns)
      |> assign(:status_options, @status_options)
+     |> assign(:slug_source_field, slug_source_field(assigns.fields))
      |> assign_form(changeset)
      |> allow_media_uploads(assigns.fields)}
   end
@@ -111,7 +99,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     case ContentEngine.create_entry(
            socket.assigns.tenant,
            socket.assigns.content_type,
-           entry_params
+           entry_params,
+           owner_id: socket.assigns.current_user && socket.assigns.current_user.id
          ) do
       {:ok, entry} ->
         notify_parent({:saved, entry})
@@ -154,6 +143,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
       |> assign(:input_label, payload_label(field))
       |> assign(:input_options, select_options(field))
       |> assign(:media_field?, media_field?(field))
+      |> assign(:slug_source?, slug_source?(assigns.slug_source_field, field))
       |> assign(:upload_config, Map.get(assigns.uploads || %{}, media_upload_name(field)))
 
     ~H"""
@@ -167,6 +157,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         value={@input_value}
         options={@input_options}
         prompt="Choose an option"
+        data-slug-source={@slug_source?}
       />
 
       <.input
@@ -177,6 +168,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         label={@input_label}
         value={@input_value}
         rows="4"
+        data-slug-source={@slug_source?}
       />
 
       <.input
@@ -186,6 +178,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         type="checkbox"
         label={@input_label}
         value={@input_value}
+        data-slug-source={@slug_source?}
       />
 
       <.input
@@ -196,6 +189,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         label={@input_label}
         value={@input_value}
         step={if(@input_type == "number", do: "any", else: nil)}
+        data-slug-source={@slug_source?}
       />
 
       <div :if={@media_field?} class="grid gap-2">
@@ -207,6 +201,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
           value={@input_value}
           rows={if(@field_def.field_type == "gallery", do: "4", else: nil)}
           placeholder="/uploads/tenants/..."
+          data-slug-source={@slug_source?}
         />
         <div
           :if={@upload_config}
@@ -312,6 +307,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp normalize_entry_params(params, fields, %ContentEntry{} = entry) do
     payload = Map.get(params, "payload", %{})
+    slug_source = slug_source_field(fields)
 
     normalized_payload =
       fields
@@ -323,7 +319,48 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
     params
     |> Map.put("payload", normalized_payload)
+    |> maybe_put_slug_from_source(slug_source, normalized_payload, entry)
+    |> put_title_from_source(fields, normalized_payload)
     |> maybe_put_published_at(entry)
+  end
+
+  defp maybe_put_slug_from_source(params, nil, _payload, _entry), do: params
+
+  defp maybe_put_slug_from_source(
+         params,
+         %ContentTypeField{} = field,
+         payload,
+         %ContentEntry{} = entry
+       ) do
+    source = Map.get(payload, field.field_key)
+
+    if present?(source) and sync_slug_from_source?(params, field, entry) do
+      Map.put(params, "slug", slugify(to_string(source)))
+    else
+      params
+    end
+  end
+
+  defp sync_slug_from_source?(params, %ContentTypeField{} = field, %ContentEntry{} = entry) do
+    current_slug = Map.get(params, "slug")
+    old_source = Map.get(entry.payload || %{}, field.field_key)
+    old_source_slug = if present?(old_source), do: slugify(to_string(old_source))
+
+    blank?(current_slug) or
+      blank?(entry.slug) or
+      (current_slug == entry.slug and entry.slug == old_source_slug)
+  end
+
+  defp put_title_from_source(params, fields, payload) do
+    source_field =
+      Enum.find(fields, & &1.primary) ||
+        slug_source_field(fields) ||
+        Enum.find(fields, &(&1.field_key in ["name", "title"]))
+
+    case source_field && Map.get(payload, source_field.field_key) do
+      value when value not in [nil, ""] -> Map.put(params, "title", to_string(value))
+      _other -> params
+    end
   end
 
   defp maybe_put_published_at(%{"status" => "published"} = params, %ContentEntry{
@@ -346,6 +383,11 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp coerce_payload_value(%ContentTypeField{field_type: "boolean"}, value) do
     value in [true, "true", "1", 1]
+  end
+
+  defp coerce_payload_value(%ContentTypeField{field_type: "datetime"}, value)
+       when is_binary(value) do
+    normalize_datetime_input(value)
   end
 
   defp coerce_payload_value(%ContentTypeField{field_type: "json"}, value) when is_binary(value) do
@@ -377,6 +419,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   defp payload_input_type(%ContentTypeField{field_type: "json"}), do: "textarea"
   defp payload_input_type(%ContentTypeField{field_type: "number"}), do: "number"
   defp payload_input_type(%ContentTypeField{field_type: "boolean"}), do: "checkbox"
+  defp payload_input_type(%ContentTypeField{field_type: "date"}), do: "date"
   defp payload_input_type(%ContentTypeField{field_type: "datetime"}), do: "datetime-local"
   defp payload_input_type(%ContentTypeField{field_type: "url"}), do: "url"
   defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "text"
@@ -439,6 +482,47 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   defp select_options(_field), do: []
+
+  defp slug_source_field(fields) do
+    Enum.find(fields, fn %ContentTypeField{settings: settings} ->
+      case settings do
+        %{"slug_source" => value} -> value in [true, "true", "1", "on"]
+        %{slug_source: value} -> value in [true, "true", "1", "on"]
+        _other -> false
+      end
+    end)
+  end
+
+  defp slug_source?(%ContentTypeField{id: id}, %ContentTypeField{id: id}) when is_binary(id),
+    do: true
+
+  defp slug_source?(_source, _field), do: false
+
+  defp slugify(value) do
+    value
+    |> String.downcase()
+    |> String.trim()
+    |> String.replace(~r/[^a-z0-9_-]+/, "-")
+    |> String.trim("-")
+  end
+
+  defp normalize_datetime_input(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" ->
+        value
+
+      Regex.match?(~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, value) ->
+        value <> ":00"
+
+      true ->
+        value
+    end
+  end
+
+  defp blank?(value), do: value in [nil, ""]
+  defp present?(value), do: value not in [nil, "", []]
 
   defp media_fields(fields) do
     Enum.filter(fields, &media_field?/1)

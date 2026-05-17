@@ -20,15 +20,28 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   @default_limit 50
   @max_limit 200
-  @string_index_types ~w(string text image video url select)
+  @string_index_types ~w(string text rich_text rich_content image video audio document asset url email color time address category reference select)
 
-  @doc "Lists active and archived content types for a tenant."
+  @doc "Lists active and archived collections for a tenant."
   @spec list_content_types(Tenant.t()) :: [ContentType.t()]
   def list_content_types(%Tenant{} = tenant) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       ContentType
       |> order_by([type], asc: type.name)
       |> repo.all()
+    end)
+  end
+
+  @doc "Returns active, non-deleted entry counts keyed by content type id."
+  @spec content_type_entry_counts(Tenant.t()) :: %{String.t() => non_neg_integer()}
+  def content_type_entry_counts(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      ContentEntry
+      |> where([entry], is_nil(entry.deleted_at))
+      |> group_by([entry], entry.content_type_id)
+      |> select([entry], {entry.content_type_id, count(entry.id)})
+      |> repo.all()
+      |> Map.new()
     end)
   end
 
@@ -210,15 +223,18 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end)
   end
 
+  @spec create_entry(Tenant.t(), ContentType.t(), map(), keyword()) ::
+          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
   @spec create_entry(Tenant.t(), ContentType.t(), map()) ::
           {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def create_entry(%Tenant{} = tenant, %ContentType{} = content_type, attrs) do
+  def create_entry(%Tenant{} = tenant, %ContentType{} = content_type, attrs, opts \\ []) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       fields = fields_for_type(repo, content_type.id)
+      owner_id = Keyword.get(opts, :owner_id)
 
       repo.transaction(fn ->
         changeset =
-          %ContentEntry{content_type_id: content_type.id}
+          %ContentEntry{content_type_id: content_type.id, owner_id: owner_id}
           |> ContentEntry.changeset(attrs, fields)
           |> validate_unique_payload_fields(repo, content_type.id, fields, nil)
 
@@ -700,6 +716,8 @@ defmodule MangoCMS.Tenant.ContentEngine do
   end
 
   defp cast_datetime(value) when is_binary(value) do
+    value = normalize_datetime_input(value)
+
     case DateTime.from_iso8601(value) do
       {:ok, datetime, _offset} ->
         {:ok, DateTime.truncate(datetime, :second)}
@@ -713,6 +731,18 @@ defmodule MangoCMS.Tenant.ContentEngine do
   end
 
   defp cast_datetime(_value), do: :error
+
+  defp normalize_datetime_input(value) do
+    value = String.trim(value)
+
+    cond do
+      Regex.match?(~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, value) ->
+        value <> ":00"
+
+      true ->
+        value
+    end
+  end
 
   defp unwrap_transaction({:ok, result}), do: {:ok, result}
   defp unwrap_transaction({:error, reason}), do: {:error, reason}

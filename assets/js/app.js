@@ -192,6 +192,57 @@ const BuilderSortable = {
   },
 }
 
+const EntrySlugSync = {
+  mounted() {
+    this.slugEdited = false
+    this.syncingSlug = false
+    this.boundSlugInput = null
+    this.boundSourceInput = null
+
+    this.slugify = value =>
+      value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+
+    this.updateSlug = () => {
+      if (!this.slugInput || !this.sourceInput || this.slugEdited) return
+      this.slugInput.value = this.slugify(this.sourceInput.value || "")
+      this.syncingSlug = true
+      this.slugInput.dispatchEvent(new Event("input", {bubbles: true}))
+      this.syncingSlug = false
+    }
+
+    this.handleSlugInput = () => {
+      if (this.syncingSlug) return
+      this.slugEdited = true
+    }
+
+    this.bindInputs = () => {
+      this.slugInput = this.el.querySelector("input[name='content_entry[slug]']")
+      this.sourceInput = this.el.querySelector("[data-slug-source='true']")
+
+      if (this.slugInput && this.slugInput !== this.boundSlugInput) {
+        this.slugInput.addEventListener("input", this.handleSlugInput)
+        this.boundSlugInput = this.slugInput
+      }
+
+      if (this.sourceInput && this.sourceInput !== this.boundSourceInput) {
+        this.sourceInput.addEventListener("input", this.updateSlug)
+        this.sourceInput.addEventListener("change", this.updateSlug)
+        this.boundSourceInput = this.sourceInput
+      }
+    }
+
+    this.bindInputs()
+  },
+
+  updated() {
+    this.bindInputs()
+  },
+}
+
 const BuilderCanvas = {
   mounted() {
     this.el.addEventListener("click", event => {
@@ -521,6 +572,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     BuilderCanvas,
     BuilderSortable,
     ContentEditableInput,
+    EntrySlugSync,
   },
 })
 

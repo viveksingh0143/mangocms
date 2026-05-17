@@ -8,7 +8,49 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
 
-  @field_types ~w(string text number boolean datetime image video gallery url select json)
+  @field_groups [
+    {"Essentials",
+     [
+       {"String", "string"},
+       {"Text", "text"},
+       {"Rich Text", "rich_text"},
+       {"Rich Content", "rich_content"},
+       {"URL", "url"},
+       {"Email", "email"},
+       {"Number", "number"},
+       {"Boolean", "boolean"},
+       {"Color", "color"}
+     ]},
+    {"Organization & Reference",
+     [
+       {"Reference", "reference"},
+       {"Multi-reference", "multi_reference"},
+       {"Tags", "tags"},
+       {"Category", "category"},
+       {"Select", "select"}
+     ]},
+    {"Media",
+     [
+       {"Image", "image"},
+       {"Media Gallery", "gallery"},
+       {"Video", "video"},
+       {"Audio", "audio"},
+       {"Document", "document"},
+       {"Multiple Documents", "documents"},
+       {"Digital Asset", "asset"}
+     ]},
+    {"Time & Location",
+     [
+       {"Date", "date"},
+       {"Date and Time", "datetime"},
+       {"Time", "time"},
+       {"Address", "address"}
+     ]},
+    {"Advanced Data Structures", [{"Object", "object"}, {"Array", "array"}, {"JSON", "json"}]}
+  ]
+
+  @field_types @field_groups
+               |> Enum.flat_map(fn {_group, fields} -> Enum.map(fields, &elem(&1, 1)) end)
 
   @type t :: %__MODULE__{}
 
@@ -21,6 +63,10 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
     field(:filterable, :boolean, default: false)
     field(:sortable, :boolean, default: false)
     field(:unique, :boolean, default: false)
+    field(:visible, :boolean, default: true)
+    field(:primary, :boolean, default: false)
+    field(:system, :boolean, default: false)
+    field(:help_text, :string)
     field(:settings, :map, default: %{})
     field(:position, :integer, default: 0)
 
@@ -30,7 +76,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   end
 
   def field_types, do: @field_types
-  def field_type_options, do: Enum.map(@field_types, &{label(&1), &1})
+  def field_type_options, do: @field_groups |> Enum.flat_map(fn {_group, fields} -> fields end)
+  def field_type_groups, do: @field_groups
 
   def changeset(field, attrs) do
     field
@@ -43,16 +90,23 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
       :filterable,
       :sortable,
       :unique,
+      :visible,
+      :primary,
+      :system,
+      :help_text,
       :settings,
       :position
     ])
     |> normalize_map(:settings)
     |> maybe_put_field_key()
     |> normalize_change(:field_key, &keyify/1)
+    |> prevent_custom_system_field()
+    |> prevent_invalid_primary_field()
     |> put_indexed_for_queryable_fields()
     |> validate_required([:label, :field_key, :field_type, :settings, :position])
     |> validate_length(:label, min: 2, max: 120)
     |> validate_length(:field_key, min: 2, max: 80)
+    |> validate_length(:help_text, max: 500)
     |> validate_format(:field_key, ~r/^[a-z][a-z0-9_]*$/,
       message: "must start with a letter and use lowercase letters, numbers and underscores"
     )
@@ -94,6 +148,24 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
     end
   end
 
+  defp prevent_custom_system_field(changeset) do
+    put_change(changeset, :system, false)
+  end
+
+  defp prevent_invalid_primary_field(changeset) do
+    if primary_field_type?(get_field(changeset, :field_type)) do
+      changeset
+    else
+      put_change(changeset, :primary, false)
+    end
+  end
+
+  def primary_field_type?(type) when is_binary(type) do
+    type in ~w(string text rich_text rich_content email url number)
+  end
+
+  def primary_field_type?(_type), do: false
+
   defp normalize_change(changeset, field, normalizer) do
     case get_change(changeset, field) do
       value when is_binary(value) -> put_change(changeset, field, normalizer.(value))
@@ -110,10 +182,4 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
   end
 
   defp blank?(value), do: value in [nil, ""]
-
-  defp label(value) when is_binary(value) do
-    value
-    |> String.replace("_", " ")
-    |> String.capitalize()
-  end
 end

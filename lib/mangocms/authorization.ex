@@ -26,7 +26,6 @@ defmodule MangoCMS.Authorization do
     view_dashboard: @tenant_admin_roles,
     manage_content: @tenant_admin_roles,
     manage_pages: @tenant_admin_roles,
-    manage_products: @tenant_admin_roles,
     manage_users: @tenant_manager_roles,
     manage_settings: @tenant_manager_roles
   }

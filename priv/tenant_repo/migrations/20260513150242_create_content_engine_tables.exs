@@ -8,6 +8,9 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
       add(:slug, :string, null: false)
       add(:description, :string)
       add(:status, :string, null: false, default: "active")
+      add(:archetype, :string, null: false, default: "content")
+      add(:item_mode, :string, null: false, default: "multiple")
+      add(:environment, :string, null: false, default: "live")
       add(:settings, :map, null: false, default: %{})
 
       timestamps(type: :utc_datetime)
@@ -15,6 +18,8 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
 
     create_if_not_exists(unique_index(:content_types, [:slug]))
     create_if_not_exists(index(:content_types, [:status]))
+    create_if_not_exists(index(:content_types, [:archetype]))
+    create_if_not_exists(index(:content_types, [:environment]))
 
     create_if_not_exists table(:content_type_fields, primary_key: false) do
       add(:id, :binary_id, primary_key: true)
@@ -31,6 +36,10 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
       add(:filterable, :boolean, null: false, default: false)
       add(:sortable, :boolean, null: false, default: false)
       add(:unique, :boolean, null: false, default: false)
+      add(:visible, :boolean, null: false, default: true)
+      add(:primary, :boolean, null: false, default: false)
+      add(:system, :boolean, null: false, default: false)
+      add(:help_text, :string)
       add(:settings, :map, null: false, default: %{})
       add(:position, :integer, null: false, default: 0)
 
@@ -44,6 +53,9 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
     create_if_not_exists(index(:content_type_fields, [:filterable]))
     create_if_not_exists(index(:content_type_fields, [:sortable]))
     create_if_not_exists(index(:content_type_fields, [:unique]))
+    create_if_not_exists(index(:content_type_fields, [:visible]))
+    create_if_not_exists(index(:content_type_fields, [:primary]))
+    create_if_not_exists(index(:content_type_fields, [:system]))
 
     create_if_not_exists table(:content_entries, primary_key: false) do
       add(:id, :binary_id, primary_key: true)
@@ -52,6 +64,7 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
         null: false
       )
 
+      add(:owner_id, references(:users, type: :binary_id, on_delete: :nilify_all))
       add(:title, :string)
       add(:slug, :string, null: false)
       add(:status, :string, null: false, default: "draft")
@@ -64,6 +77,7 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
 
     create_if_not_exists(unique_index(:content_entries, [:content_type_id, :slug]))
     create_if_not_exists(index(:content_entries, [:content_type_id]))
+    create_if_not_exists(index(:content_entries, [:owner_id]))
     create_if_not_exists(index(:content_entries, [:status]))
     create_if_not_exists(index(:content_entries, [:published_at]))
     create_if_not_exists(index(:content_entries, [:deleted_at]))
@@ -137,10 +151,14 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
     drop_if_exists(index(:content_entries, [:deleted_at]))
     drop_if_exists(index(:content_entries, [:published_at]))
     drop_if_exists(index(:content_entries, [:status]))
+    drop_if_exists(index(:content_entries, [:owner_id]))
     drop_if_exists(index(:content_entries, [:content_type_id]))
     drop_if_exists(unique_index(:content_entries, [:content_type_id, :slug]))
     drop_if_exists(table(:content_entries))
 
+    drop_if_exists(index(:content_type_fields, [:system]))
+    drop_if_exists(index(:content_type_fields, [:primary]))
+    drop_if_exists(index(:content_type_fields, [:visible]))
     drop_if_exists(index(:content_type_fields, [:unique]))
     drop_if_exists(index(:content_type_fields, [:sortable]))
     drop_if_exists(index(:content_type_fields, [:filterable]))
@@ -150,6 +168,8 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateContentEngineTables do
     drop_if_exists(unique_index(:content_type_fields, [:content_type_id, :field_key]))
     drop_if_exists(table(:content_type_fields))
 
+    drop_if_exists(index(:content_types, [:environment]))
+    drop_if_exists(index(:content_types, [:archetype]))
     drop_if_exists(index(:content_types, [:status]))
     drop_if_exists(unique_index(:content_types, [:slug]))
     drop_if_exists(table(:content_types))

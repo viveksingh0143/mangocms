@@ -6,8 +6,6 @@ alias MangoCMS.Platform.Accounts
 alias MangoCMS.Platform.Accounts.User, as: PlatformUser
 alias MangoCMS.Repo
 alias MangoCMS.Tenant.Accounts, as: TenantAccounts
-alias MangoCMS.Tenant.Catalog
-alias MangoCMS.Tenant.Catalog.Product
 alias MangoCMS.Tenant.ContentEngine
 alias MangoCMS.Tenant.Migrator, as: TenantMigrator
 alias MangoCMS.Tenant.Pages
@@ -417,57 +415,13 @@ if tenant do
       timezone: "Asia/Kolkata"
     })
 
-  upsert_product = fn attrs ->
-    product =
-      TenantRepoManager.with_repo(tenant, fn repo ->
-        repo.one(from(product in Product, where: product.slug == ^attrs.slug, limit: 1))
-      end)
-
-    case product do
-      nil -> Catalog.create_product(tenant, attrs)
-      product -> Catalog.update_product(tenant, product, attrs)
-    end
-    |> case do
-      {:ok, product} ->
-        IO.puts("Seeded product: #{product.name}")
-        product
-
-      {:error, changeset} ->
-        print_changeset_errors.("Could not seed product #{attrs.slug}", changeset)
-        nil
-    end
-  end
-
   services = [
-    {"company-profile-website", "Company Profile Website", 149_900},
-    {"ai-chat-add-on", "AI Chat Add-on", 49_900},
-    {"product-feature-microsite", "Product Feature Microsite", 199_900},
-    {"resume-website", "Resume Website", 79_900},
-    {"managed-blog", "Managed Blog", 69_900}
+    {"classic-3l-pressure-cooker", "Classic 3L Pressure Cooker", 249_900},
+    {"family-5l-pressure-cooker", "Family 5L Pressure Cooker", 349_900},
+    {"induction-5l-pressure-cooker", "Induction 5L Pressure Cooker", 399_900},
+    {"hard-anodized-3l-pressure-cooker", "Hard Anodized 3L Pressure Cooker", 429_900},
+    {"stainless-steel-7l-pressure-cooker", "Stainless Steel 7L Pressure Cooker", 549_900}
   ]
-
-  Enum.each(services, fn {slug, name, price} ->
-    upsert_product.(%{
-      name: name,
-      slug: slug,
-      sku: "ACME-#{slug |> String.upcase() |> String.replace("-", "-")}",
-      description: MangoCMS.Seeds.Faker.sentence(name),
-      status: "active",
-      price: price,
-      currency: "INR",
-      stock_quantity: 100,
-      active: true,
-      custom_fields: %{
-        "delivery" => "7 business days",
-        "support_level" => if(price > 100_000, do: "priority", else: "standard"),
-        "features" => [
-          "Tenant-isolated content",
-          "Responsive sections",
-          "AI-ready website copy"
-        ]
-      }
-    })
-  end)
 
   upsert_content_type = fn attrs, fields ->
     content_type =
@@ -536,11 +490,15 @@ if tenant do
   service_type =
     upsert_content_type.(
       %{
-        name: "Services",
-        slug: "services",
-        description: "Offerings that can power service cards and product-style sections.",
+        name: "Product Pressure Cooker",
+        slug: "pressure_cookers",
+        description:
+          "Catalog collection for pressure cooker products and dynamic product sections.",
         status: "active",
-        settings: %{"icon" => "sparkles"}
+        archetype: "catalog",
+        item_mode: "multiple",
+        environment: "live",
+        settings: %{"catalog_type" => "deliverable", "icon" => "shopping-bag"}
       },
       [
         %{
@@ -563,6 +521,14 @@ if tenant do
           position: 20
         },
         %{
+          label: "SKU",
+          field_key: "sku",
+          field_type: "string",
+          indexed: true,
+          filterable: true,
+          position: 25
+        },
+        %{
           label: "Rating",
           field_key: "rating",
           field_type: "number",
@@ -572,8 +538,8 @@ if tenant do
           position: 30
         },
         %{
-          label: "On Sale",
-          field_key: "on_sale",
+          label: "In Stock",
+          field_key: "in_stock",
           field_type: "boolean",
           indexed: true,
           filterable: true,
@@ -581,9 +547,17 @@ if tenant do
         },
         %{label: "Image URL", field_key: "image_url", field_type: "image", position: 50},
         %{
+          label: "Capacity",
+          field_key: "capacity",
+          field_type: "string",
+          indexed: true,
+          filterable: true,
+          position: 55
+        },
+        %{
           label: "Description",
           field_key: "description",
-          field_type: "text",
+          field_type: "rich_text",
           indexed: true,
           position: 60
         }
@@ -599,10 +573,13 @@ if tenant do
         payload: %{
           "name" => name,
           "price" => price,
+          "sku" => "PC-#{index}-#{String.upcase(String.slice(slug, 0, 3))}",
           "rating" => Float.round(4.4 + index / 10, 1),
-          "on_sale" => rem(index, 2) == 1,
+          "in_stock" => true,
           "image_url" => "/images/logo.png",
-          "description" => MangoCMS.Seeds.Faker.sentence(name)
+          "capacity" => Regex.run(~r/\d+L/, name) |> List.wrap() |> List.first() || "5L",
+          "description" =>
+            "#{name} is seeded as a catalog item with price, SKU, capacity, and stock fields."
         }
       })
     end)
@@ -992,13 +969,13 @@ if tenant do
           column.("product_slider_header", "col-span-12 md:col-span-8", [
             heading.(
               "product_slider_title",
-              "Popular website packages",
+              "Popular pressure cookers",
               2,
               "text-3xl font-bold text-base-content"
             ),
             paragraph.(
               "product_slider_intro",
-              "A product slider section can loop active products or service content entries.",
+              "A product slider section can loop active products or catalog content entries.",
               "mt-3 max-w-3xl text-base text-base-content/70"
             ),
             paragraph.(
@@ -1008,7 +985,7 @@ if tenant do
             )
           ]),
           column.("product_slider_action", "col-span-12 md:col-span-4 md:text-right", [
-            button.("product_slider_button", "See all services", "/services")
+            button.("product_slider_button", "See all products", "/services")
           ])
         ]),
         slider_row.(

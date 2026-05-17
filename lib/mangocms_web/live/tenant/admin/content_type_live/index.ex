@@ -10,8 +10,14 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
     case AdminGuard.authorize_tenant(socket, :manage_content) do
       {:ok, socket} ->
         tenant = socket.assigns.current_tenant
+        collections = ContentEngine.list_content_types(tenant)
 
-        {:ok, stream(socket, :content_types, ContentEngine.list_content_types(tenant))}
+        {:ok,
+         socket
+         |> assign(:collection_query, "")
+         |> assign(:collections, collections)
+         |> assign(:collection_entry_counts, ContentEngine.content_type_entry_counts(tenant))
+         |> stream(:content_types, collections)}
 
       {:redirect, socket} ->
         {:ok, socket}
@@ -19,25 +25,28 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
   end
 
   @impl true
-  def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  def handle_params(params, url, socket) do
+    {:noreply,
+     socket
+     |> assign(:collection_base_path, collection_base_path(url))
+     |> apply_action(socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     socket
-    |> assign(:page_title, "Edit content type")
+    |> assign(:page_title, "Edit collection")
     |> assign(:content_type, ContentEngine.get_content_type!(socket.assigns.current_tenant, id))
   end
 
   defp apply_action(socket, :new, _params) do
     socket
-    |> assign(:page_title, "New content type")
+    |> assign(:page_title, "Create collection")
     |> assign(:content_type, %ContentType{})
   end
 
   defp apply_action(socket, :index, _params) do
     socket
-    |> assign(:page_title, "Content types")
+    |> assign(:page_title, "Collections")
     |> assign(:content_type, nil)
   end
 
@@ -46,16 +55,34 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
         {MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent, {:saved, content_type}},
         socket
       ) do
-    {:noreply, stream_insert(socket, :content_types, content_type)}
+    collections = ContentEngine.list_content_types(socket.assigns.current_tenant)
+
+    {:noreply,
+     socket
+     |> assign(:collections, collections)
+     |> assign(
+       :collection_entry_counts,
+       ContentEngine.content_type_entry_counts(socket.assigns.current_tenant)
+     )
+     |> stream_insert(:content_types, content_type)}
   end
 
   @impl true
+  def handle_event("search_collections", %{"q" => query}, socket) do
+    {:noreply, assign(socket, :collection_query, query)}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     tenant = socket.assigns.current_tenant
     content_type = ContentEngine.get_content_type!(tenant, id)
     {:ok, _content_type} = ContentEngine.delete_content_type(tenant, content_type)
+    collections = ContentEngine.list_content_types(tenant)
 
-    {:noreply, stream_delete(socket, :content_types, content_type)}
+    {:noreply,
+     socket
+     |> assign(:collections, collections)
+     |> assign(:collection_entry_counts, ContentEngine.content_type_entry_counts(tenant))
+     |> stream_delete(:content_types, content_type)}
   end
 
   @impl true
@@ -63,16 +90,34 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
     ~H"""
     <Layouts.tenant_admin
       flash={@flash}
-      title="Content types"
-      subtitle="Define reusable tenant data models for dynamic pages, sections, and collections."
+      title="CMS"
+      subtitle="Store and manage content to display anywhere on your site."
       current_user={@current_user}
       current_tenant={@current_tenant}
       current_tenant_settings={@current_tenant_settings}
       active={:content}
     >
       <:actions>
-        <.button id="new-content-type-button" patch={~p"/admin/content-types/new"} variant="primary">
-          <.icon name="hero-plus" class="size-4" /> New content type
+        <div class="dropdown dropdown-end">
+          <button id="collection-more-actions-button" type="button" tabindex="0" class="btn btn-ghost">
+            More Actions <.icon name="hero-chevron-down" class="size-4" />
+          </button>
+          <ul
+            tabindex="0"
+            class="menu dropdown-content z-20 mt-2 w-64 rounded-lg border border-base-300 bg-base-100 p-2 shadow-xl"
+          >
+            <li><a>Create folder</a></li>
+            <li><a>Backups</a></li>
+            <li><a>Advanced Settings</a></li>
+            <li class="menu-title">Support</li>
+            <li><a>Watch a video course</a></li>
+            <li><a>Help center</a></li>
+            <li><a>Submit feedback</a></li>
+            <li><a>Ask the community</a></li>
+          </ul>
+        </div>
+        <.button id="new-content-type-button" patch={"#{@collection_base_path}/new"} variant="primary">
+          <.icon name="hero-plus" class="size-4" /> Create Collection
         </.button>
       </:actions>
 
@@ -84,101 +129,190 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
         action={@live_action}
         tenant={@current_tenant}
         content_type={@content_type}
-        patch={~p"/admin/content-types"}
+        patch={@collection_base_path}
       />
 
-      <section class="mt-8 overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-sm transition-colors">
-        <div id="content-types" phx-update="stream" class="divide-y divide-base-300">
-          <div
-            id="content-types-empty"
-            class="hidden only:block p-10 text-center text-sm text-base-content/60"
-          >
-            No content types have been created for this tenant.
-          </div>
+      <div class="mt-8 max-w-xl">
+        <label class="input input-bordered flex items-center gap-2">
+          <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
+          <input
+            id="collection-search"
+            type="search"
+            name="q"
+            value={@collection_query}
+            phx-keyup="search_collections"
+            placeholder="Search collections..."
+            class="grow"
+          />
+        </label>
+      </div>
 
-          <div
-            :for={{id, content_type} <- @streams.content_types}
-            id={id}
-            class="grid gap-4 p-5 transition hover:bg-base-200 lg:grid-cols-[1.4fr_0.7fr_auto] lg:items-center"
-          >
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <.link
-                  navigate={~p"/admin/content-types/#{content_type}"}
-                  class="font-semibold text-base-content hover:text-primary"
-                >
-                  {content_type.name}
-                </.link>
-                <span class="rounded-full bg-base-200 px-2 py-0.5 text-xs font-medium text-base-content/70">
-                  {content_type.slug}
-                </span>
-              </div>
-              <p class="mt-1 text-sm text-base-content/60">
-                {content_type.description || "No description"}
-              </p>
-            </div>
+      <section id="collections-directory" class="mt-6 space-y-6">
+        <.collection_group
+          id="your-collections"
+          title="Your Collections"
+          description={
+            quota_text(
+              filtered_collections(@collections, @collection_query, false),
+              @collection_entry_counts
+            )
+          }
+          collections={filtered_collections(@collections, @collection_query, false)}
+          entry_counts={@collection_entry_counts}
+          locked={false}
+          base_path={@collection_base_path}
+        />
 
-            <div>
-              <span class={status_class(content_type.status)}>
-                {human_status(content_type.status)}
-              </span>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3 lg:justify-end">
-              <.link
-                id={"manage-content-type-#{content_type.id}"}
-                navigate={~p"/admin/content-types/#{content_type}"}
-                class="btn btn-sm btn-ghost"
-              >
-                Fields
-              </.link>
-              <.link
-                id={"entries-content-type-#{content_type.id}"}
-                navigate={~p"/admin/content-types/#{content_type}/entries"}
-                class="btn btn-sm btn-ghost"
-              >
-                Entries
-              </.link>
-              <.link
-                id={"edit-content-type-#{content_type.id}"}
-                patch={~p"/admin/content-types/#{content_type}/edit"}
-                class="btn btn-sm btn-ghost"
-              >
-                Edit
-              </.link>
-              <button
-                id={"delete-content-type-#{content_type.id}"}
-                type="button"
-                phx-click="delete"
-                phx-value-id={content_type.id}
-                data-confirm="Delete this content type and all entries?"
-                class="btn btn-sm btn-ghost text-error"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <.collection_group
+          id="mango-form-collections"
+          title="Mango Form Collections"
+          description="Collections automatically added whenever a Mango Form is added to a site."
+          collections={filtered_collections(@collections, @collection_query, true)}
+          entry_counts={@collection_entry_counts}
+          locked={true}
+          base_path={@collection_base_path}
+        />
       </section>
     </Layouts.tenant_admin>
     """
   end
 
-  defp human_status(status) when is_binary(status) do
-    status
-    |> String.replace("_", " ")
-    |> String.capitalize()
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :description, :string, required: true
+  attr :collections, :list, required: true
+  attr :entry_counts, :map, required: true
+  attr :locked, :boolean, default: false
+  attr :base_path, :string, required: true
+
+  defp collection_group(assigns) do
+    ~H"""
+    <details id={@id} open class="rounded-lg border border-base-300 bg-base-100">
+      <summary class="cursor-pointer border-b border-base-300 px-5 py-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="font-semibold">{@title} ({length(@collections)})</h2>
+            <p class="mt-1 text-sm text-base-content/60">{@description}</p>
+          </div>
+          <.icon name="hero-chevron-up" class="size-4 text-base-content/50" />
+        </div>
+      </summary>
+
+      <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4">
+        <.collection_card
+          :for={collection <- @collections}
+          collection={collection}
+          item_count={Map.get(@entry_counts, collection.id, 0)}
+          locked={@locked || collection.archetype == "form"}
+          base_path={@base_path}
+        />
+        <div
+          :if={@collections == []}
+          class="rounded-lg border border-dashed border-base-300 p-6 text-sm text-base-content/60"
+        >
+          No collections match this group.
+        </div>
+      </div>
+    </details>
+    """
   end
 
-  defp human_status(_), do: "Unknown"
+  attr :collection, :map, required: true
+  attr :item_count, :integer, required: true
+  attr :locked, :boolean, default: false
+  attr :base_path, :string, required: true
 
-  defp status_class("active"),
-    do:
-      "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+  defp collection_card(assigns) do
+    ~H"""
+    <article
+      id={"collection-card-#{@collection.id}"}
+      class="group relative rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm transition hover:border-primary hover:shadow-md"
+    >
+      <.link
+        id={"open-collection-#{@collection.id}"}
+        navigate={"#{@base_path}/#{@collection.id}"}
+        class="absolute inset-0 z-0 rounded-lg"
+        aria-label={"Open #{@collection.name}"}
+      >
+        <span class="sr-only">Open {@collection.name}</span>
+      </.link>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="truncate text-xs font-bold uppercase tracking-wide text-base-content/60">
+            {@collection.name}
+          </p>
+          <p class="mt-6 text-sm text-base-content/60">
+            {@item_count} {ngettext("item", "items", @item_count)}
+          </p>
+        </div>
 
-  defp status_class("archived"),
-    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
+        <div class="dropdown dropdown-end relative z-10">
+          <button
+            id={"collection-actions-#{@collection.id}"}
+            type="button"
+            tabindex="0"
+            class="btn btn-ghost btn-xs btn-circle"
+          >
+            <.icon name="hero-ellipsis-horizontal" class="size-4" />
+          </button>
+          <ul
+            tabindex="0"
+            class="menu dropdown-content z-20 mt-2 w-44 rounded-lg border border-base-300 bg-base-100 p-2 shadow-xl"
+          >
+            <li><.link navigate={"#{@base_path}/#{@collection.id}"}>Open</.link></li>
+            <li>
+              <.link
+                id={"edit-content-type-#{@collection.id}"}
+                patch={"#{@base_path}/#{@collection.id}/edit"}
+              >
+                Edit
+              </.link>
+            </li>
+            <li>
+              <button
+                id={"delete-content-type-#{@collection.id}"}
+                type="button"
+                phx-click="delete"
+                phx-value-id={@collection.id}
+                disabled={@locked}
+                data-confirm="Delete this collection and all items?"
+              >
+                Delete
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <span :if={@locked} class="badge badge-ghost absolute right-5 bottom-5 z-10">
+        <.icon name="hero-lock-closed" class="size-3" /> Locked
+      </span>
+    </article>
+    """
+  end
 
-  defp status_class(_),
-    do: "rounded-full bg-base-200 px-2.5 py-1 text-xs font-semibold text-base-content/70"
+  defp filtered_collections(collections, query, form?) do
+    query = query |> to_string() |> String.downcase()
+
+    collections
+    |> Enum.filter(fn collection -> collection.archetype == "form" == form? end)
+    |> Enum.filter(fn collection ->
+      query == "" or String.contains?(String.downcase(collection.name), query) or
+        String.contains?(String.downcase(collection.slug), query)
+    end)
+  end
+
+  defp quota_text(collections, entry_counts) do
+    count =
+      Enum.reduce(collections, 0, fn collection, acc ->
+        acc + Map.get(entry_counts, collection.id, 0)
+      end)
+
+    "You have #{count}/1,500 items. Need more? Upgrade your site."
+  end
+
+  defp collection_base_path(url) when is_binary(url) do
+    if String.contains?(url, "/admin/collections"),
+      do: "/admin/collections",
+      else: "/admin/collections"
+  end
 end

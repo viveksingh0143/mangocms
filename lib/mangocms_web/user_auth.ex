@@ -101,7 +101,7 @@ defmodule MangoCMSWeb.UserAuth do
   def redirect_if_tenant_user(conn, _opts) do
     if tenant_admin_user?(conn.assigns[:current_user]) do
       conn
-      |> redirect(to: ~p"/admin/products")
+      |> redirect(to: ~p"/admin/collections")
       |> halt()
     else
       conn

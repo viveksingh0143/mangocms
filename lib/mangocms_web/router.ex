@@ -164,12 +164,6 @@ defmodule MangoCMSWeb.Router do
         {MangoCMSWeb.UserAuth, :require_tenant_user}
       ],
       session: {MangoCMSWeb.UserAuth, :live_session, []} do
-      live("/products", ProductLive.Index, :index)
-      live("/products/new", ProductLive.Index, :new)
-      live("/products/:id/edit", ProductLive.Index, :edit)
-      live("/products/:id", ProductLive.Show, :show)
-      live("/products/:id/show/edit", ProductLive.Show, :edit)
-
       live("/pages", PageLive.Index, :index)
       live("/pages/new", PageLive.Index, :new)
       live("/pages/:id/edit", PageLive.Index, :edit)
@@ -181,15 +175,14 @@ defmodule MangoCMSWeb.Router do
       live("/sections/:id/edit", SectionLive.Index, :edit)
       live("/sections/:id/builder", SectionLive.Builder, :builder)
 
-      live("/content-types", ContentTypeLive.Index, :index)
-      live("/content-types/new", ContentTypeLive.Index, :new)
-      live("/content-types/:id/edit", ContentTypeLive.Index, :edit)
-      live("/content-types/:id", ContentTypeLive.Show, :show)
-      live("/content-types/:id/fields/new", ContentTypeLive.Show, :new_field)
-      live("/content-types/:id/fields/:field_id/edit", ContentTypeLive.Show, :edit_field)
-      live("/content-types/:id/entries", ContentEntryLive.Index, :index)
-      live("/content-types/:id/entries/new", ContentEntryLive.Index, :new)
-      live("/content-types/:id/entries/:entry_id/edit", ContentEntryLive.Index, :edit)
+      live("/collections", ContentTypeLive.Index, :index)
+      live("/collections/new", ContentTypeLive.Index, :new)
+      live("/collections/:id/edit", ContentTypeLive.Index, :edit)
+      live("/collections/:id", ContentTypeLive.Show, :show)
+      live("/collections/:id/fields/new", ContentTypeLive.Show, :new_field)
+      live("/collections/:id/fields/:field_id/edit", ContentTypeLive.Show, :edit_field)
+      live("/collections/:id/items/new", ContentTypeLive.Show, :new_entry)
+      live("/collections/:id/items/:entry_id/edit", ContentTypeLive.Show, :edit_entry)
 
       live("/users", UserLive.Index, :index)
       live("/users/new", UserLive.Index, :new)

@@ -1,7 +1,7 @@
 <Layouts.tenant_admin
   flash={@flash}
   title={@title}
-  subtitle="Manage tenant products and account settings."
+  subtitle="Manage tenant collections, content, users, and account settings."
   current_user={@current_user}
   current_tenant={@current_tenant}
   current_tenant_settings={assigns[:current_tenant_settings]}
@@ -9,8 +9,8 @@
 >
   <div id="tenant-admin-dashboard" class="grid gap-4 md:grid-cols-2">
     <.link
-      id="dashboard-products-link"
-      navigate={~p"/admin/products"}
+      id="dashboard-collections-link"
+      navigate={~p"/admin/collections"}
       class="card rounded-lg border border-base-300 bg-base-100 shadow-sm shadow-base-content/5 transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div class="card-body">
@@ -19,8 +19,8 @@
             <.icon name="hero-cube" class="size-5" />
           </span>
           <div>
-            <h2 class="card-title text-base">Products</h2>
-            <p class="text-sm text-base-content/60">Create and update tenant products.</p>
+            <h2 class="card-title text-base">Collections</h2>
+            <p class="text-sm text-base-content/60">Create catalog and content collections.</p>
           </div>
         </div>
       </div>

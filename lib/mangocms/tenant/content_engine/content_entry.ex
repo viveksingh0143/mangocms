@@ -2,6 +2,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias MangoCMS.Tenant.Accounts.User
   alias MangoCMS.Tenant.ContentEngine.{ContentEntryIndex, ContentType, ContentTypeField}
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -21,6 +22,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     field(:deleted_at, :utc_datetime)
 
     belongs_to(:content_type, ContentType)
+    belongs_to(:owner, User)
     has_many(:indexes, ContentEntryIndex)
 
     timestamps()
@@ -122,19 +124,30 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   defp validate_payload_value(changeset, _field, value) when value in [nil, ""], do: changeset
 
   defp validate_payload_value(changeset, %ContentTypeField{field_type: type} = field, value) do
-    if valid_value?(type, value, field.settings || %{}) do
-      changeset
-    else
-      add_error(changeset, :payload, "#{field.field_key} must be a valid #{type}")
+    settings = field.settings || %{}
+
+    cond do
+      not valid_value?(type, value, settings) ->
+        add_error(changeset, :payload, "#{field.field_key} must be a valid #{type}")
+
+      not valid_length?(type, value, settings) ->
+        add_error(changeset, :payload, "#{field.field_key} must match length limits")
+
+      true ->
+        changeset
     end
   end
 
-  defp valid_value?(type, value, _settings) when type in ~w(string text image video url),
-    do: is_binary(value)
+  defp valid_value?(type, value, _settings)
+       when type in ~w(string text rich_text rich_content image video audio document asset url email color time address category reference),
+       do: is_binary(value)
 
-  defp valid_value?("gallery", value, _settings) do
+  defp valid_value?(type, value, _settings)
+       when type in ~w(gallery documents tags multi_reference array) do
     is_list(value) and Enum.all?(value, &is_binary/1)
   end
+
+  defp valid_value?(type, value, _settings) when type in ~w(object json), do: is_map(value)
 
   defp valid_value?("number", value, _settings) do
     is_number(value) or parsable_float?(value)
@@ -144,7 +157,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     is_boolean(value) or value in ["true", "false", "1", "0"]
   end
 
-  defp valid_value?("datetime", value, _settings) do
+  defp valid_value?(type, value, _settings) when type in ~w(date datetime) do
     match?({:ok, _datetime}, cast_datetime(value))
   end
 
@@ -157,6 +170,33 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
 
   defp valid_value?("json", _value, _settings), do: true
   defp valid_value?(_type, _value, _settings), do: false
+
+  defp valid_length?(type, value, settings)
+       when type in ~w(string text rich_text rich_content url email color) and is_binary(value) do
+    length = String.length(value)
+    min = integer_setting(settings, "min_length")
+    max = integer_setting(settings, "max_length")
+
+    (is_nil(min) or length >= min) and (is_nil(max) or length <= max)
+  end
+
+  defp valid_length?(_type, _value, _settings), do: true
+
+  defp integer_setting(settings, key) do
+    case Map.get(settings, key) do
+      value when is_integer(value) and value >= 0 ->
+        value
+
+      value when is_binary(value) ->
+        case Integer.parse(value) do
+          {integer, ""} when integer >= 0 -> integer
+          _other -> nil
+        end
+
+      _other ->
+        nil
+    end
+  end
 
   defp cast_datetime(%DateTime{} = value), do: {:ok, value}
 
@@ -172,6 +212,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   end
 
   defp cast_datetime(value) when is_binary(value) do
+    value = normalize_datetime_input(value)
+
     case DateTime.from_iso8601(value) do
       {:ok, datetime, _offset} ->
         {:ok, datetime}
@@ -194,6 +236,18 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
   end
 
   defp parsable_float?(_value), do: false
+
+  defp normalize_datetime_input(value) do
+    value = String.trim(value)
+
+    cond do
+      Regex.match?(~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, value) ->
+        value <> ":00"
+
+      true ->
+        value
+    end
+  end
 
   defp slugify(value) do
     value

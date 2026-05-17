@@ -275,7 +275,7 @@ defmodule MangoCMSWeb.AuthControllerTest do
       assert TenantAccounts.get_user!(tenant, user.id).full_name == "Updated Tenant"
     end
 
-    test "shows tenant admin dashboard with product CRUD option and current user", %{conn: conn} do
+    test "shows tenant admin dashboard with collections option and current user", %{conn: conn} do
       tenant = tenant_fixture()
       {conn, user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
 
@@ -289,7 +289,7 @@ defmodule MangoCMSWeb.AuthControllerTest do
       html = html_response(conn, 200)
 
       assert html =~ "id=\"tenant-admin-dashboard\""
-      assert html =~ "id=\"dashboard-products-link\""
+      assert html =~ "id=\"dashboard-collections-link\""
       assert html =~ user.email
       assert html =~ "https://example.com/tenant-avatar.png"
     end
