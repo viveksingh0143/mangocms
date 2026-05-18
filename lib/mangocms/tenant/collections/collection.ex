@@ -1,8 +1,8 @@
-defmodule MangoCMS.Tenant.ContentEngine.ContentType do
+defmodule MangoCMS.Tenant.Collections.Collection do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias MangoCMS.Tenant.ContentEngine.{ContentEntry, ContentTypeField}
+  alias MangoCMS.Tenant.Collections.{CollectionItem, CollectionField}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -15,7 +15,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
 
   @type t :: %__MODULE__{}
 
-  schema "content_types" do
+  schema "collections" do
     field :name, :string
     field :slug, :string
     field :description, :string
@@ -25,8 +25,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
     field :environment, :string, default: "live"
     field :settings, :map, default: %{}
 
-    has_many :fields, ContentTypeField
-    has_many :entries, ContentEntry
+    has_many :fields, CollectionField
+    has_many :entries, CollectionItem
 
     timestamps()
   end
@@ -36,8 +36,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
   def item_mode_options, do: Enum.map(@item_modes, &{label(&1), &1})
   def environment_options, do: Enum.map(@environments, &{label(&1), &1})
 
-  def changeset(content_type, attrs) do
-    content_type
+  def changeset(collection, attrs) do
+    collection
     |> cast(attrs, [
       :name,
       :slug,
@@ -62,7 +62,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentType do
     |> validate_inclusion(:archetype, @archetypes)
     |> validate_inclusion(:item_mode, @item_modes)
     |> validate_inclusion(:environment, @environments)
-    |> unique_constraint(:slug, name: :content_types_slug_index)
+    |> unique_constraint(:slug, name: :collections_slug_index)
   end
 
   defp normalize_map(changeset, field) do

@@ -1,12 +1,12 @@
-defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
+defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
   use MangoCMSWeb, :live_component
 
-  alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.ContentEngine.{ContentEntry, ContentTypeField}
+  alias MangoCMS.Tenant.Collections
+  alias MangoCMS.Tenant.Collections.{CollectionItem, CollectionField}
   alias MangoCMS.Uploads
   alias MangoCMSWeb.CoreComponents
 
-  @status_options ContentEntry.status_options()
+  @status_options CollectionItem.status_options()
 
   @impl true
   def render(assigns) do
@@ -16,13 +16,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     <section class="rounded-lg border border-base-300 bg-base-100 p-6 text-base-content shadow-sm transition-colors">
       <.header>
         {@title}
-        <:subtitle>{@content_type.name} entries are validated against this tenant schema.</:subtitle>
+        <:subtitle>{@collection.name} items are validated against this tenant schema.</:subtitle>
       </.header>
 
       <.form
         for={@form}
-        id="content-entry-form"
-        phx-hook="EntrySlugSync"
+        id="collection-item-form"
+        phx-hook="CollectionItemSlugSync"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
@@ -34,7 +34,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
         <div
           :if={@payload_errors != []}
-          id="content-entry-payload-errors"
+          id="collection-item-payload-errors"
           class="mt-4 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
         >
           <p :for={error <- @payload_errors}>{error}</p>
@@ -52,8 +52,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
         <div class="mt-6 flex items-center justify-end gap-3">
           <.button navigate={@patch} class="btn btn-ghost">Cancel</.button>
-          <.button id="save-content-entry-button" variant="primary" phx-disable-with="Saving...">
-            Save entry
+          <.button id="save-collection-item-button" variant="primary" phx-disable-with="Saving...">
+            Save item
           </.button>
         </div>
       </.form>
@@ -63,7 +63,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   @impl true
   def update(%{entry: entry} = assigns, socket) do
-    changeset = ContentEngine.change_entry(entry, assigns.fields)
+    changeset = Collections.change_entry(entry, assigns.fields)
 
     {:ok,
      socket
@@ -75,18 +75,18 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   @impl true
-  def handle_event("validate", %{"content_entry" => entry_params}, socket) do
+  def handle_event("validate", %{"collection_item" => entry_params}, socket) do
     params = normalize_entry_params(entry_params, socket.assigns.fields, socket.assigns.entry)
 
     changeset =
       socket.assigns.entry
-      |> ContentEngine.change_entry(socket.assigns.fields, params)
+      |> Collections.change_entry(socket.assigns.fields, params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("save", %{"content_entry" => entry_params}, socket) do
+  def handle_event("save", %{"collection_item" => entry_params}, socket) do
     params =
       entry_params
       |> put_uploaded_media(socket)
@@ -96,9 +96,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   defp save_entry(socket, :new, entry_params) do
-    case ContentEngine.create_entry(
+    case Collections.create_entry(
            socket.assigns.tenant,
-           socket.assigns.content_type,
+           socket.assigns.collection,
            entry_params,
            owner_id: socket.assigns.current_user && socket.assigns.current_user.id
          ) do
@@ -107,7 +107,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Content entry created successfully")
+         |> put_flash(:info, "Collection item created successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -116,13 +116,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   end
 
   defp save_entry(socket, :edit, entry_params) do
-    case ContentEngine.update_entry(socket.assigns.tenant, socket.assigns.entry, entry_params) do
+    case Collections.update_entry(socket.assigns.tenant, socket.assigns.entry, entry_params) do
       {:ok, entry} ->
         notify_parent({:saved, entry})
 
         {:noreply,
          socket
-         |> put_flash(:info, "Content entry updated successfully")
+         |> put_flash(:info, "Collection item updated successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -136,8 +136,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     assigns =
       assigns
       |> assign(:field_key, field.field_key)
-      |> assign(:input_id, "content_entry_payload_#{field.field_key}")
-      |> assign(:input_name, "content_entry[payload][#{field.field_key}]")
+      |> assign(:input_id, "collection_item_payload_#{field.field_key}")
+      |> assign(:input_name, "collection_item[payload][#{field.field_key}]")
       |> assign(:input_type, payload_input_type(field))
       |> assign(:input_value, payload_value(assigns.form, field))
       |> assign(:input_label, payload_label(field))
@@ -253,8 +253,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
         {:ok,
          Uploads.store_live_upload!(entry, meta, {:tenant, socket.assigns.tenant},
            type: [
-             "content",
-             socket.assigns.content_type.id,
+             "collections",
+             socket.assigns.collection.id,
              field.field_key,
              media_directory(field)
            ]
@@ -272,15 +272,15 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end)
   end
 
-  defp media_payload_default(%ContentTypeField{field_type: "gallery"} = field, urls) do
+  defp media_payload_default(%CollectionField{field_type: "gallery"} = field, urls) do
     %{field.field_key => urls}
   end
 
-  defp media_payload_default(%ContentTypeField{} = field, [url | _rest]) do
+  defp media_payload_default(%CollectionField{} = field, [url | _rest]) do
     %{field.field_key => url}
   end
 
-  defp put_media_payload_value(payload, %ContentTypeField{field_type: "gallery"} = field, urls) do
+  defp put_media_payload_value(payload, %CollectionField{field_type: "gallery"} = field, urls) do
     existing =
       payload
       |> Map.get(field.field_key)
@@ -289,7 +289,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     Map.put(payload, field.field_key, Enum.uniq(existing ++ urls))
   end
 
-  defp put_media_payload_value(payload, %ContentTypeField{} = field, [url | _rest]) do
+  defp put_media_payload_value(payload, %CollectionField{} = field, [url | _rest]) do
     Map.put(payload, field.field_key, url)
   end
 
@@ -305,7 +305,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     |> Enum.map(&CoreComponents.translate_error/1)
   end
 
-  defp normalize_entry_params(params, fields, %ContentEntry{} = entry) do
+  defp normalize_entry_params(params, fields, %CollectionItem{} = entry) do
     payload = Map.get(params, "payload", %{})
     slug_source = slug_source_field(fields)
 
@@ -328,9 +328,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp maybe_put_slug_from_source(
          params,
-         %ContentTypeField{} = field,
+         %CollectionField{} = field,
          payload,
-         %ContentEntry{} = entry
+         %CollectionItem{} = entry
        ) do
     source = Map.get(payload, field.field_key)
 
@@ -341,7 +341,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end
   end
 
-  defp sync_slug_from_source?(params, %ContentTypeField{} = field, %ContentEntry{} = entry) do
+  defp sync_slug_from_source?(params, %CollectionField{} = field, %CollectionItem{} = entry) do
     current_slug = Map.get(params, "slug")
     old_source = Map.get(entry.payload || %{}, field.field_key)
     old_source_slug = if present?(old_source), do: slugify(to_string(old_source))
@@ -363,7 +363,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end
   end
 
-  defp maybe_put_published_at(%{"status" => "published"} = params, %ContentEntry{
+  defp maybe_put_published_at(%{"status" => "published"} = params, %CollectionItem{
          published_at: nil
        }) do
     Map.put(params, "published_at", DateTime.utc_now(:second))
@@ -373,7 +373,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp coerce_payload_value(_field, value) when value in [nil, ""], do: nil
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "number"}, value)
+  defp coerce_payload_value(%CollectionField{field_type: "number"}, value)
        when is_binary(value) do
     case Float.parse(value) do
       {number, ""} -> number
@@ -381,23 +381,23 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end
   end
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "boolean"}, value) do
+  defp coerce_payload_value(%CollectionField{field_type: "boolean"}, value) do
     value in [true, "true", "1", 1]
   end
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "datetime"}, value)
+  defp coerce_payload_value(%CollectionField{field_type: "datetime"}, value)
        when is_binary(value) do
     normalize_datetime_input(value)
   end
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "json"}, value) when is_binary(value) do
+  defp coerce_payload_value(%CollectionField{field_type: "json"}, value) when is_binary(value) do
     case Jason.decode(value) do
       {:ok, decoded} -> decoded
       {:error, _reason} -> value
     end
   end
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "gallery"}, value)
+  defp coerce_payload_value(%CollectionField{field_type: "gallery"}, value)
        when is_binary(value) do
     value
     |> String.split(~r/[\n,]/, trim: true)
@@ -405,7 +405,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     |> Enum.reject(&(&1 == ""))
   end
 
-  defp coerce_payload_value(%ContentTypeField{field_type: "gallery"}, value)
+  defp coerce_payload_value(%CollectionField{field_type: "gallery"}, value)
        when is_list(value) do
     value
     |> Enum.filter(&is_binary/1)
@@ -415,24 +415,24 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp coerce_payload_value(_field, value), do: value
 
-  defp payload_input_type(%ContentTypeField{field_type: "text"}), do: "textarea"
-  defp payload_input_type(%ContentTypeField{field_type: "json"}), do: "textarea"
-  defp payload_input_type(%ContentTypeField{field_type: "number"}), do: "number"
-  defp payload_input_type(%ContentTypeField{field_type: "boolean"}), do: "checkbox"
-  defp payload_input_type(%ContentTypeField{field_type: "date"}), do: "date"
-  defp payload_input_type(%ContentTypeField{field_type: "datetime"}), do: "datetime-local"
-  defp payload_input_type(%ContentTypeField{field_type: "url"}), do: "url"
-  defp payload_input_type(%ContentTypeField{field_type: "image"}), do: "text"
-  defp payload_input_type(%ContentTypeField{field_type: "video"}), do: "text"
-  defp payload_input_type(%ContentTypeField{field_type: "gallery"}), do: "textarea"
-  defp payload_input_type(%ContentTypeField{field_type: "select"}), do: "select"
+  defp payload_input_type(%CollectionField{field_type: "text"}), do: "textarea"
+  defp payload_input_type(%CollectionField{field_type: "json"}), do: "textarea"
+  defp payload_input_type(%CollectionField{field_type: "number"}), do: "number"
+  defp payload_input_type(%CollectionField{field_type: "boolean"}), do: "checkbox"
+  defp payload_input_type(%CollectionField{field_type: "date"}), do: "date"
+  defp payload_input_type(%CollectionField{field_type: "datetime"}), do: "datetime-local"
+  defp payload_input_type(%CollectionField{field_type: "url"}), do: "url"
+  defp payload_input_type(%CollectionField{field_type: "image"}), do: "text"
+  defp payload_input_type(%CollectionField{field_type: "video"}), do: "text"
+  defp payload_input_type(%CollectionField{field_type: "gallery"}), do: "textarea"
+  defp payload_input_type(%CollectionField{field_type: "select"}), do: "select"
   defp payload_input_type(_field), do: "text"
 
-  defp payload_label(%ContentTypeField{} = field) do
+  defp payload_label(%CollectionField{} = field) do
     if field.required, do: "#{field.label} *", else: field.label
   end
 
-  defp payload_value(form, %ContentTypeField{} = field) do
+  defp payload_value(form, %CollectionField{} = field) do
     payload =
       case form[:payload].value do
         value when is_map(value) -> value
@@ -446,20 +446,20 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
 
   defp format_payload_value(value, _field) when value in [nil, ""], do: nil
 
-  defp format_payload_value(value, %ContentTypeField{field_type: "datetime"}) do
+  defp format_payload_value(value, %CollectionField{field_type: "datetime"}) do
     value
     |> datetime_to_string()
     |> String.slice(0, 16)
   end
 
-  defp format_payload_value(value, %ContentTypeField{field_type: "json"}) when is_binary(value),
+  defp format_payload_value(value, %CollectionField{field_type: "json"}) when is_binary(value),
     do: value
 
-  defp format_payload_value(value, %ContentTypeField{field_type: "json"}) do
+  defp format_payload_value(value, %CollectionField{field_type: "json"}) do
     Jason.encode!(value)
   end
 
-  defp format_payload_value(value, %ContentTypeField{field_type: "gallery"})
+  defp format_payload_value(value, %CollectionField{field_type: "gallery"})
        when is_list(value) do
     Enum.join(value, "\n")
   end
@@ -472,7 +472,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   defp datetime_to_string(value) when is_binary(value), do: value
   defp datetime_to_string(value), do: to_string(value)
 
-  defp select_options(%ContentTypeField{settings: settings}) when is_map(settings) do
+  defp select_options(%CollectionField{settings: settings}) when is_map(settings) do
     settings
     |> Map.get("options", [])
     |> case do
@@ -484,7 +484,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
   defp select_options(_field), do: []
 
   defp slug_source_field(fields) do
-    Enum.find(fields, fn %ContentTypeField{settings: settings} ->
+    Enum.find(fields, fn %CollectionField{settings: settings} ->
       case settings do
         %{"slug_source" => value} -> value in [true, "true", "1", "on"]
         %{slug_source: value} -> value in [true, "true", "1", "on"]
@@ -493,7 +493,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     end)
   end
 
-  defp slug_source?(%ContentTypeField{id: id}, %ContentTypeField{id: id}) when is_binary(id),
+  defp slug_source?(%CollectionField{id: id}, %CollectionField{id: id}) when is_binary(id),
     do: true
 
   defp slug_source?(_source, _field), do: false
@@ -528,26 +528,26 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentEntryLive.FormComponent do
     Enum.filter(fields, &media_field?/1)
   end
 
-  defp media_field?(%ContentTypeField{field_type: type}),
+  defp media_field?(%CollectionField{field_type: type}),
     do: type in ["image", "video", "gallery"]
 
-  defp media_upload_name(%ContentTypeField{id: id}) when is_binary(id), do: "payload_media_#{id}"
-  defp media_upload_name(%ContentTypeField{field_key: key}), do: "payload_media_#{key}"
+  defp media_upload_name(%CollectionField{id: id}) when is_binary(id), do: "payload_media_#{id}"
+  defp media_upload_name(%CollectionField{field_key: key}), do: "payload_media_#{key}"
 
-  defp media_accept(%ContentTypeField{field_type: "video"}), do: ~w(.mp4 .webm .mov)
+  defp media_accept(%CollectionField{field_type: "video"}), do: ~w(.mp4 .webm .mov)
   defp media_accept(_field), do: ~w(.jpg .jpeg .png .gif .webp .svg)
 
-  defp media_max_file_size(%ContentTypeField{field_type: "video"}), do: 50_000_000
+  defp media_max_file_size(%CollectionField{field_type: "video"}), do: 50_000_000
   defp media_max_file_size(_field), do: 5_000_000
 
-  defp media_directory(%ContentTypeField{field_type: "video"}), do: "videos"
+  defp media_directory(%CollectionField{field_type: "video"}), do: "videos"
   defp media_directory(_field), do: "images"
 
-  defp media_max_entries(%ContentTypeField{field_type: "gallery"}), do: 10
+  defp media_max_entries(%CollectionField{field_type: "gallery"}), do: 10
   defp media_max_entries(_field), do: 1
 
-  defp media_upload_label(%ContentTypeField{field_type: "gallery"}), do: "gallery images"
-  defp media_upload_label(%ContentTypeField{field_type: type}), do: String.downcase(type)
+  defp media_upload_label(%CollectionField{field_type: "gallery"}), do: "gallery images"
+  defp media_upload_label(%CollectionField{field_type: type}), do: String.downcase(type)
 
   defp safe_map(value) when is_map(value), do: value
   defp safe_map(_value), do: %{}

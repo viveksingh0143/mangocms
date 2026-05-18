@@ -1,10 +1,10 @@
-defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
+defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
   use MangoCMSWeb, :live_component
 
-  alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.ContentEngine.ContentTypeField
+  alias MangoCMS.Tenant.Collections
+  alias MangoCMS.Tenant.Collections.CollectionField
 
-  @field_type_options ContentTypeField.field_type_options()
+  @field_type_options CollectionField.field_type_options()
   @length_validation_types ~w(string text rich_text rich_content url email color)
 
   @impl true
@@ -23,13 +23,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
       <.form
         for={@form}
-        id="content-type-field-form"
+        id="collection-field-form"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
         class="mt-6"
       >
-        <input type="hidden" name="content_type_field[field_type]" value={@selected_field_type} />
+        <input type="hidden" name="collection_field[field_type]" value={@selected_field_type} />
 
         <.field_type_step
           :if={@field_wizard_step == 1}
@@ -86,7 +86,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
             </button>
             <.button
               :if={@field_wizard_step == 4}
-              id="save-content-field-button"
+              id="save-collection-field-button"
               variant="primary"
               phx-disable-with="Saving..."
             >
@@ -114,13 +114,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
       <.form
         for={@form}
-        id="content-type-field-form"
+        id="collection-field-form"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
         class="mt-6"
       >
-        <input type="hidden" name="content_type_field[field_type]" value={@selected_field_type} />
+        <input type="hidden" name="collection_field[field_type]" value={@selected_field_type} />
 
         <.field_type_locked_step
           :if={@field_wizard_step == 1}
@@ -172,7 +172,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
             </button>
             <.button
               :if={@field_wizard_step == 4}
-              id="save-content-field-button"
+              id="save-collection-field-button"
               variant="primary"
               phx-disable-with="Saving..."
             >
@@ -329,10 +329,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
             :if={primary_field_type?(@selected_field_type)}
             class="mt-2 flex items-center gap-3 text-sm"
           >
-            <input type="hidden" name="content_type_field[settings][slug_source]" value="false" />
+            <input type="hidden" name="collection_field[settings][slug_source]" value="false" />
             <input
               type="checkbox"
-              name="content_type_field[settings][slug_source]"
+              name="collection_field[settings][slug_source]"
               value="true"
               checked={slug_source?(@form)}
               class="checkbox checkbox-sm"
@@ -346,50 +346,50 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
       </div>
 
       <div class="hidden">
-        <input type="hidden" name="content_type_field[system]" value="false" />
+        <input type="hidden" name="collection_field[system]" value="false" />
         <input
           :if={!primary_field_type?(@selected_field_type)}
           type="hidden"
-          name="content_type_field[primary]"
+          name="collection_field[primary]"
           value="false"
         />
-        <input type="hidden" name="content_type_field[required]" value="false" />
+        <input type="hidden" name="collection_field[required]" value="false" />
         <input
-          id="content_type_field_required_settings"
+          id="collection_field_required_settings"
           type="checkbox"
-          name="content_type_field[required]"
+          name="collection_field[required]"
           value="true"
           checked={truthy?(@form[:required].value)}
         />
-        <input type="hidden" name="content_type_field[unique]" value="false" />
+        <input type="hidden" name="collection_field[unique]" value="false" />
         <input
-          id="content_type_field_unique_settings"
+          id="collection_field_unique_settings"
           type="checkbox"
-          name="content_type_field[unique]"
+          name="collection_field[unique]"
           value="true"
           checked={truthy?(@form[:unique].value)}
         />
-        <input type="hidden" name="content_type_field[indexed]" value="false" />
+        <input type="hidden" name="collection_field[indexed]" value="false" />
         <input
-          id="content_type_field_indexed_settings"
+          id="collection_field_indexed_settings"
           type="checkbox"
-          name="content_type_field[indexed]"
+          name="collection_field[indexed]"
           value="true"
           checked={truthy?(@form[:indexed].value)}
         />
-        <input type="hidden" name="content_type_field[filterable]" value="false" />
+        <input type="hidden" name="collection_field[filterable]" value="false" />
         <input
-          id="content_type_field_filterable_settings"
+          id="collection_field_filterable_settings"
           type="checkbox"
-          name="content_type_field[filterable]"
+          name="collection_field[filterable]"
           value="true"
           checked={truthy?(@form[:filterable].value)}
         />
-        <input type="hidden" name="content_type_field[sortable]" value="false" />
+        <input type="hidden" name="collection_field[sortable]" value="false" />
         <input
-          id="content_type_field_sortable_settings"
+          id="collection_field_sortable_settings"
           type="checkbox"
-          name="content_type_field[sortable]"
+          name="collection_field[sortable]"
           value="true"
           checked={truthy?(@form[:sortable].value)}
         />
@@ -432,16 +432,16 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
         </p>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
           <.input
-            id="content_type_field_min_length"
-            name="content_type_field[min_length]"
+            id="collection_field_min_length"
+            name="collection_field[min_length]"
             type="number"
             label="Minimum length"
             value={@min_length}
             min="0"
           />
           <.input
-            id="content_type_field_max_length"
-            name="content_type_field[max_length]"
+            id="collection_field_max_length"
+            name="collection_field[max_length]"
             type="number"
             label="Maximum length"
             value={@max_length}
@@ -450,10 +450,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
         </div>
       </div>
 
-      <div :if={@selected_field_type == "select"} id="content-type-field-options-panel">
+      <div :if={@selected_field_type == "select"} id="collection-field-options-panel">
         <.input
-          id="content_type_field_options_text"
-          name="content_type_field[options_text]"
+          id="collection_field_options_text"
+          name="collection_field[options_text]"
           type="textarea"
           label="Select options"
           value={@options_text}
@@ -477,8 +477,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
         Optional value applied when a new entry leaves this field empty.
       </p>
       <.input
-        id="content_type_field_default_value"
-        name="content_type_field[default_value]"
+        id="collection_field_default_value"
+        name="collection_field[default_value]"
         type={default_input_type(@selected_field_type)}
         label="Default value"
         value={@default_value}
@@ -489,7 +489,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
   @impl true
   def update(%{field: field} = assigns, socket) do
-    changeset = ContentEngine.change_content_type_field(field)
+    changeset = Collections.change_collection_field(field)
     field_params = field_params(field)
 
     {:ok,
@@ -498,7 +498,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
      |> assign(:field_params, field_params)
      |> assign(:field_type_options, @field_type_options)
      |> assign(:field_type_query, "")
-     |> assign(:field_type_groups, ContentTypeField.field_type_groups())
+     |> assign(:field_type_groups, CollectionField.field_type_groups())
      |> assign(:options_text, options_text(field))
      |> assign(:default_value, default_value(field))
      |> assign(:min_length, setting_value(field, "min_length"))
@@ -509,7 +509,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
   end
 
   @impl true
-  def handle_event("validate", %{"content_type_field" => field_params}, socket) do
+  def handle_event("validate", %{"collection_field" => field_params}, socket) do
     params =
       field_params
       |> preserve_field_type(socket)
@@ -518,7 +518,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
     changeset =
       socket.assigns.field
-      |> ContentEngine.change_content_type_field(params)
+      |> Collections.change_collection_field(params)
       |> Map.put(:action, :validate)
 
     {:noreply,
@@ -561,7 +561,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
     changeset =
       socket.assigns.field
-      |> ContentEngine.change_content_type_field(normalized_params)
+      |> Collections.change_collection_field(normalized_params)
       |> Map.put(:action, :validate)
 
     {:noreply,
@@ -571,7 +571,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
      |> assign_form(changeset)}
   end
 
-  def handle_event("save", %{"content_type_field" => field_params}, socket) do
+  def handle_event("save", %{"collection_field" => field_params}, socket) do
     params =
       field_params
       |> preserve_field_type(socket)
@@ -582,9 +582,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
   end
 
   defp save_field(socket, :new_field, field_params) do
-    case ContentEngine.create_content_type_field(
+    case Collections.create_collection_field(
            socket.assigns.tenant,
-           socket.assigns.content_type,
+           socket.assigns.collection,
            field_params
          ) do
       {:ok, field} ->
@@ -592,7 +592,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Content field created successfully")
+         |> put_flash(:info, "Collection field created successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -601,7 +601,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
   end
 
   defp save_field(socket, :edit_field, field_params) do
-    case ContentEngine.update_content_type_field(
+    case Collections.update_collection_field(
            socket.assigns.tenant,
            socket.assigns.field,
            field_params
@@ -611,7 +611,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Content field updated successfully")
+         |> put_flash(:info, "Collection field updated successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -675,7 +675,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
   defp deep_merge(_left, right), do: right
 
-  defp field_params(%ContentTypeField{} = field) do
+  defp field_params(%CollectionField{} = field) do
     %{
       "label" => field.label || "",
       "field_key" => field.field_key || "",
@@ -707,7 +707,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
   defp normalize_settings(settings) when is_map(settings), do: settings
   defp normalize_settings(_settings), do: %{}
 
-  defp options_text(%ContentTypeField{settings: settings}) when is_map(settings) do
+  defp options_text(%CollectionField{settings: settings}) when is_map(settings) do
     settings
     |> Map.get("options", [])
     |> case do
@@ -718,7 +718,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
   defp options_text(_field), do: ""
 
-  defp default_value(%ContentTypeField{settings: settings}) when is_map(settings) do
+  defp default_value(%CollectionField{settings: settings}) when is_map(settings) do
     settings
     |> Map.get("default_value", "")
     |> to_string()
@@ -726,7 +726,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
   defp default_value(_field), do: ""
 
-  defp setting_value(%ContentTypeField{settings: settings}, key) when is_map(settings) do
+  defp setting_value(%CollectionField{settings: settings}, key) when is_map(settings) do
     settings
     |> Map.get(key, "")
     |> to_string()
@@ -809,13 +809,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FieldFormComponent do
 
   defp truthy?(value), do: value in [true, "true", "1", "on"]
 
-  defp primary_field_type?(type), do: ContentTypeField.primary_field_type?(type)
+  defp primary_field_type?(type), do: CollectionField.primary_field_type?(type)
   defp length_validation_type?(type), do: type in @length_validation_types
 
   defp filtered_field_type_groups(query) do
     query = query |> to_string() |> String.downcase() |> String.trim()
 
-    ContentTypeField.field_type_groups()
+    CollectionField.field_type_groups()
     |> Enum.map(fn {group, fields} ->
       fields =
         Enum.filter(fields, fn {label, value} ->

@@ -1,12 +1,12 @@
-defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
+defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
   use MangoCMSWeb.ConnCase
 
   import Phoenix.LiveViewTest
 
   alias MangoCMS.Platform
-  alias MangoCMS.Tenant.ContentEngine
+  alias MangoCMS.Tenant.Collections
 
-  @content_type_attrs %{
+  @collection_attrs %{
     name: "Services",
     slug: "services",
     description: "Reusable service records",
@@ -32,8 +32,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
     {:ok, plan} =
       attrs
       |> Enum.into(%{
-        name: "content_admin_plan_#{suffix}",
-        display_name: "Content Admin Plan #{suffix}",
+        name: "collection_admin_plan_#{suffix}",
+        display_name: "Collection Admin Plan #{suffix}",
         description: "For tenant content admin tests",
         price_monthly: 99900,
         price_yearly: 9_99000,
@@ -57,10 +57,10 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
     {:ok, tenant} =
       attrs
       |> Enum.into(%{
-        name: "Content Admin Tenant #{suffix}",
+        name: "Collection Admin Tenant #{suffix}",
         domain: "content-admin-#{suffix}.example",
         subdomain: "content-admin-#{suffix}",
-        slug: "content_admin_#{suffix}",
+        slug: "collection_admin_#{suffix}",
         status: "active",
         active: true,
         plan_id: plan.id
@@ -70,25 +70,25 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
     Platform.get_tenant_with_plan!(tenant.id)
   end
 
-  defp content_type_fixture(tenant, attrs \\ %{}) do
+  defp collection_fixture(tenant, attrs \\ %{}) do
     suffix = unique_suffix()
 
     attrs =
       Enum.into(attrs, %{
-        @content_type_attrs
+        @collection_attrs
         | name: "Services #{suffix}",
           slug: "services-#{suffix}"
       })
 
-    {:ok, content_type} = ContentEngine.create_content_type(tenant, attrs)
-    content_type
+    {:ok, collection} = Collections.create_collection(tenant, attrs)
+    collection
   end
 
   defp service_type_with_fields_fixture(tenant) do
-    content_type = content_type_fixture(tenant, name: "Services", slug: "services")
+    collection = collection_fixture(tenant, name: "Services", slug: "services")
 
     {:ok, _name_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Name",
         field_key: "name",
         field_type: "string",
@@ -98,7 +98,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       })
 
     {:ok, _price_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Price",
         field_key: "price",
         field_type: "number",
@@ -109,7 +109,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       })
 
     {:ok, _sale_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "On Sale",
         field_key: "on_sale",
         field_type: "boolean",
@@ -118,7 +118,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       })
 
     {:ok, _image_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Image",
         field_key: "image_url",
         field_type: "image",
@@ -126,126 +126,126 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       })
 
     {:ok, _video_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Video",
         field_key: "video_url",
         field_type: "video",
         position: 40
       })
 
-    content_type
+    collection
   end
 
   defp host_conn(conn, host), do: %{conn | host: host}
 
-  describe "content type admin" do
-    test "creates, updates, and deletes content types", %{conn: conn} do
+  describe "collection admin" do
+    test "creates, updates, and deletes collections", %{conn: conn} do
       tenant = tenant_fixture()
       {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
       {:ok, index_live, _html} = live(conn, ~p"/admin/collections")
 
-      assert has_element?(index_live, "#new-content-type-button")
-      assert index_live |> element("#new-content-type-button") |> render_click()
-      assert has_element?(index_live, "#content-type-form")
+      assert has_element?(index_live, "#new-collection-button")
+      assert index_live |> element("#new-collection-button") |> render_click()
+      assert has_element?(index_live, "#collection-form")
       assert index_live |> element("#collection-type-content") |> render_click()
       assert index_live |> element("#collection-wizard-next") |> render_click()
       assert index_live |> element("#setup-scratch") |> render_click()
       assert index_live |> element("#collection-wizard-next") |> render_click()
 
       assert index_live
-             |> form("#content-type-form", content_type: %{@content_type_attrs | name: ""})
+             |> form("#collection-form", collection: %{@collection_attrs | name: ""})
              |> render_change() =~ "can&#39;t be blank"
 
       assert index_live
-             |> form("#content-type-form", content_type: @content_type_attrs)
+             |> form("#collection-form", collection: @collection_attrs)
              |> render_submit()
 
       assert_patch(index_live, ~p"/admin/collections")
-      content_type = ContentEngine.get_content_type_by_slug(tenant, "services")
-      assert content_type.name == "Services"
-      assert has_element?(index_live, "#collection-card-#{content_type.id}", "0 items")
+      collection = Collections.get_collection_by_slug(tenant, "services")
+      assert collection.name == "Services"
+      assert has_element?(index_live, "#collection-card-#{collection.id}", "0 items")
 
       assert {:error, {:live_redirect, %{to: path}}} =
-               index_live |> element("#open-collection-#{content_type.id}") |> render_click()
+               index_live |> element("#open-collection-#{collection.id}") |> render_click()
 
-      assert path == ~p"/admin/collections/#{content_type}"
+      assert path == ~p"/admin/collections/#{collection}"
       {:ok, index_live, _html} = live(conn, ~p"/admin/collections")
 
-      assert index_live |> element("#edit-content-type-#{content_type.id}") |> render_click()
-      assert has_element?(index_live, "#content-type-form")
+      assert index_live |> element("#edit-collection-#{collection.id}") |> render_click()
+      assert has_element?(index_live, "#collection-form")
 
       assert index_live
-             |> form("#content-type-form",
-               content_type: %{@content_type_attrs | name: "Service Catalog"}
+             |> form("#collection-form",
+               collection: %{@collection_attrs | name: "Service Catalog"}
              )
              |> render_submit()
 
       assert_patch(index_live, ~p"/admin/collections")
-      assert ContentEngine.get_content_type_by_slug(tenant, "services").name == "Service Catalog"
+      assert Collections.get_collection_by_slug(tenant, "services").name == "Service Catalog"
 
-      assert index_live |> element("#delete-content-type-#{content_type.id}") |> render_click()
-      refute ContentEngine.get_content_type_by_slug(tenant, "services")
+      assert index_live |> element("#delete-collection-#{collection.id}") |> render_click()
+      refute Collections.get_collection_by_slug(tenant, "services")
     end
   end
 
-  describe "content field admin" do
-    test "creates, updates, and deletes content type fields", %{conn: conn} do
+  describe "collection field admin" do
+    test "creates, updates, and deletes collection fields", %{conn: conn} do
       tenant = tenant_fixture()
-      content_type = content_type_fixture(tenant)
+      collection = collection_fixture(tenant)
       {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
-      {:ok, show_live, _html} = live(conn, ~p"/admin/collections/#{content_type}")
+      {:ok, show_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
 
       assert show_live |> element("#manage-fields-button") |> render_click()
-      assert has_element?(show_live, "#new-content-field-button")
-      assert show_live |> element("#new-content-field-button") |> render_click()
-      assert has_element?(show_live, "#content-type-field-form")
+      assert has_element?(show_live, "#new-collection-field-button")
+      assert show_live |> element("#new-collection-field-button") |> render_click()
+      assert has_element?(show_live, "#collection-field-form")
       assert show_live |> element("#field-type-number") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
       assert show_live
-             |> form("#content-type-field-form", content_type_field: %{@field_attrs | label: ""})
+             |> form("#collection-field-form", collection_field: %{@field_attrs | label: ""})
              |> render_change() =~ "can&#39;t be blank"
 
       assert show_live
-             |> form("#content-type-field-form", content_type_field: @field_attrs)
+             |> form("#collection-field-form", collection_field: @field_attrs)
              |> render_submit()
 
-      assert_patch(show_live, ~p"/admin/collections/#{content_type}")
-      [field] = ContentEngine.list_content_type_fields(tenant, content_type)
+      assert_patch(show_live, ~p"/admin/collections/#{collection}")
+      [field] = Collections.list_collection_fields(tenant, collection)
       assert field.field_key == "price"
       assert field.filterable
       assert field.sortable
       assert show_live |> element("#manage-fields-button") |> render_click()
-      assert has_element?(show_live, "#content-type-field-#{field.id}", "Price")
+      assert has_element?(show_live, "#collection-field-#{field.id}", "Price")
 
-      assert show_live |> element("#edit-content-field-#{field.id}") |> render_click()
+      assert show_live |> element("#edit-collection-field-#{field.id}") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
       assert show_live
-             |> form("#content-type-field-form",
-               content_type_field: %{@field_attrs | label: "Service Price", position: 20}
+             |> form("#collection-field-form",
+               collection_field: %{@field_attrs | label: "Service Price", position: 20}
              )
              |> render_submit()
 
-      assert_patch(show_live, ~p"/admin/collections/#{content_type}")
-      [field] = ContentEngine.list_content_type_fields(tenant, content_type)
+      assert_patch(show_live, ~p"/admin/collections/#{collection}")
+      [field] = Collections.list_collection_fields(tenant, collection)
       assert field.label == "Service Price"
       assert field.position == 20
 
       assert show_live |> element("#manage-fields-button") |> render_click()
-      assert has_element?(show_live, "#content-type-field-#{field.id}", "Service Price")
-      assert show_live |> element("#delete-content-field-#{field.id}") |> render_click()
-      assert ContentEngine.list_content_type_fields(tenant, content_type) == []
+      assert has_element?(show_live, "#collection-field-#{field.id}", "Service Price")
+      assert show_live |> element("#delete-collection-field-#{field.id}") |> render_click()
+      assert Collections.list_collection_fields(tenant, collection) == []
     end
 
     test "persists primary and slug source settings across field wizard steps", %{conn: conn} do
       tenant = tenant_fixture()
-      content_type = content_type_fixture(tenant)
+      collection = collection_fixture(tenant)
       {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
-      {:ok, show_live, _html} = live(conn, ~p"/admin/collections/#{content_type}")
+      {:ok, show_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
 
       assert show_live |> element("#manage-fields-button") |> render_click()
-      assert show_live |> element("#new-content-field-button") |> render_click()
+      assert show_live |> element("#new-collection-field-button") |> render_click()
       assert show_live |> element("#field-type-string") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
@@ -260,28 +260,28 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       }
 
       assert show_live
-             |> form("#content-type-field-form", content_type_field: settings_params)
+             |> form("#collection-field-form", collection_field: settings_params)
              |> render_change()
 
       assert show_live |> element("#field-wizard-next") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
       assert show_live
-             |> form("#content-type-field-form",
-               content_type_field: %{
+             |> form("#collection-field-form",
+               collection_field: %{
                  field_type: "string",
                  default_value: ""
                }
              )
              |> render_submit()
 
-      assert_patch(show_live, ~p"/admin/collections/#{content_type}")
-      [field] = ContentEngine.list_content_type_fields(tenant, content_type)
+      assert_patch(show_live, ~p"/admin/collections/#{collection}")
+      [field] = Collections.list_collection_fields(tenant, collection)
       assert field.primary
       assert field.settings["slug_source"] == "true"
 
       assert show_live |> element("#manage-fields-button") |> render_click()
-      assert show_live |> element("#edit-content-field-#{field.id}") |> render_click()
+      assert show_live |> element("#edit-collection-field-#{field.id}") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
       edit_params = %{
@@ -295,23 +295,23 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       }
 
       assert show_live
-             |> form("#content-type-field-form", content_type_field: edit_params)
+             |> form("#collection-field-form", collection_field: edit_params)
              |> render_change()
 
       assert show_live |> element("#field-wizard-next") |> render_click()
       assert show_live |> element("#field-wizard-next") |> render_click()
 
       assert show_live
-             |> form("#content-type-field-form",
-               content_type_field: %{
+             |> form("#collection-field-form",
+               collection_field: %{
                  field_type: "string",
                  default_value: ""
                }
              )
              |> render_submit()
 
-      assert_patch(show_live, ~p"/admin/collections/#{content_type}")
-      [field] = ContentEngine.list_content_type_fields(tenant, content_type)
+      assert_patch(show_live, ~p"/admin/collections/#{collection}")
+      [field] = Collections.list_collection_fields(tenant, collection)
       refute field.primary
       assert field.settings["slug_source"] == "false"
       assert field.label == "Display Name"
@@ -319,20 +319,20 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
     end
   end
 
-  describe "content entry admin" do
-    test "creates, updates, and deletes generated content entries", %{conn: conn} do
+  describe "collection item admin" do
+    test "creates, updates, and deletes generated collection items", %{conn: conn} do
       tenant = tenant_fixture()
-      content_type = service_type_with_fields_fixture(tenant)
+      collection = service_type_with_fields_fixture(tenant)
       {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
-      {:ok, entries_live, _html} = live(conn, ~p"/admin/collections/#{content_type}")
+      {:ok, entries_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
 
       assert has_element?(entries_live, "#add-collection-item-button")
       assert entries_live |> element("#add-collection-item-button") |> render_click()
-      assert has_element?(entries_live, "#content-entry-form")
-      assert has_element?(entries_live, "#content_entry_payload_image_url")
-      assert has_element?(entries_live, "#content_entry_payload_image_url_upload")
-      assert has_element?(entries_live, "#content_entry_payload_video_url")
-      assert has_element?(entries_live, "#content_entry_payload_video_url_upload")
+      assert has_element?(entries_live, "#collection-item-form")
+      assert has_element?(entries_live, "#collection_item_payload_image_url")
+      assert has_element?(entries_live, "#collection_item_payload_image_url_upload")
+      assert has_element?(entries_live, "#collection_item_payload_video_url")
+      assert has_element?(entries_live, "#collection_item_payload_video_url_upload")
 
       invalid_entry_attrs = %{
         slug: "broken-service",
@@ -341,7 +341,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       }
 
       assert entries_live
-             |> form("#content-entry-form", content_entry: invalid_entry_attrs)
+             |> form("#collection-item-form", collection_item: invalid_entry_attrs)
              |> render_change() =~ "price must be a valid number"
 
       valid_entry_attrs = %{
@@ -351,20 +351,42 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
       }
 
       assert entries_live
-             |> form("#content-entry-form", content_entry: valid_entry_attrs)
+             |> form("#collection-item-form", collection_item: valid_entry_attrs)
              |> render_submit()
 
-      assert_patch(entries_live, ~p"/admin/collections/#{content_type}")
-      [entry] = ContentEngine.list_entries(tenant, content_type, status: "all")
+      assert_patch(entries_live, ~p"/admin/collections/#{collection}")
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
       assert entry.title == "Budget Website"
       assert entry.payload["price"] == 99.0
       assert entry.payload["on_sale"] == true
 
-      assert entries_live |> element("#edit-content-entry-#{entry.id}") |> render_click()
+      assert has_element?(
+               entries_live,
+               "#inline-field-form-collection-item-#{entry.id}-price"
+             )
 
       assert entries_live
-             |> form("#content-entry-form",
-               content_entry: %{
+             |> form("#inline-field-form-collection-item-#{entry.id}-price", %{
+               item_id: entry.id,
+               field: "price",
+               value: "149"
+             })
+             |> render_change()
+
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
+      assert entry.payload["price"] == 149.0
+
+      assert entries_live
+             |> element("#replace-image-collection-item-#{entry.id}-image_url")
+             |> render_click()
+
+      assert has_element?(entries_live, "#collection-image-modal")
+
+      assert entries_live |> element("#edit-collection-item-#{entry.id}") |> render_click()
+
+      assert entries_live
+             |> form("#collection-item-form",
+               collection_item: %{
                  valid_entry_attrs
                  | slug: "premium-website",
                    payload: %{"name" => "Premium Website", "price" => "299", "on_sale" => "false"}
@@ -372,21 +394,21 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
              )
              |> render_submit()
 
-      assert_patch(entries_live, ~p"/admin/collections/#{content_type}")
-      [entry] = ContentEngine.list_entries(tenant, content_type, status: "all")
+      assert_patch(entries_live, ~p"/admin/collections/#{collection}")
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
       assert entry.title == "Premium Website"
       assert entry.payload["on_sale"] == false
 
-      assert entries_live |> element("#delete-content-entry-#{entry.id}") |> render_click()
-      assert ContentEngine.list_entries(tenant, content_type, status: "all") == []
+      assert entries_live |> element("#delete-collection-item-#{entry.id}") |> render_click()
+      assert Collections.list_entries(tenant, collection, status: "all") == []
     end
 
     test "updates generated slug and accepts datetime-local payload values", %{conn: conn} do
       tenant = tenant_fixture()
-      content_type = content_type_fixture(tenant, name: "Reviews", slug: "reviews")
+      collection = collection_fixture(tenant, name: "Reviews", slug: "reviews")
 
       {:ok, _name_field} =
-        ContentEngine.create_content_type_field(tenant, content_type, %{
+        Collections.create_collection_field(tenant, collection, %{
           label: "Name",
           field_key: "name",
           field_type: "string",
@@ -397,7 +419,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
         })
 
       {:ok, _reviewed_at_field} =
-        ContentEngine.create_content_type_field(tenant, content_type, %{
+        Collections.create_collection_field(tenant, collection, %{
           label: "Reviewed At",
           field_key: "reviewed_at",
           field_type: "datetime",
@@ -405,13 +427,13 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
         })
 
       {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
-      {:ok, entries_live, _html} = live(conn, ~p"/admin/collections/#{content_type}")
+      {:ok, entries_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
 
       assert entries_live |> element("#add-collection-item-button") |> render_click()
 
       assert entries_live
-             |> form("#content-entry-form",
-               content_entry: %{
+             |> form("#collection-item-form",
+               collection_item: %{
                  slug: "",
                  status: "published",
                  payload: %{
@@ -422,16 +444,16 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
              )
              |> render_submit()
 
-      assert_patch(entries_live, ~p"/admin/collections/#{content_type}")
-      [entry] = ContentEngine.list_entries(tenant, content_type, status: "all")
+      assert_patch(entries_live, ~p"/admin/collections/#{collection}")
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
       assert entry.slug == "prince-singh"
       assert entry.payload["reviewed_at"] == "2026-05-17T12:59:00"
 
-      assert entries_live |> element("#edit-content-entry-#{entry.id}") |> render_click()
+      assert entries_live |> element("#edit-collection-item-#{entry.id}") |> render_click()
 
       assert entries_live
-             |> form("#content-entry-form",
-               content_entry: %{
+             |> form("#collection-item-form",
+               collection_item: %{
                  slug: "prince-singh",
                  status: "published",
                  payload: %{
@@ -442,8 +464,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentLiveTest do
              )
              |> render_submit()
 
-      assert_patch(entries_live, ~p"/admin/collections/#{content_type}")
-      [entry] = ContentEngine.list_entries(tenant, content_type, status: "all")
+      assert_patch(entries_live, ~p"/admin/collections/#{collection}")
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
       assert entry.slug == "gaurav-singh"
       assert entry.payload["reviewed_at"] == "2026-05-18T09:30:00"
     end

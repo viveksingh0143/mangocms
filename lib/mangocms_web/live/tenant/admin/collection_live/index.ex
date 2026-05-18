@@ -1,8 +1,8 @@
-defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
+defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Index do
   use MangoCMSWeb, :live_view
 
-  alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.ContentEngine.ContentType
+  alias MangoCMS.Tenant.Collections
+  alias MangoCMS.Tenant.Collections.Collection
   alias MangoCMSWeb.AdminGuard
 
   @impl true
@@ -10,14 +10,14 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
     case AdminGuard.authorize_tenant(socket, :manage_content) do
       {:ok, socket} ->
         tenant = socket.assigns.current_tenant
-        collections = ContentEngine.list_content_types(tenant)
+        collections = Collections.list_collections(tenant)
 
         {:ok,
          socket
          |> assign(:collection_query, "")
          |> assign(:collections, collections)
-         |> assign(:collection_entry_counts, ContentEngine.content_type_entry_counts(tenant))
-         |> stream(:content_types, collections)}
+         |> assign(:collection_entry_counts, Collections.collection_entry_counts(tenant))
+         |> stream(:collections, collections)}
 
       {:redirect, socket} ->
         {:ok, socket}
@@ -35,36 +35,36 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
   defp apply_action(socket, :edit, %{"id" => id}) do
     socket
     |> assign(:page_title, "Edit collection")
-    |> assign(:content_type, ContentEngine.get_content_type!(socket.assigns.current_tenant, id))
+    |> assign(:collection, Collections.get_collection!(socket.assigns.current_tenant, id))
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "Create collection")
-    |> assign(:content_type, %ContentType{})
+    |> assign(:collection, %Collection{})
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Collections")
-    |> assign(:content_type, nil)
+    |> assign(:collection, nil)
   end
 
   @impl true
   def handle_info(
-        {MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent, {:saved, content_type}},
+        {MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent, {:saved, collection}},
         socket
       ) do
-    collections = ContentEngine.list_content_types(socket.assigns.current_tenant)
+    collections = Collections.list_collections(socket.assigns.current_tenant)
 
     {:noreply,
      socket
      |> assign(:collections, collections)
      |> assign(
        :collection_entry_counts,
-       ContentEngine.content_type_entry_counts(socket.assigns.current_tenant)
+       Collections.collection_entry_counts(socket.assigns.current_tenant)
      )
-     |> stream_insert(:content_types, content_type)}
+     |> stream_insert(:collections, collection)}
   end
 
   @impl true
@@ -74,15 +74,15 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
 
   def handle_event("delete", %{"id" => id}, socket) do
     tenant = socket.assigns.current_tenant
-    content_type = ContentEngine.get_content_type!(tenant, id)
-    {:ok, _content_type} = ContentEngine.delete_content_type(tenant, content_type)
-    collections = ContentEngine.list_content_types(tenant)
+    collection = Collections.get_collection!(tenant, id)
+    {:ok, _collection} = Collections.delete_collection(tenant, collection)
+    collections = Collections.list_collections(tenant)
 
     {:noreply,
      socket
      |> assign(:collections, collections)
-     |> assign(:collection_entry_counts, ContentEngine.content_type_entry_counts(tenant))
-     |> stream_delete(:content_types, content_type)}
+     |> assign(:collection_entry_counts, Collections.collection_entry_counts(tenant))
+     |> stream_delete(:collections, collection)}
   end
 
   @impl true
@@ -116,19 +116,19 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
             <li><a>Ask the community</a></li>
           </ul>
         </div>
-        <.button id="new-content-type-button" patch={"#{@collection_base_path}/new"} variant="primary">
+        <.button id="new-collection-button" patch={"#{@collection_base_path}/new"} variant="primary">
           <.icon name="hero-plus" class="size-4" /> Create Collection
         </.button>
       </:actions>
 
       <.live_component
         :if={@live_action in [:new, :edit]}
-        module={MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent}
-        id={@content_type.id || :new}
+        module={MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent}
+        id={@collection.id || :new}
         title={@page_title}
         action={@live_action}
         tenant={@current_tenant}
-        content_type={@content_type}
+        collection={@collection}
         patch={@collection_base_path}
       />
 
@@ -262,7 +262,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
             <li><.link navigate={"#{@base_path}/#{@collection.id}"}>Open</.link></li>
             <li>
               <.link
-                id={"edit-content-type-#{@collection.id}"}
+                id={"edit-collection-#{@collection.id}"}
                 patch={"#{@base_path}/#{@collection.id}/edit"}
               >
                 Edit
@@ -270,7 +270,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.Index do
             </li>
             <li>
               <button
-                id={"delete-content-type-#{@collection.id}"}
+                id={"delete-collection-#{@collection.id}"}
                 type="button"
                 phx-click="delete"
                 phx-value-id={@collection.id}

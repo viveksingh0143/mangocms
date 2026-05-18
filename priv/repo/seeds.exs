@@ -1,12 +1,10 @@
-import Ecto.Query
-
 alias MangoCMS.ContentTree
 alias MangoCMS.Platform
 alias MangoCMS.Platform.Accounts
 alias MangoCMS.Platform.Accounts.User, as: PlatformUser
 alias MangoCMS.Repo
 alias MangoCMS.Tenant.Accounts, as: TenantAccounts
-alias MangoCMS.Tenant.ContentEngine
+alias MangoCMS.Tenant.Collections
 alias MangoCMS.Tenant.Migrator, as: TenantMigrator
 alias MangoCMS.Tenant.Pages
 alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
@@ -423,40 +421,40 @@ if tenant do
     {"stainless-steel-7l-pressure-cooker", "Stainless Steel 7L Pressure Cooker", 549_900}
   ]
 
-  upsert_content_type = fn attrs, fields ->
-    content_type =
-      case ContentEngine.get_content_type_by_slug(tenant, attrs.slug) do
+  upsert_collection = fn attrs, fields ->
+    collection =
+      case Collections.get_collection_by_slug(tenant, attrs.slug) do
         nil ->
-          case ContentEngine.create_content_type(tenant, attrs) do
-            {:ok, content_type} ->
-              content_type
+          case Collections.create_collection(tenant, attrs) do
+            {:ok, collection} ->
+              collection
 
             {:error, changeset} ->
               print_changeset_errors.("Could not create #{attrs.slug}", changeset)
               nil
           end
 
-        content_type ->
-          case ContentEngine.update_content_type(tenant, content_type, attrs) do
-            {:ok, content_type} ->
-              content_type
+        collection ->
+          case Collections.update_collection(tenant, collection, attrs) do
+            {:ok, collection} ->
+              collection
 
             {:error, changeset} ->
               print_changeset_errors.("Could not update #{attrs.slug}", changeset)
-              content_type
+              collection
           end
       end
 
-    if content_type do
+    if collection do
       existing_fields =
         tenant
-        |> ContentEngine.list_content_type_fields(content_type)
+        |> Collections.list_collection_fields(collection)
         |> Map.new(&{&1.field_key, &1})
 
       Enum.each(fields, fn field_attrs ->
         case Map.get(existing_fields, field_attrs.field_key) do
-          nil -> ContentEngine.create_content_type_field(tenant, content_type, field_attrs)
-          field -> ContentEngine.update_content_type_field(tenant, field, field_attrs)
+          nil -> Collections.create_collection_field(tenant, collection, field_attrs)
+          field -> Collections.update_collection_field(tenant, field, field_attrs)
         end
         |> case do
           {:ok, _field} ->
@@ -468,17 +466,17 @@ if tenant do
       end)
     end
 
-    content_type
+    collection
   end
 
-  upsert_entry = fn content_type, attrs ->
-    case ContentEngine.get_entry_by_slug(tenant, content_type, attrs.slug) do
-      nil -> ContentEngine.create_entry(tenant, content_type, attrs)
-      entry -> ContentEngine.update_entry(tenant, entry, attrs)
+  upsert_entry = fn collection, attrs ->
+    case Collections.get_entry_by_slug(tenant, collection, attrs.slug) do
+      nil -> Collections.create_entry(tenant, collection, attrs)
+      entry -> Collections.update_entry(tenant, entry, attrs)
     end
     |> case do
       {:ok, entry} ->
-        {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
+        {:ok, entry} = Collections.publish_entry(tenant, entry)
         entry
 
       {:error, changeset} ->
@@ -488,7 +486,7 @@ if tenant do
   end
 
   service_type =
-    upsert_content_type.(
+    upsert_collection.(
       %{
         name: "Product Pressure Cooker",
         slug: "pressure_cookers",
@@ -586,7 +584,7 @@ if tenant do
   end
 
   review_type =
-    upsert_content_type.(
+    upsert_collection.(
       %{
         name: "Customer Reviews",
         slug: "customer_reviews",
@@ -665,7 +663,7 @@ if tenant do
   end
 
   blog_type =
-    upsert_content_type.(
+    upsert_collection.(
       %{
         name: "Blog Posts",
         slug: "blog_posts",
@@ -943,8 +941,8 @@ if tenant do
         "controls" => %{"arrows" => true, "dots" => true, "pause_on_hover" => true}
       },
       source_config: %{
-        "kind" => "content_type",
-        "content_type_slug" => "customer_reviews",
+        "kind" => "collection",
+        "collection_slug" => "customer_reviews",
         "sort" => %{"field" => "reviewed_at", "direction" => "desc"},
         "mappings" => %{
           "title" => "payload.customer_name",
@@ -975,7 +973,7 @@ if tenant do
             ),
             paragraph.(
               "product_slider_intro",
-              "A product slider section can loop active products or catalog content entries.",
+              "A product slider section can loop active products or catalog collection items.",
               "mt-3 max-w-3xl text-base text-base-content/70"
             ),
             paragraph.(
@@ -1033,16 +1031,17 @@ if tenant do
         "controls" => %{"arrows" => true, "dots" => true, "pause_on_hover" => true}
       },
       source_config: %{
-        "kind" => "product",
+        "kind" => "collection",
+        "collection_slug" => "pressure_cookers",
         "sort" => %{"field" => "inserted_at", "direction" => "desc"},
         "mappings" => %{
-          "title" => "name",
-          "body" => "description",
-          "price" => "price",
+          "title" => "payload.name",
+          "body" => "payload.description",
+          "price" => "payload.price",
           "href" => "slug"
         }
       },
-      filters: %{"rules" => [%{"field" => "active", "op" => "=", "value" => true}]},
+      filters: %{"rules" => [%{"field" => "in_stock", "op" => "=", "value" => true}]},
       loop_settings: %{
         "enabled" => true,
         "limit" => 8,
@@ -1146,7 +1145,7 @@ if tenant do
             ),
             paragraph.(
               "services_intro_copy_text",
-              "Seeded service records also exist in Content Types so dynamic sections can be added from tenant admin.",
+              "Seeded service records also exist in Collections so dynamic sections can be added from tenant admin.",
               "mt-5 text-xl leading-8 text-base-content/75"
             )
           ]),

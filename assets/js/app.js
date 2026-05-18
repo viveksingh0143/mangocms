@@ -192,7 +192,7 @@ const BuilderSortable = {
   },
 }
 
-const EntrySlugSync = {
+const CollectionItemSlugSync = {
   mounted() {
     this.slugEdited = false
     this.syncingSlug = false
@@ -220,7 +220,7 @@ const EntrySlugSync = {
     }
 
     this.bindInputs = () => {
-      this.slugInput = this.el.querySelector("input[name='content_entry[slug]']")
+      this.slugInput = this.el.querySelector("input[name='collection_item[slug]']")
       this.sourceInput = this.el.querySelector("[data-slug-source='true']")
 
       if (this.slugInput && this.slugInput !== this.boundSlugInput) {
@@ -572,7 +572,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     BuilderCanvas,
     BuilderSortable,
     ContentEditableInput,
-    EntrySlugSync,
+    CollectionItemSlugSync,
   },
 })
 

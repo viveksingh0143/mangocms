@@ -253,7 +253,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
               </h3>
               <p class="mt-2 text-xs text-base-content/60">
                 Set <code>kind</code>
-                to <code>content_type</code>
+                to <code>collection</code>
                 or <code>product</code>. Dynamic
                 elements can use placeholders like <code phx-no-curly-interpolation>{{title}}</code>
                 and <code phx-no-curly-interpolation>{{price}}</code>.

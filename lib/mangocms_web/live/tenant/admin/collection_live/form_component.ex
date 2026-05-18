@@ -1,13 +1,13 @@
-defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
+defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
   use MangoCMSWeb, :live_component
 
-  alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.ContentEngine.ContentType
+  alias MangoCMS.Tenant.Collections
+  alias MangoCMS.Tenant.Collections.Collection
 
-  @status_options ContentType.status_options()
-  @archetype_options ContentType.archetype_options()
-  @item_mode_options ContentType.item_mode_options()
-  @environment_options ContentType.environment_options()
+  @status_options Collection.status_options()
+  @archetype_options Collection.archetype_options()
+  @item_mode_options Collection.item_mode_options()
+  @environment_options Collection.environment_options()
   @catalog_type_options [
     {"Service", "service"},
     {"Physical deliverable", "deliverable"},
@@ -40,14 +40,14 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
 
       <.form
         for={@form}
-        id="content-type-form"
+        id="collection-form"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
         class="mt-6"
       >
-        <input type="hidden" name="content_type[archetype]" value={@selected_archetype} />
-        <input type="hidden" name="content_type[setup_path]" value={@setup_path} />
+        <input type="hidden" name="collection[archetype]" value={@selected_archetype} />
+        <input type="hidden" name="collection[setup_path]" value={@setup_path} />
 
         <.collection_type_step
           :if={@wizard_step == 1}
@@ -99,7 +99,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
             </button>
             <.button
               :if={@wizard_step == 3}
-              id="save-content-type-button"
+              id="save-collection-button"
               variant="primary"
               phx-disable-with="Creating..."
             >
@@ -122,7 +122,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
 
       <.form
         for={@form}
-        id="content-type-form"
+        id="collection-form"
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
@@ -142,7 +142,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
 
         <div class="mt-6 flex items-center justify-end gap-3">
           <.button navigate={@patch} class="btn btn-ghost">Cancel</.button>
-          <.button id="save-content-type-button" variant="primary" phx-disable-with="Saving...">
+          <.button id="save-collection-button" variant="primary" phx-disable-with="Saving...">
             Save collection
           </.button>
         </div>
@@ -325,7 +325,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
         placeholder="Store and manage content to display anywhere on your site."
       />
 
-      <input type="hidden" name="content_type[archetype]" value={@selected_archetype} />
+      <input type="hidden" name="collection[archetype]" value={@selected_archetype} />
 
       <div class="grid gap-5 md:grid-cols-2">
         <div class="rounded-lg border border-base-300 bg-base-200 px-4 py-3">
@@ -358,8 +358,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
         </p>
         <div class="mt-4 grid gap-5 md:grid-cols-2">
           <.input
-            id="content_type_catalog_type"
-            name="content_type[catalog_type]"
+            id="collection_catalog_type"
+            name="collection[catalog_type]"
             type="select"
             label="Catalog type"
             value={@selected_catalog_type}
@@ -401,7 +401,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
           >
             <input
               type="checkbox"
-              name={"content_type[optional_fields][#{key}]"}
+              name={"collection[optional_fields][#{key}]"}
               value="true"
               checked={key in @selected_optional_fields}
               class="checkbox checkbox-sm mt-1"
@@ -418,9 +418,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
   end
 
   @impl true
-  def update(%{content_type: content_type} = assigns, socket) do
-    changeset = ContentEngine.change_content_type(content_type)
-    archetype = content_type.archetype || "content"
+  def update(%{collection: collection} = assigns, socket) do
+    changeset = Collections.change_collection(collection)
+    archetype = collection.archetype || "content"
 
     {:ok,
      socket
@@ -428,7 +428,7 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
      |> assign(:wizard_step, 1)
      |> assign(:selected_archetype, archetype)
      |> assign(:setup_path, "scratch")
-     |> assign(:selected_catalog_type, catalog_type(content_type))
+     |> assign(:selected_catalog_type, catalog_type(collection))
      |> assign(:selected_optional_fields, [])
      |> assign_options()
      |> assign_form(changeset)}
@@ -462,8 +462,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
     {:noreply, update(socket, :wizard_step, &max(&1 - 1, 1))}
   end
 
-  def handle_event("validate", %{"content_type" => content_type_params}, socket) do
-    params = normalize_collection_params(content_type_params)
+  def handle_event("validate", %{"collection" => collection_params}, socket) do
+    params = normalize_collection_params(collection_params)
 
     {:noreply,
      socket
@@ -471,31 +471,31 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
        :selected_archetype,
        Map.get(params, "archetype", socket.assigns.selected_archetype)
      )
-     |> assign(:setup_path, Map.get(content_type_params, "setup_path", socket.assigns.setup_path))
+     |> assign(:setup_path, Map.get(collection_params, "setup_path", socket.assigns.setup_path))
      |> assign(
        :selected_catalog_type,
-       Map.get(content_type_params, "catalog_type", socket.assigns.selected_catalog_type)
+       Map.get(collection_params, "catalog_type", socket.assigns.selected_catalog_type)
      )
-     |> assign(:selected_optional_fields, selected_optional_fields(content_type_params))
+     |> assign(:selected_optional_fields, selected_optional_fields(collection_params))
      |> assign_form(changeset(socket, params))}
   end
 
-  def handle_event("save", %{"content_type" => content_type_params}, socket) do
-    save_content_type(
+  def handle_event("save", %{"collection" => collection_params}, socket) do
+    save_collection(
       socket,
       socket.assigns.action,
-      normalize_collection_params(content_type_params)
+      normalize_collection_params(collection_params)
     )
   end
 
-  defp save_content_type(socket, :edit, content_type_params) do
-    case ContentEngine.update_content_type(
+  defp save_collection(socket, :edit, collection_params) do
+    case Collections.update_collection(
            socket.assigns.tenant,
-           socket.assigns.content_type,
-           content_type_params
+           socket.assigns.collection,
+           collection_params
          ) do
-      {:ok, content_type} ->
-        notify_parent({:saved, content_type})
+      {:ok, collection} ->
+        notify_parent({:saved, collection})
 
         {:noreply,
          socket
@@ -507,11 +507,11 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
     end
   end
 
-  defp save_content_type(socket, :new, content_type_params) do
-    case ContentEngine.create_content_type(socket.assigns.tenant, content_type_params) do
-      {:ok, content_type} ->
-        maybe_create_catalog_fields(socket, content_type, content_type_params)
-        notify_parent({:saved, content_type})
+  defp save_collection(socket, :new, collection_params) do
+    case Collections.create_collection(socket.assigns.tenant, collection_params) do
+      {:ok, collection} ->
+        maybe_create_catalog_fields(socket, collection, collection_params)
+        notify_parent({:saved, collection})
 
         {:noreply,
          socket
@@ -523,16 +523,16 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
     end
   end
 
-  defp maybe_create_catalog_fields(socket, content_type, %{"archetype" => "catalog"} = params) do
+  defp maybe_create_catalog_fields(socket, collection, %{"archetype" => "catalog"} = params) do
     fields =
       required_catalog_fields() ++ optional_catalog_fields(selected_optional_fields(params))
 
     Enum.each(fields, fn attrs ->
-      ContentEngine.create_content_type_field(socket.assigns.tenant, content_type, attrs)
+      Collections.create_collection_field(socket.assigns.tenant, collection, attrs)
     end)
   end
 
-  defp maybe_create_catalog_fields(_socket, _content_type, _params), do: :ok
+  defp maybe_create_catalog_fields(_socket, _collection, _params), do: :ok
 
   defp required_catalog_fields do
     [
@@ -631,8 +631,8 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
   defp selected_optional_fields(_params), do: []
 
   defp changeset(socket, params) do
-    socket.assigns.content_type
-    |> ContentEngine.change_content_type(params)
+    socket.assigns.collection
+    |> Collections.change_collection(params)
     |> Map.put(:action, :validate)
   end
 
@@ -681,9 +681,9 @@ defmodule MangoCMSWeb.Tenant.Admin.ContentTypeLive.FormComponent do
   defp collection_slug_placeholder("category"), do: "blog_categories"
   defp collection_slug_placeholder(_archetype), do: "team_members"
 
-  defp catalog_type(%ContentType{settings: %{"catalog_type" => catalog_type}})
+  defp catalog_type(%Collection{settings: %{"catalog_type" => catalog_type}})
        when is_binary(catalog_type),
        do: catalog_type
 
-  defp catalog_type(_content_type), do: "service"
+  defp catalog_type(_collection), do: "service"
 end

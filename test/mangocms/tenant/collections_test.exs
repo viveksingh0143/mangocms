@@ -1,8 +1,8 @@
-defmodule MangoCMS.Tenant.ContentEngineTest do
+defmodule MangoCMS.Tenant.CollectionsTest do
   use MangoCMS.DataCase
 
-  alias MangoCMS.Tenant.ContentEngine
-  alias MangoCMS.Tenant.ContentEngine.ContentEntryIndex
+  alias MangoCMS.Tenant.Collections
+  alias MangoCMS.Tenant.Collections.CollectionItemIndex
   alias MangoCMS.Platform
   alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
 
@@ -13,8 +13,8 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
 
     {:ok, plan} =
       Platform.create_plan(%{
-        name: "content_engine_plan_#{suffix}",
-        display_name: "Content Engine Plan #{suffix}",
+        name: "collections_plan_#{suffix}",
+        display_name: "Collections Plan #{suffix}",
         description: "Tenant content engine plan",
         price_monthly: 99900,
         price_yearly: 9_99000,
@@ -36,10 +36,10 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
 
     {:ok, tenant} =
       Platform.create_tenant(%{
-        name: "Content Engine Tenant #{suffix}",
+        name: "Collections Tenant #{suffix}",
         domain: "content-engine-#{suffix}.example",
         subdomain: "content-engine-#{suffix}",
-        slug: "content_engine_#{suffix}",
+        slug: "collections_#{suffix}",
         status: "active",
         active: true,
         plan_id: plan.id
@@ -49,15 +49,15 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
   end
 
   defp product_type_fixture(tenant) do
-    {:ok, content_type} =
-      ContentEngine.create_content_type(tenant, %{
+    {:ok, collection} =
+      Collections.create_collection(tenant, %{
         name: "Product",
         slug: "products",
-        description: "Products managed through flexible content entries"
+        description: "Products managed through flexible collection items"
       })
 
     {:ok, _name_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Name",
         field_key: "name",
         field_type: "string",
@@ -66,7 +66,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     {:ok, _price_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Price",
         field_key: "price",
         field_type: "number",
@@ -77,7 +77,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     {:ok, _rating_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "Rating",
         field_key: "rating",
         field_type: "number",
@@ -87,7 +87,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     {:ok, _sale_field} =
-      ContentEngine.create_content_type_field(tenant, content_type, %{
+      Collections.create_collection_field(tenant, collection, %{
         label: "On Sale",
         field_key: "on_sale",
         field_type: "boolean",
@@ -95,21 +95,21 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
         position: 3
       })
 
-    content_type
+    collection
   end
 
-  defp published_entry_fixture(tenant, content_type, attrs) do
-    {:ok, entry} = ContentEngine.create_entry(tenant, content_type, attrs)
-    {:ok, entry} = ContentEngine.publish_entry(tenant, entry)
+  defp published_entry_fixture(tenant, collection, attrs) do
+    {:ok, entry} = Collections.create_entry(tenant, collection, attrs)
+    {:ok, entry} = Collections.publish_entry(tenant, entry)
     entry
   end
 
   test "stores flexible entries and filters through typed index projections" do
     tenant = tenant_fixture()
-    content_type = product_type_fixture(tenant)
+    collection = product_type_fixture(tenant)
 
     budget =
-      published_entry_fixture(tenant, content_type, %{
+      published_entry_fixture(tenant, collection, %{
         "payload" => %{
           "name" => "Budget Website",
           "price" => 99,
@@ -119,7 +119,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     pro =
-      published_entry_fixture(tenant, content_type, %{
+      published_entry_fixture(tenant, collection, %{
         "payload" => %{
           "name" => "Pro Website",
           "price" => 299,
@@ -129,7 +129,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     _draft =
-      ContentEngine.create_entry(tenant, content_type, %{
+      Collections.create_entry(tenant, collection, %{
         "payload" => %{
           "name" => "Draft Website",
           "price" => 49,
@@ -139,7 +139,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     _not_on_sale =
-      published_entry_fixture(tenant, content_type, %{
+      published_entry_fixture(tenant, collection, %{
         "payload" => %{
           "name" => "Enterprise Website",
           "price" => 999,
@@ -149,7 +149,7 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
       })
 
     entries =
-      ContentEngine.list_entries(tenant, content_type,
+      Collections.list_entries(tenant, collection,
         filters: [
           %{"field" => "rating", "op" => ">=", "value" => 4.5},
           %{"field" => "on_sale", "op" => "==", "value" => true}
@@ -161,18 +161,18 @@ defmodule MangoCMS.Tenant.ContentEngineTest do
 
     index_count =
       TenantRepoManager.with_repo(tenant, fn repo ->
-        repo.aggregate(ContentEntryIndex, :count)
+        repo.aggregate(CollectionItemIndex, :count)
       end)
 
     assert index_count >= 9
   end
 
-  test "validates entry payloads against tenant content type fields" do
+  test "validates entry payloads against tenant collection fields" do
     tenant = tenant_fixture()
-    content_type = product_type_fixture(tenant)
+    collection = product_type_fixture(tenant)
 
     assert {:error, changeset} =
-             ContentEngine.create_entry(tenant, content_type, %{
+             Collections.create_entry(tenant, collection, %{
                "payload" => %{
                  "name" => "",
                  "price" => "not-a-number",

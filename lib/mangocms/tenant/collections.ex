@@ -1,18 +1,18 @@
-defmodule MangoCMS.Tenant.ContentEngine do
+defmodule MangoCMS.Tenant.Collections do
   @moduledoc """
-  Tenant-local flexible content engine.
+  Tenant-local flexible collections system.
 
-  Content entries keep their full tenant-defined payload as JSON/map data while
+  Collection items keep their full tenant-defined payload as JSON/map data while
   selected fields are projected into typed index rows for filtering and sorting.
   """
 
   import Ecto.Query
 
-  alias MangoCMS.Tenant.ContentEngine.{
-    ContentEntry,
-    ContentEntryIndex,
-    ContentType,
-    ContentTypeField
+  alias MangoCMS.Tenant.Collections.{
+    CollectionItem,
+    CollectionItemIndex,
+    Collection,
+    CollectionField
   }
 
   alias MangoCMS.Platform.Tenant
@@ -23,103 +23,103 @@ defmodule MangoCMS.Tenant.ContentEngine do
   @string_index_types ~w(string text rich_text rich_content image video audio document asset url email color time address category reference select)
 
   @doc "Lists active and archived collections for a tenant."
-  @spec list_content_types(Tenant.t()) :: [ContentType.t()]
-  def list_content_types(%Tenant{} = tenant) do
+  @spec list_collections(Tenant.t()) :: [Collection.t()]
+  def list_collections(%Tenant{} = tenant) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      ContentType
+      Collection
       |> order_by([type], asc: type.name)
       |> repo.all()
     end)
   end
 
-  @doc "Returns active, non-deleted entry counts keyed by content type id."
-  @spec content_type_entry_counts(Tenant.t()) :: %{String.t() => non_neg_integer()}
-  def content_type_entry_counts(%Tenant{} = tenant) do
+  @doc "Returns active, non-deleted item counts keyed by collection id."
+  @spec collection_entry_counts(Tenant.t()) :: %{String.t() => non_neg_integer()}
+  def collection_entry_counts(%Tenant{} = tenant) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      ContentEntry
+      CollectionItem
       |> where([entry], is_nil(entry.deleted_at))
-      |> group_by([entry], entry.content_type_id)
-      |> select([entry], {entry.content_type_id, count(entry.id)})
+      |> group_by([entry], entry.collection_id)
+      |> select([entry], {entry.collection_id, count(entry.id)})
       |> repo.all()
       |> Map.new()
     end)
   end
 
-  @spec get_content_type!(Tenant.t(), String.t()) :: ContentType.t()
-  def get_content_type!(%Tenant{} = tenant, id) do
+  @spec get_collection!(Tenant.t(), String.t()) :: Collection.t()
+  def get_collection!(%Tenant{} = tenant, id) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      repo.get!(ContentType, id)
+      repo.get!(Collection, id)
     end)
   end
 
-  @spec get_content_type_by_slug(Tenant.t(), String.t()) :: ContentType.t() | nil
-  def get_content_type_by_slug(%Tenant{} = tenant, slug) when is_binary(slug) do
+  @spec get_collection_by_slug(Tenant.t(), String.t()) :: Collection.t() | nil
+  def get_collection_by_slug(%Tenant{} = tenant, slug) when is_binary(slug) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      repo.get_by(ContentType, slug: slug)
+      repo.get_by(Collection, slug: slug)
     end)
   end
 
-  @spec delete_content_type(Tenant.t(), ContentType.t()) ::
-          {:ok, ContentType.t()} | {:error, Ecto.Changeset.t()}
-  def delete_content_type(%Tenant{} = tenant, %ContentType{} = content_type) do
+  @spec delete_collection(Tenant.t(), Collection.t()) ::
+          {:ok, Collection.t()} | {:error, Ecto.Changeset.t()}
+  def delete_collection(%Tenant{} = tenant, %Collection{} = collection) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      repo.delete(content_type)
+      repo.delete(collection)
     end)
   end
 
-  @spec create_content_type(Tenant.t(), map()) ::
-          {:ok, ContentType.t()} | {:error, Ecto.Changeset.t()}
-  def create_content_type(%Tenant{} = tenant, attrs) do
+  @spec create_collection(Tenant.t(), map()) ::
+          {:ok, Collection.t()} | {:error, Ecto.Changeset.t()}
+  def create_collection(%Tenant{} = tenant, attrs) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      %ContentType{}
-      |> ContentType.changeset(attrs)
+      %Collection{}
+      |> Collection.changeset(attrs)
       |> repo.insert()
     end)
   end
 
-  @spec update_content_type(Tenant.t(), ContentType.t(), map()) ::
-          {:ok, ContentType.t()} | {:error, Ecto.Changeset.t()}
-  def update_content_type(%Tenant{} = tenant, %ContentType{} = content_type, attrs) do
+  @spec update_collection(Tenant.t(), Collection.t(), map()) ::
+          {:ok, Collection.t()} | {:error, Ecto.Changeset.t()}
+  def update_collection(%Tenant{} = tenant, %Collection{} = collection, attrs) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      content_type
-      |> ContentType.changeset(attrs)
+      collection
+      |> Collection.changeset(attrs)
       |> repo.update()
     end)
   end
 
-  @spec change_content_type(ContentType.t(), map()) :: Ecto.Changeset.t()
-  def change_content_type(%ContentType{} = content_type, attrs \\ %{}) do
-    ContentType.changeset(content_type, attrs)
+  @spec change_collection(Collection.t(), map()) :: Ecto.Changeset.t()
+  def change_collection(%Collection{} = collection, attrs \\ %{}) do
+    Collection.changeset(collection, attrs)
   end
 
-  @doc "Lists fields for a content type in editor/display order."
-  @spec list_content_type_fields(Tenant.t(), ContentType.t() | String.t()) :: [
-          ContentTypeField.t()
+  @doc "Lists fields for a collection in editor/display order."
+  @spec list_collection_fields(Tenant.t(), Collection.t() | String.t()) :: [
+          CollectionField.t()
         ]
-  def list_content_type_fields(%Tenant{} = tenant, content_type) do
+  def list_collection_fields(%Tenant{} = tenant, collection) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      content_type = resolve_content_type!(repo, content_type)
-      fields_for_type(repo, content_type.id)
+      collection = resolve_collection!(repo, collection)
+      fields_for_type(repo, collection.id)
     end)
   end
 
-  @spec get_content_type_field!(Tenant.t(), String.t()) :: ContentTypeField.t()
-  def get_content_type_field!(%Tenant{} = tenant, id) do
+  @spec get_collection_field!(Tenant.t(), String.t()) :: CollectionField.t()
+  def get_collection_field!(%Tenant{} = tenant, id) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      repo.get!(ContentTypeField, id)
+      repo.get!(CollectionField, id)
     end)
   end
 
-  @spec create_content_type_field(Tenant.t(), ContentType.t(), map()) ::
-          {:ok, ContentTypeField.t()} | {:error, Ecto.Changeset.t()}
-  def create_content_type_field(%Tenant{} = tenant, %ContentType{} = content_type, attrs) do
+  @spec create_collection_field(Tenant.t(), Collection.t(), map()) ::
+          {:ok, CollectionField.t()} | {:error, Ecto.Changeset.t()}
+  def create_collection_field(%Tenant{} = tenant, %Collection{} = collection, attrs) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       repo.transaction(fn ->
-        case %ContentTypeField{content_type_id: content_type.id}
-             |> ContentTypeField.changeset(attrs)
+        case %CollectionField{collection_id: collection.id}
+             |> CollectionField.changeset(attrs)
              |> repo.insert() do
           {:ok, field} ->
-            rebuild_content_type_indexes!(repo, content_type.id)
+            rebuild_collection_indexes!(repo, collection.id)
             field
 
           {:error, changeset} ->
@@ -130,14 +130,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec update_content_type_field(Tenant.t(), ContentTypeField.t(), map()) ::
-          {:ok, ContentTypeField.t()} | {:error, Ecto.Changeset.t()}
-  def update_content_type_field(%Tenant{} = tenant, %ContentTypeField{} = field, attrs) do
+  @spec update_collection_field(Tenant.t(), CollectionField.t(), map()) ::
+          {:ok, CollectionField.t()} | {:error, Ecto.Changeset.t()}
+  def update_collection_field(%Tenant{} = tenant, %CollectionField{} = field, attrs) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       repo.transaction(fn ->
-        case field |> ContentTypeField.changeset(attrs) |> repo.update() do
+        case field |> CollectionField.changeset(attrs) |> repo.update() do
           {:ok, field} ->
-            rebuild_content_type_indexes!(repo, field.content_type_id)
+            rebuild_collection_indexes!(repo, field.collection_id)
             field
 
           {:error, changeset} ->
@@ -148,14 +148,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec delete_content_type_field(Tenant.t(), ContentTypeField.t()) ::
-          {:ok, ContentTypeField.t()} | {:error, Ecto.Changeset.t()}
-  def delete_content_type_field(%Tenant{} = tenant, %ContentTypeField{} = field) do
+  @spec delete_collection_field(Tenant.t(), CollectionField.t()) ::
+          {:ok, CollectionField.t()} | {:error, Ecto.Changeset.t()}
+  def delete_collection_field(%Tenant{} = tenant, %CollectionField{} = field) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       repo.transaction(fn ->
         case repo.delete(field) do
           {:ok, field} ->
-            rebuild_content_type_indexes!(repo, field.content_type_id)
+            rebuild_collection_indexes!(repo, field.collection_id)
             field
 
           {:error, changeset} ->
@@ -166,13 +166,13 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec change_content_type_field(ContentTypeField.t(), map()) :: Ecto.Changeset.t()
-  def change_content_type_field(%ContentTypeField{} = field, attrs \\ %{}) do
-    ContentTypeField.changeset(field, attrs)
+  @spec change_collection_field(CollectionField.t(), map()) :: Ecto.Changeset.t()
+  def change_collection_field(%CollectionField{} = field, attrs \\ %{}) do
+    CollectionField.changeset(field, attrs)
   end
 
   @doc """
-  Lists entries for a content type.
+  Lists entries for a collection.
 
   Supported opts:
 
@@ -182,40 +182,40 @@ defmodule MangoCMS.Tenant.ContentEngine do
     * `:limit` - defaults to 50, capped at 200
     * `:offset` - optional offset
   """
-  @spec list_entries(Tenant.t(), ContentType.t() | String.t(), keyword()) :: [ContentEntry.t()]
-  def list_entries(%Tenant{} = tenant, content_type, opts \\ []) do
+  @spec list_entries(Tenant.t(), Collection.t() | String.t(), keyword()) :: [CollectionItem.t()]
+  def list_entries(%Tenant{} = tenant, collection, opts \\ []) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      content_type = resolve_content_type!(repo, content_type)
-      fields_by_key = fields_for_type(repo, content_type.id) |> Map.new(&{&1.field_key, &1})
+      collection = resolve_collection!(repo, collection)
+      fields_by_key = fields_for_type(repo, collection.id) |> Map.new(&{&1.field_key, &1})
 
-      ContentEntry
-      |> where([entry], entry.content_type_id == ^content_type.id and is_nil(entry.deleted_at))
+      CollectionItem
+      |> where([entry], entry.collection_id == ^collection.id and is_nil(entry.deleted_at))
       |> apply_status(opts)
-      |> apply_filters(content_type.id, fields_by_key, Keyword.get(opts, :filters, []))
-      |> apply_sort(content_type.id, fields_by_key, Keyword.get(opts, :sort))
+      |> apply_filters(collection.id, fields_by_key, Keyword.get(opts, :filters, []))
+      |> apply_sort(collection.id, fields_by_key, Keyword.get(opts, :sort))
       |> limit(^limit_value(opts))
       |> maybe_offset(Keyword.get(opts, :offset))
       |> repo.all()
     end)
   end
 
-  @spec get_entry!(Tenant.t(), String.t()) :: ContentEntry.t()
+  @spec get_entry!(Tenant.t(), String.t()) :: CollectionItem.t()
   def get_entry!(%Tenant{} = tenant, id) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      repo.get!(ContentEntry, id)
+      repo.get!(CollectionItem, id)
     end)
   end
 
-  @spec get_entry_by_slug(Tenant.t(), ContentType.t() | String.t(), String.t()) ::
-          ContentEntry.t() | nil
-  def get_entry_by_slug(%Tenant{} = tenant, content_type, slug) when is_binary(slug) do
+  @spec get_entry_by_slug(Tenant.t(), Collection.t() | String.t(), String.t()) ::
+          CollectionItem.t() | nil
+  def get_entry_by_slug(%Tenant{} = tenant, collection, slug) when is_binary(slug) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      content_type = resolve_content_type!(repo, content_type)
+      collection = resolve_collection!(repo, collection)
 
       repo.one(
-        from(entry in ContentEntry,
+        from(entry in CollectionItem,
           where:
-            entry.content_type_id == ^content_type.id and entry.slug == ^slug and
+            entry.collection_id == ^collection.id and entry.slug == ^slug and
               is_nil(entry.deleted_at),
           limit: 1
         )
@@ -223,20 +223,20 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end)
   end
 
-  @spec create_entry(Tenant.t(), ContentType.t(), map(), keyword()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  @spec create_entry(Tenant.t(), ContentType.t(), map()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def create_entry(%Tenant{} = tenant, %ContentType{} = content_type, attrs, opts \\ []) do
+  @spec create_entry(Tenant.t(), Collection.t(), map(), keyword()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  @spec create_entry(Tenant.t(), Collection.t(), map()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  def create_entry(%Tenant{} = tenant, %Collection{} = collection, attrs, opts \\ []) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      fields = fields_for_type(repo, content_type.id)
+      fields = fields_for_type(repo, collection.id)
       owner_id = Keyword.get(opts, :owner_id)
 
       repo.transaction(fn ->
         changeset =
-          %ContentEntry{content_type_id: content_type.id, owner_id: owner_id}
-          |> ContentEntry.changeset(attrs, fields)
-          |> validate_unique_payload_fields(repo, content_type.id, fields, nil)
+          %CollectionItem{collection_id: collection.id, owner_id: owner_id}
+          |> CollectionItem.changeset(attrs, fields)
+          |> validate_unique_payload_fields(repo, collection.id, fields, nil)
 
         case repo.insert(changeset) do
           {:ok, entry} ->
@@ -251,17 +251,17 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec update_entry(Tenant.t(), ContentEntry.t(), map()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def update_entry(%Tenant{} = tenant, %ContentEntry{} = entry, attrs) do
+  @spec update_entry(Tenant.t(), CollectionItem.t(), map()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  def update_entry(%Tenant{} = tenant, %CollectionItem{} = entry, attrs) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      fields = fields_for_type(repo, entry.content_type_id)
+      fields = fields_for_type(repo, entry.collection_id)
 
       repo.transaction(fn ->
         changeset =
           entry
-          |> ContentEntry.changeset(attrs, fields)
-          |> validate_unique_payload_fields(repo, entry.content_type_id, fields, entry.id)
+          |> CollectionItem.changeset(attrs, fields)
+          |> validate_unique_payload_fields(repo, entry.collection_id, fields, entry.id)
 
         case repo.update(changeset) do
           {:ok, entry} ->
@@ -276,14 +276,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec publish_entry(Tenant.t(), ContentEntry.t()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def publish_entry(%Tenant{} = tenant, %ContentEntry{} = entry) do
+  @spec publish_entry(Tenant.t(), CollectionItem.t()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  def publish_entry(%Tenant{} = tenant, %CollectionItem{} = entry) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      fields = fields_for_type(repo, entry.content_type_id)
+      fields = fields_for_type(repo, entry.collection_id)
 
       repo.transaction(fn ->
-        case entry |> ContentEntry.publish_changeset(fields) |> repo.update() do
+        case entry |> CollectionItem.publish_changeset(fields) |> repo.update() do
           {:ok, entry} ->
             rebuild_entry_indexes!(repo, entry, fields)
             entry
@@ -296,59 +296,59 @@ defmodule MangoCMS.Tenant.ContentEngine do
     |> unwrap_transaction()
   end
 
-  @spec archive_entry(Tenant.t(), ContentEntry.t()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def archive_entry(%Tenant{} = tenant, %ContentEntry{} = entry) do
+  @spec archive_entry(Tenant.t(), CollectionItem.t()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  def archive_entry(%Tenant{} = tenant, %CollectionItem{} = entry) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      fields = fields_for_type(repo, entry.content_type_id)
+      fields = fields_for_type(repo, entry.collection_id)
 
       entry
-      |> ContentEntry.archive_changeset(fields)
+      |> CollectionItem.archive_changeset(fields)
       |> repo.update()
     end)
   end
 
-  @spec delete_entry(Tenant.t(), ContentEntry.t()) ::
-          {:ok, ContentEntry.t()} | {:error, Ecto.Changeset.t()}
-  def delete_entry(%Tenant{} = tenant, %ContentEntry{} = entry) do
+  @spec delete_entry(Tenant.t(), CollectionItem.t()) ::
+          {:ok, CollectionItem.t()} | {:error, Ecto.Changeset.t()}
+  def delete_entry(%Tenant{} = tenant, %CollectionItem{} = entry) do
     TenantRepoManager.with_repo(tenant, fn repo ->
       repo.delete(entry)
     end)
   end
 
-  @spec change_entry(ContentEntry.t(), [ContentTypeField.t()], map()) :: Ecto.Changeset.t()
-  def change_entry(%ContentEntry{} = entry, fields \\ [], attrs \\ %{}) do
-    ContentEntry.changeset(entry, attrs, fields)
+  @spec change_entry(CollectionItem.t(), [CollectionField.t()], map()) :: Ecto.Changeset.t()
+  def change_entry(%CollectionItem{} = entry, fields \\ [], attrs \\ %{}) do
+    CollectionItem.changeset(entry, attrs, fields)
   end
 
-  @doc "Rebuilds all index rows for one content type."
-  @spec rebuild_content_type_indexes(Tenant.t(), ContentType.t() | String.t()) :: :ok
-  def rebuild_content_type_indexes(%Tenant{} = tenant, content_type) do
+  @doc "Rebuilds all index rows for one collection."
+  @spec rebuild_collection_indexes(Tenant.t(), Collection.t() | String.t()) :: :ok
+  def rebuild_collection_indexes(%Tenant{} = tenant, collection) do
     TenantRepoManager.with_repo(tenant, fn repo ->
-      content_type = resolve_content_type!(repo, content_type)
-      rebuild_content_type_indexes!(repo, content_type.id)
+      collection = resolve_collection!(repo, collection)
+      rebuild_collection_indexes!(repo, collection.id)
     end)
   end
 
-  defp rebuild_content_type_indexes!(repo, content_type_id) do
-    fields = fields_for_type(repo, content_type_id)
+  defp rebuild_collection_indexes!(repo, collection_id) do
+    fields = fields_for_type(repo, collection_id)
 
-    ContentEntry
-    |> where([entry], entry.content_type_id == ^content_type_id)
+    CollectionItem
+    |> where([entry], entry.collection_id == ^collection_id)
     |> repo.all()
     |> Enum.each(&rebuild_entry_indexes!(repo, &1, fields))
   end
 
-  defp rebuild_entry_indexes!(repo, %ContentEntry{} = entry, fields) do
-    ContentEntryIndex
-    |> where([index], index.content_entry_id == ^entry.id)
+  defp rebuild_entry_indexes!(repo, %CollectionItem{} = entry, fields) do
+    CollectionItemIndex
+    |> where([index], index.collection_item_id == ^entry.id)
     |> repo.delete_all()
 
     entry.payload
     |> index_attrs(entry, fields)
     |> Enum.each(fn attrs ->
-      %ContentEntryIndex{}
-      |> ContentEntryIndex.changeset(attrs)
+      %CollectionItemIndex{}
+      |> CollectionItemIndex.changeset(attrs)
       |> repo.insert!()
     end)
 
@@ -357,7 +357,7 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp index_attrs(payload, entry, fields) do
     fields
-    |> Enum.filter(&ContentTypeField.queryable?/1)
+    |> Enum.filter(&CollectionField.queryable?/1)
     |> Enum.flat_map(fn field ->
       value = Map.get(payload || %{}, field.field_key)
 
@@ -368,8 +368,8 @@ defmodule MangoCMS.Tenant.ContentEngine do
         values ->
           [
             Map.merge(values, %{
-              content_entry_id: entry.id,
-              content_type_id: entry.content_type_id,
+              collection_item_id: entry.id,
+              collection_id: entry.collection_id,
               field_key: field.field_key,
               field_type: field.field_type
             })
@@ -380,26 +380,26 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp index_values(_field, value) when value in [nil, ""], do: :skip
 
-  defp index_values(%ContentTypeField{field_type: type}, value)
+  defp index_values(%CollectionField{field_type: type}, value)
        when type in @string_index_types do
     %{string_value: to_string(value)}
   end
 
-  defp index_values(%ContentTypeField{field_type: "number"}, value) do
+  defp index_values(%CollectionField{field_type: "number"}, value) do
     case cast_float(value) do
       {:ok, number} -> %{number_value: number}
       :error -> :skip
     end
   end
 
-  defp index_values(%ContentTypeField{field_type: "boolean"}, value) do
+  defp index_values(%CollectionField{field_type: "boolean"}, value) do
     case cast_boolean(value) do
       {:ok, bool} -> %{bool_value: bool}
       :error -> :skip
     end
   end
 
-  defp index_values(%ContentTypeField{field_type: "datetime"}, value) do
+  defp index_values(%CollectionField{field_type: "datetime"}, value) do
     case cast_datetime(value) do
       {:ok, datetime} -> %{datetime_value: datetime}
       :error -> :skip
@@ -408,14 +408,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp index_values(_field, _value), do: :skip
 
-  defp validate_unique_payload_fields(changeset, repo, content_type_id, fields, current_entry_id) do
+  defp validate_unique_payload_fields(changeset, repo, collection_id, fields, current_entry_id) do
     if changeset.valid? do
       payload = Ecto.Changeset.get_field(changeset, :payload) || %{}
 
       Enum.reduce(unique_fields(fields), changeset, fn field, changeset ->
         value = Map.get(payload, field.field_key)
 
-        if unique_conflict?(repo, content_type_id, field, value, current_entry_id) do
+        if unique_conflict?(repo, collection_id, field, value, current_entry_id) do
           Ecto.Changeset.add_error(
             changeset,
             :payload,
@@ -432,33 +432,33 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp unique_fields(fields) do
     Enum.filter(fields, fn field ->
-      field.unique == true and ContentTypeField.queryable?(field)
+      field.unique == true and CollectionField.queryable?(field)
     end)
   end
 
-  defp unique_conflict?(_repo, _content_type_id, _field, value, _current_entry_id)
+  defp unique_conflict?(_repo, _collection_id, _field, value, _current_entry_id)
        when value in [nil, "", []],
        do: false
 
-  defp unique_conflict?(repo, content_type_id, field, value, current_entry_id) do
+  defp unique_conflict?(repo, collection_id, field, value, current_entry_id) do
     case comparable_value(field, value) do
       {:ok, comparable} ->
         column = index_column(field)
 
         query =
-          from(index in ContentEntryIndex,
-            join: entry in ContentEntry,
-            on: entry.id == index.content_entry_id,
+          from(index in CollectionItemIndex,
+            join: entry in CollectionItem,
+            on: entry.id == index.collection_item_id,
             where:
-              index.content_type_id == ^content_type_id and index.field_key == ^field.field_key and
+              index.collection_id == ^collection_id and index.field_key == ^field.field_key and
                 field(index, ^column) == ^comparable and is_nil(entry.deleted_at),
-            select: index.content_entry_id,
+            select: index.collection_item_id,
             limit: 1
           )
 
         query =
           if is_binary(current_entry_id) do
-            where(query, [index, _entry], index.content_entry_id != ^current_entry_id)
+            where(query, [index, _entry], index.collection_item_id != ^current_entry_id)
           else
             query
           end
@@ -470,19 +470,19 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp fields_for_type(repo, content_type_id) do
-    ContentTypeField
-    |> where([field], field.content_type_id == ^content_type_id)
+  defp fields_for_type(repo, collection_id) do
+    CollectionField
+    |> where([field], field.collection_id == ^collection_id)
     |> order_by([field], asc: field.position, asc: field.inserted_at)
     |> repo.all()
   end
 
-  defp resolve_content_type!(_repo, %ContentType{id: id} = content_type) when is_binary(id) do
-    content_type
+  defp resolve_collection!(_repo, %Collection{id: id} = collection) when is_binary(id) do
+    collection
   end
 
-  defp resolve_content_type!(repo, id_or_slug) when is_binary(id_or_slug) do
-    repo.get(ContentType, id_or_slug) || repo.get_by!(ContentType, slug: id_or_slug)
+  defp resolve_collection!(repo, id_or_slug) when is_binary(id_or_slug) do
+    repo.get(Collection, id_or_slug) || repo.get_by!(Collection, slug: id_or_slug)
   end
 
   defp apply_status(query, opts) do
@@ -494,28 +494,28 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp apply_filters(query, _content_type_id, _fields_by_key, nil), do: query
-  defp apply_filters(query, _content_type_id, _fields_by_key, []), do: query
+  defp apply_filters(query, _collection_id, _fields_by_key, nil), do: query
+  defp apply_filters(query, _collection_id, _fields_by_key, []), do: query
 
-  defp apply_filters(query, content_type_id, fields_by_key, filters) when is_list(filters) do
+  defp apply_filters(query, collection_id, fields_by_key, filters) when is_list(filters) do
     Enum.reduce(filters, query, fn filter, acc ->
-      apply_filter(acc, content_type_id, fields_by_key, filter)
+      apply_filter(acc, collection_id, fields_by_key, filter)
     end)
   end
 
-  defp apply_filters(query, content_type_id, fields_by_key, filter) when is_map(filter) do
-    apply_filter(query, content_type_id, fields_by_key, filter)
+  defp apply_filters(query, collection_id, fields_by_key, filter) when is_map(filter) do
+    apply_filter(query, collection_id, fields_by_key, filter)
   end
 
-  defp apply_filter(query, content_type_id, fields_by_key, filter) do
+  defp apply_filter(query, collection_id, fields_by_key, filter) do
     with field_key when is_binary(field_key) <- filter_value(filter, :field),
-         %ContentTypeField{} = field <- Map.get(fields_by_key, field_key),
-         true <- ContentTypeField.queryable?(field),
+         %CollectionField{} = field <- Map.get(fields_by_key, field_key),
+         true <- CollectionField.queryable?(field),
          {:ok, value} <- comparable_value(field, filter_value(filter, :value)) do
       op = filter_value(filter, :op) || "=="
 
       index_query =
-        content_type_id
+        collection_id
         |> base_index_query(field)
         |> apply_index_operator(field, op, value)
 
@@ -525,14 +525,14 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp base_index_query(content_type_id, field) do
-    from(index in ContentEntryIndex,
-      where: index.content_type_id == ^content_type_id and index.field_key == ^field.field_key,
-      select: index.content_entry_id
+  defp base_index_query(collection_id, field) do
+    from(index in CollectionItemIndex,
+      where: index.collection_id == ^collection_id and index.field_key == ^field.field_key,
+      select: index.collection_item_id
     )
   end
 
-  defp apply_index_operator(query, %ContentTypeField{} = field, op, value) do
+  defp apply_index_operator(query, %CollectionField{} = field, op, value) do
     column = index_column(field)
 
     case normalize_operator(op) do
@@ -562,17 +562,17 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp apply_sort(query, _content_type_id, _fields_by_key, nil) do
+  defp apply_sort(query, _collection_id, _fields_by_key, nil) do
     order_by(query, [entry], desc: entry.inserted_at)
   end
 
-  defp apply_sort(query, content_type_id, fields_by_key, sort) when is_list(sort) do
+  defp apply_sort(query, collection_id, fields_by_key, sort) when is_list(sort) do
     sort
     |> List.first()
-    |> then(&apply_sort(query, content_type_id, fields_by_key, &1))
+    |> then(&apply_sort(query, collection_id, fields_by_key, &1))
   end
 
-  defp apply_sort(query, content_type_id, fields_by_key, sort) when is_map(sort) do
+  defp apply_sort(query, collection_id, fields_by_key, sort) when is_map(sort) do
     field_key = filter_value(sort, :field)
     direction = sort_direction(filter_value(sort, :direction))
 
@@ -580,9 +580,9 @@ defmodule MangoCMS.Tenant.ContentEngine do
       apply_entry_sort(query, field_key, direction)
     else
       case Map.get(fields_by_key, field_key) do
-        %ContentTypeField{} = field ->
-          if ContentTypeField.queryable?(field) do
-            apply_index_sort(query, content_type_id, field, direction)
+        %CollectionField{} = field ->
+          if CollectionField.queryable?(field) do
+            apply_index_sort(query, collection_id, field, direction)
           else
             order_by(query, [entry], desc: entry.inserted_at)
           end
@@ -593,7 +593,7 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp apply_sort(query, _content_type_id, _fields_by_key, _sort) do
+  defp apply_sort(query, _collection_id, _fields_by_key, _sort) do
     order_by(query, [entry], desc: entry.inserted_at)
   end
 
@@ -607,25 +607,25 @@ defmodule MangoCMS.Tenant.ContentEngine do
     order_by(query, [entry], desc: field(entry, ^field))
   end
 
-  defp apply_index_sort(query, content_type_id, field, :asc) do
+  defp apply_index_sort(query, collection_id, field, :asc) do
     column = index_column(field)
 
     from(entry in query,
-      join: index in ContentEntryIndex,
+      join: index in CollectionItemIndex,
       on:
-        index.content_entry_id == entry.id and index.content_type_id == ^content_type_id and
+        index.collection_item_id == entry.id and index.collection_id == ^collection_id and
           index.field_key == ^field.field_key,
       order_by: [asc: field(index, ^column)]
     )
   end
 
-  defp apply_index_sort(query, content_type_id, field, :desc) do
+  defp apply_index_sort(query, collection_id, field, :desc) do
     column = index_column(field)
 
     from(entry in query,
-      join: index in ContentEntryIndex,
+      join: index in CollectionItemIndex,
       on:
-        index.content_entry_id == entry.id and index.content_type_id == ^content_type_id and
+        index.collection_item_id == entry.id and index.collection_id == ^collection_id and
           index.field_key == ^field.field_key,
       order_by: [desc: field(index, ^column)]
     )
@@ -653,7 +653,7 @@ defmodule MangoCMS.Tenant.ContentEngine do
 
   defp filter_value(_other, _key), do: nil
 
-  defp comparable_value(%ContentTypeField{} = field, value) do
+  defp comparable_value(%CollectionField{} = field, value) do
     case index_values(field, value) do
       %{string_value: value} -> {:ok, value}
       %{number_value: value} -> {:ok, value}
@@ -663,12 +663,12 @@ defmodule MangoCMS.Tenant.ContentEngine do
     end
   end
 
-  defp index_column(%ContentTypeField{field_type: type}) when type in @string_index_types,
+  defp index_column(%CollectionField{field_type: type}) when type in @string_index_types,
     do: :string_value
 
-  defp index_column(%ContentTypeField{field_type: "number"}), do: :number_value
-  defp index_column(%ContentTypeField{field_type: "boolean"}), do: :bool_value
-  defp index_column(%ContentTypeField{field_type: "datetime"}), do: :datetime_value
+  defp index_column(%CollectionField{field_type: "number"}), do: :number_value
+  defp index_column(%CollectionField{field_type: "boolean"}), do: :bool_value
+  defp index_column(%CollectionField{field_type: "datetime"}), do: :datetime_value
   defp index_column(_field), do: :string_value
 
   defp normalize_operator(op) when op in ["==", "=", :==, :eq], do: :eq

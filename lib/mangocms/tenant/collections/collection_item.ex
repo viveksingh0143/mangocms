@@ -1,9 +1,9 @@
-defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
+defmodule MangoCMS.Tenant.Collections.CollectionItem do
   use Ecto.Schema
   import Ecto.Changeset
 
   alias MangoCMS.Tenant.Accounts.User
-  alias MangoCMS.Tenant.ContentEngine.{ContentEntryIndex, ContentType, ContentTypeField}
+  alias MangoCMS.Tenant.Collections.{CollectionItemIndex, Collection, CollectionField}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -13,7 +13,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
 
   @type t :: %__MODULE__{}
 
-  schema "content_entries" do
+  schema "collection_items" do
     field(:title, :string)
     field(:slug, :string)
     field(:status, :string, default: "draft")
@@ -21,9 +21,9 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     field(:published_at, :utc_datetime)
     field(:deleted_at, :utc_datetime)
 
-    belongs_to(:content_type, ContentType)
+    belongs_to(:collection, Collection)
     belongs_to(:owner, User)
-    has_many(:indexes, ContentEntryIndex)
+    has_many(:indexes, CollectionItemIndex)
 
     timestamps()
   end
@@ -45,8 +45,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
     )
     |> validate_inclusion(:status, @statuses)
     |> validate_payload(fields)
-    |> foreign_key_constraint(:content_type_id)
-    |> unique_constraint(:slug, name: :content_entries_content_type_id_slug_index)
+    |> foreign_key_constraint(:collection_id)
+    |> unique_constraint(:slug, name: :collection_items_collection_id_slug_index)
   end
 
   def publish_changeset(entry, fields \\ []) do
@@ -109,7 +109,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
 
   defp validate_required_payload_value(
          changeset,
-         %ContentTypeField{required: true} = field,
+         %CollectionField{required: true} = field,
          value
        ) do
     if blank?(value) do
@@ -123,7 +123,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentEntry do
 
   defp validate_payload_value(changeset, _field, value) when value in [nil, ""], do: changeset
 
-  defp validate_payload_value(changeset, %ContentTypeField{field_type: type} = field, value) do
+  defp validate_payload_value(changeset, %CollectionField{field_type: type} = field, value) do
     settings = field.settings || %{}
 
     cond do

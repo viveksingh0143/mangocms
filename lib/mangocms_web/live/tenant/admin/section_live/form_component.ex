@@ -55,7 +55,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.FormComponent do
           label="Source config JSON"
           value={@source_config_json}
           rows="5"
-          placeholder={~s({"kind":"content_type","content_type_slug":"products"})}
+          placeholder={~s({"kind":"collection","collection_slug":"products"})}
         />
 
         <.input

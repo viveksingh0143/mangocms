@@ -1,8 +1,8 @@
-defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
+defmodule MangoCMS.Tenant.Collections.CollectionField do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias MangoCMS.Tenant.ContentEngine.ContentType
+  alias MangoCMS.Tenant.Collections.Collection
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -54,7 +54,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
 
   @type t :: %__MODULE__{}
 
-  schema "content_type_fields" do
+  schema "collection_fields" do
     field(:label, :string)
     field(:field_key, :string)
     field(:field_type, :string, default: "string")
@@ -70,7 +70,7 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
     field(:settings, :map, default: %{})
     field(:position, :integer, default: 0)
 
-    belongs_to(:content_type, ContentType)
+    belongs_to(:collection, Collection)
 
     timestamps()
   end
@@ -112,8 +112,8 @@ defmodule MangoCMS.Tenant.ContentEngine.ContentTypeField do
     )
     |> validate_inclusion(:field_type, @field_types)
     |> validate_number(:position, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:content_type_id)
-    |> unique_constraint(:field_key, name: :content_type_fields_content_type_id_field_key_index)
+    |> foreign_key_constraint(:collection_id)
+    |> unique_constraint(:field_key, name: :collection_fields_collection_id_field_key_index)
   end
 
   def queryable?(%__MODULE__{indexed: true}), do: true
