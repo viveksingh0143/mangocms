@@ -33,6 +33,22 @@ defmodule MangoCMS.Tenant.Media do
     end)
   end
 
+  @doc "Counts media assets for the tenant."
+  @spec count_assets(Tenant.t()) :: non_neg_integer()
+  def count_assets(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.one(from(asset in MediaAsset, select: count(asset.id)))
+    end)
+  end
+
+  @doc "Returns the total stored media size in bytes."
+  @spec total_asset_size(Tenant.t()) :: non_neg_integer()
+  def total_asset_size(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      repo.one(from(asset in MediaAsset, select: coalesce(sum(asset.file_size), 0)))
+    end)
+  end
+
   @doc "Fetches one media asset by id."
   @spec get_asset!(Tenant.t(), String.t()) :: MediaAsset.t()
   def get_asset!(%Tenant{} = tenant, id) when is_binary(id) do
@@ -49,7 +65,7 @@ defmodule MangoCMS.Tenant.Media do
     extension = entry.client_name |> Path.extname() |> String.downcase() |> safe_extension()
     stored_filename = "original#{extension}"
     folder = opts |> Keyword.get(:folder, "library") |> safe_folder()
-    kind = Keyword.get(opts, :kind) || kind_from(entry.client_type, extension)
+    kind = upload_kind(Keyword.get(opts, :kind), entry.client_type, extension)
     type = ["media", asset_id]
     directory = Uploads.upload_directory({:tenant, tenant}, type)
     storage_path = Path.join(directory, stored_filename)
@@ -99,7 +115,41 @@ defmodule MangoCMS.Tenant.Media do
     }
   end
 
-  defp maybe_filter_kind(query, kind) when kind in ~w(image video audio document asset) do
+  defp maybe_filter_kind(query, kind) when kind in [nil, "", "asset"], do: query
+
+  defp maybe_filter_kind(query, "image") do
+    where(
+      query,
+      [asset],
+      asset.kind == "image" or like(asset.mime_type, "image/%") or asset.file_ext in ^@image_exts
+    )
+  end
+
+  defp maybe_filter_kind(query, "video") do
+    where(
+      query,
+      [asset],
+      asset.kind == "video" or like(asset.mime_type, "video/%") or asset.file_ext in ^@video_exts
+    )
+  end
+
+  defp maybe_filter_kind(query, "audio") do
+    where(
+      query,
+      [asset],
+      asset.kind == "audio" or like(asset.mime_type, "audio/%") or asset.file_ext in ^@audio_exts
+    )
+  end
+
+  defp maybe_filter_kind(query, "document") do
+    where(
+      query,
+      [asset],
+      asset.kind == "document" or asset.file_ext in ^@document_exts
+    )
+  end
+
+  defp maybe_filter_kind(query, kind) when is_binary(kind) do
     where(query, [asset], asset.kind == ^kind)
   end
 
@@ -148,6 +198,14 @@ defmodule MangoCMS.Tenant.Media do
       true -> "asset"
     end
   end
+
+  defp upload_kind(kind, mime_type, extension) when kind in [nil, "", "asset"],
+    do: kind_from(mime_type, extension)
+
+  defp upload_kind(kind, _mime_type, _extension) when kind in ~w(image video audio document),
+    do: kind
+
+  defp upload_kind(_kind, mime_type, extension), do: kind_from(mime_type, extension)
 
   defp file_size(path) do
     case File.stat(path) do

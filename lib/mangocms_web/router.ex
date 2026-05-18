@@ -184,6 +184,8 @@ defmodule MangoCMSWeb.Router do
       live("/collections/:id/items/new", CollectionLive.Show, :new_entry)
       live("/collections/:id/items/:entry_id/edit", CollectionLive.Show, :edit_entry)
 
+      live("/media", MediaLive.Index, :index)
+
       live("/users", UserLive.Index, :index)
       live("/users/new", UserLive.Index, :new)
       live("/users/:id/edit", UserLive.Index, :edit)

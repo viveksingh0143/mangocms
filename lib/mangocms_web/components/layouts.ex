@@ -135,7 +135,7 @@ defmodule MangoCMSWeb.Layouts do
         %{
           label: "Content",
           href: ~p"/admin/pages",
-          current: active in [:pages, :content],
+          current: active in [:pages, :sections, :content, :media],
           children: [
             %{
               label: "Pages",
@@ -153,6 +153,12 @@ defmodule MangoCMSWeb.Layouts do
               label: "Collections",
               href: ~p"/admin/collections",
               current: active == :content,
+              permission: :manage_content
+            },
+            %{
+              label: "Media",
+              href: ~p"/admin/media",
+              current: active == :media,
               permission: :manage_content
             }
           ]

@@ -125,7 +125,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
         {:noreply,
          socket
          |> assign(:image_modal, nil)
-         |> assign_entries(socket.assigns.collection)}
+         |> assign_entries(socket.assigns.collection)
+         |> put_flash(:info, "#{field.label} updated from media library.")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not replace #{field.label}.")}
