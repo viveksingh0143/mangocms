@@ -186,6 +186,65 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
       assert index_live |> element("#delete-collection-#{collection.id}") |> render_click()
       refute Collections.get_collection_by_slug(tenant, "services")
     end
+
+    test "auto-generates editable collection id and starter fields", %{conn: conn} do
+      tenant = tenant_fixture()
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, index_live, _html} = live(conn, ~p"/admin/collections")
+
+      assert index_live |> element("#new-collection-button") |> render_click()
+      assert index_live |> element("#collection-type-content") |> render_click()
+      assert index_live |> element("#collection-wizard-next") |> render_click()
+      assert index_live |> element("#setup-scratch") |> render_click()
+      assert index_live |> element("#collection-wizard-next") |> render_click()
+
+      html =
+        index_live
+        |> form("#collection-form",
+          collection: %{
+            name: "Team Members",
+            slug: "",
+            description: "People directory",
+            archetype: "content",
+            item_mode: "multiple",
+            environment: "live",
+            status: "active",
+            optional_fields: %{
+              "name" => "true",
+              "description" => "true",
+              "cover_image" => "true"
+            }
+          }
+        )
+        |> render_change()
+
+      assert html =~ "team_members_content"
+
+      assert index_live
+             |> form("#collection-form",
+               collection: %{
+                 name: "Team Members",
+                 slug: "",
+                 description: "People directory",
+                 archetype: "content",
+                 item_mode: "multiple",
+                 environment: "live",
+                 status: "active",
+                 optional_fields: %{
+                   "name" => "true",
+                   "description" => "true",
+                   "cover_image" => "true"
+                 }
+               }
+             )
+             |> render_submit()
+
+      collection = Collections.get_collection_by_slug(tenant, "team_members_content")
+      fields = Collections.list_collection_fields(tenant, collection)
+      assert Enum.map(fields, & &1.field_key) == ["name", "description", "cover_image"]
+      assert Enum.find(fields, &(&1.field_key == "name")).primary
+      assert Enum.find(fields, &(&1.field_key == "name")).settings["slug_source"] == "true"
+    end
   end
 
   describe "collection field admin" do
@@ -316,6 +375,50 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
       assert field.settings["slug_source"] == "false"
       assert field.label == "Display Name"
       assert field.position == 1
+    end
+
+    test "connects category fields to category collections", %{conn: conn} do
+      tenant = tenant_fixture()
+
+      category_collection =
+        collection_fixture(tenant, name: "Root", slug: "root", archetype: "category")
+
+      collection = collection_fixture(tenant, name: "Team Members", slug: "team_members")
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, show_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
+
+      assert show_live |> element("#manage-fields-button") |> render_click()
+      assert show_live |> element("#new-collection-field-button") |> render_click()
+      assert show_live |> element("#field-type-category") |> render_click()
+      assert show_live |> element("#field-wizard-next") |> render_click()
+      assert has_element?(show_live, "#collection-field-category-source")
+
+      assert show_live
+             |> form("#collection-field-form",
+               collection_field: %{
+                 label: "Root",
+                 field_key: "root",
+                 field_type: "category",
+                 visible: "true",
+                 settings: %{"category_collection_id" => category_collection.id},
+                 position: "10"
+               }
+             )
+             |> render_change()
+
+      assert show_live |> element("#field-wizard-next") |> render_click()
+      assert show_live |> element("#field-wizard-next") |> render_click()
+
+      assert show_live
+             |> form("#collection-field-form",
+               collection_field: %{field_type: "category", default_value: ""}
+             )
+             |> render_submit()
+
+      assert_patch(show_live, ~p"/admin/collections/#{collection}")
+      [field] = Collections.list_collection_fields(tenant, collection)
+      assert field.field_type == "category"
+      assert field.settings["category_collection_id"] == category_collection.id
     end
   end
 

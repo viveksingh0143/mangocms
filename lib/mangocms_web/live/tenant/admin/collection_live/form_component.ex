@@ -20,6 +20,11 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
     {"inventory", "Inventory", "number", "Stock count for deliverables."},
     {"download_url", "Download URL", "url", "Secure asset link for digital downloads."}
   ]
+  @starter_optional_fields [
+    {"name", "Name", "string", "Primary display name used for item titles and slugs."},
+    {"description", "Description", "text", "Supporting summary or body copy for each item."},
+    {"cover_image", "Cover image", "image", "Primary image used by cards and sections."}
+  ]
 
   @impl true
   def render(%{action: :new} = assigns) do
@@ -66,6 +71,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
           selected_archetype={@selected_archetype}
           catalog_type_options={@catalog_type_options}
           catalog_optional_fields={@catalog_optional_fields}
+          starter_optional_fields={@starter_optional_fields}
           selected_optional_fields={@selected_optional_fields}
           selected_catalog_type={@selected_catalog_type}
           archetype_options={@archetype_options}
@@ -132,6 +138,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
           selected_archetype={@selected_archetype}
           catalog_type_options={@catalog_type_options}
           catalog_optional_fields={@catalog_optional_fields}
+          starter_optional_fields={@starter_optional_fields}
           selected_optional_fields={@selected_optional_fields}
           selected_catalog_type={@selected_catalog_type}
           archetype_options={@archetype_options}
@@ -292,6 +299,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
   attr :selected_archetype, :string, required: true
   attr :catalog_type_options, :list, required: true
   attr :catalog_optional_fields, :list, required: true
+  attr :starter_optional_fields, :list, required: true
   attr :selected_optional_fields, :list, required: true
   attr :selected_catalog_type, :string, required: true
   attr :archetype_options, :list, required: true
@@ -413,6 +421,35 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
           </label>
         </div>
       </div>
+
+      <div
+        :if={@selected_archetype in ~w(content category)}
+        id="starter-blueprint-options"
+        class="rounded-lg border border-base-300 bg-base-200 p-5"
+      >
+        <h3 class="font-semibold">{human_archetype(@selected_archetype)} starter fields</h3>
+        <p class="mt-1 text-sm text-base-content/60">
+          Choose common fields to create automatically. You can rename and adjust every field after creation.
+        </p>
+        <div class="mt-4 grid gap-3 md:grid-cols-3">
+          <label
+            :for={{key, label, _type, description} <- @starter_optional_fields}
+            class="flex gap-3 rounded-lg border border-base-300 bg-base-100 p-3"
+          >
+            <input
+              type="checkbox"
+              name={"collection[optional_fields][#{key}]"}
+              value="true"
+              checked={key in @selected_optional_fields}
+              class="checkbox checkbox-sm mt-1"
+            />
+            <span>
+              <span class="block font-medium">{label}</span>
+              <span class="block text-sm text-base-content/60">{description}</span>
+            </span>
+          </label>
+        </div>
+      </div>
     </div>
     """
   end
@@ -440,6 +477,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
       socket.assigns.form.params
       |> Map.put("archetype", archetype)
       |> maybe_put_catalog_defaults(archetype)
+      |> maybe_sync_slug(socket)
 
     {:noreply,
      socket
@@ -463,7 +501,10 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
   end
 
   def handle_event("validate", %{"collection" => collection_params}, socket) do
-    params = normalize_collection_params(collection_params)
+    params =
+      collection_params
+      |> maybe_sync_slug(socket)
+      |> normalize_collection_params()
 
     {:noreply,
      socket
@@ -484,7 +525,9 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
     save_collection(
       socket,
       socket.assigns.action,
-      normalize_collection_params(collection_params)
+      collection_params
+      |> maybe_sync_slug(socket)
+      |> normalize_collection_params()
     )
   end
 
@@ -510,7 +553,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
   defp save_collection(socket, :new, collection_params) do
     case Collections.create_collection(socket.assigns.tenant, collection_params) do
       {:ok, collection} ->
-        maybe_create_catalog_fields(socket, collection, collection_params)
+        maybe_create_default_fields(socket, collection, collection_params)
         notify_parent({:saved, collection})
 
         {:noreply,
@@ -523,16 +566,30 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
     end
   end
 
-  defp maybe_create_catalog_fields(socket, collection, %{"archetype" => "catalog"} = params) do
+  defp maybe_create_default_fields(socket, collection, %{"archetype" => "catalog"} = params) do
     fields =
       required_catalog_fields() ++ optional_catalog_fields(selected_optional_fields(params))
 
+    create_fields(socket, collection, fields)
+  end
+
+  defp maybe_create_default_fields(socket, collection, %{"archetype" => archetype} = params)
+       when archetype in ~w(content category) do
+    fields =
+      params
+      |> selected_optional_fields()
+      |> starter_fields()
+
+    create_fields(socket, collection, fields)
+  end
+
+  defp maybe_create_default_fields(_socket, _collection, _params), do: :ok
+
+  defp create_fields(socket, collection, fields) do
     Enum.each(fields, fn attrs ->
       Collections.create_collection_field(socket.assigns.tenant, collection, attrs)
     end)
   end
-
-  defp maybe_create_catalog_fields(_socket, _collection, _params), do: :ok
 
   defp required_catalog_fields do
     [
@@ -585,6 +642,29 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
     end)
   end
 
+  defp starter_fields(selected) do
+    @starter_optional_fields
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {{key, _label, _type, _description}, _index} -> key in selected end)
+    |> Enum.map(fn {{key, label, type, description}, index} ->
+      %{
+        label: label,
+        field_key: key,
+        field_type: type,
+        required: key == "name",
+        primary: key == "name",
+        system: false,
+        visible: true,
+        indexed: true,
+        filterable: type in ~w(string text),
+        sortable: type == "string",
+        help_text: description,
+        position: index * 10,
+        settings: if(key == "name", do: %{"slug_source" => "true"}, else: %{})
+      }
+    end)
+  end
+
   defp normalize_collection_params(params) do
     optional_fields = selected_optional_fields(params)
     catalog_type = Map.get(params, "catalog_type", "service")
@@ -594,12 +674,12 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
       |> Map.get("settings", %{})
       |> normalize_settings()
       |> Map.put("setup_path", Map.get(params, "setup_path", "scratch"))
+      |> Map.put("optional_fields", optional_fields)
 
     settings =
       if Map.get(params, "archetype") == "catalog" do
         settings
         |> Map.put("catalog_type", catalog_type)
-        |> Map.put("optional_fields", optional_fields)
       else
         settings
       end
@@ -611,8 +691,6 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
 
   defp maybe_put_catalog_defaults(params, "catalog") do
     params
-    |> Map.put_new("name", "Catalog")
-    |> Map.put_new("slug", "catalog")
     |> Map.put("item_mode", "multiple")
   end
 
@@ -644,6 +722,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
     |> assign(:environment_options, @environment_options)
     |> assign(:catalog_type_options, @catalog_type_options)
     |> assign(:catalog_optional_fields, @catalog_optional_fields)
+    |> assign(:starter_optional_fields, @starter_optional_fields)
   end
 
   defp normalize_settings(settings) when is_map(settings), do: settings
@@ -680,6 +759,40 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FormComponent do
   defp collection_slug_placeholder("catalog"), do: "service_catalog"
   defp collection_slug_placeholder("category"), do: "blog_categories"
   defp collection_slug_placeholder(_archetype), do: "team_members"
+
+  defp maybe_sync_slug(params, socket) do
+    previous_params = socket.assigns.form.params || %{}
+    old_name = Map.get(previous_params, "name", "")
+    old_archetype = Map.get(previous_params, "archetype", socket.assigns.selected_archetype)
+    name = Map.get(params, "name", "")
+    slug = Map.get(params, "slug", "")
+    archetype = Map.get(params, "archetype", old_archetype || "content")
+    old_slug = generated_collection_slug(old_name, old_archetype || archetype)
+
+    if slug in [nil, "", old_slug] do
+      Map.put(params, "slug", generated_collection_slug(name, archetype))
+    else
+      params
+    end
+  end
+
+  defp generated_collection_slug(name, archetype) do
+    base =
+      name
+      |> to_string()
+      |> String.downcase()
+      |> String.trim()
+      |> String.replace(~r/[^a-z0-9_]+/, "_")
+      |> String.trim("_")
+
+    suffix = "_#{archetype || "content"}"
+
+    cond do
+      base == "" -> ""
+      String.ends_with?(base, suffix) -> base
+      true -> base <> suffix
+    end
+  end
 
   defp catalog_type(%Collection{settings: %{"catalog_type" => catalog_type}})
        when is_binary(catalog_type),

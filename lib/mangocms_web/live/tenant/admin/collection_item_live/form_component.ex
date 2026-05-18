@@ -46,6 +46,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
             form={@form}
             field_def={field}
             slug_source_field={@slug_source_field}
+            category_options_by_field={@category_options_by_field}
             uploads={@media_uploads}
           />
         </div>
@@ -70,6 +71,10 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
      |> assign(assigns)
      |> assign(:status_options, @status_options)
      |> assign(:slug_source_field, slug_source_field(assigns.fields))
+     |> assign(
+       :category_options_by_field,
+       category_options_by_field(assigns.tenant, assigns.fields)
+     )
      |> assign_form(changeset)
      |> allow_media_uploads(assigns.fields)}
   end
@@ -141,7 +146,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
       |> assign(:input_type, payload_input_type(field))
       |> assign(:input_value, payload_value(assigns.form, field))
       |> assign(:input_label, payload_label(field))
-      |> assign(:input_options, select_options(field))
+      |> assign(:input_options, select_options(field, assigns.category_options_by_field || %{}))
       |> assign(:media_field?, media_field?(field))
       |> assign(:slug_source?, slug_source?(assigns.slug_source_field, field))
       |> assign(:upload_config, Map.get(assigns.uploads || %{}, media_upload_name(field)))
@@ -425,7 +430,10 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
   defp payload_input_type(%CollectionField{field_type: "image"}), do: "text"
   defp payload_input_type(%CollectionField{field_type: "video"}), do: "text"
   defp payload_input_type(%CollectionField{field_type: "gallery"}), do: "textarea"
-  defp payload_input_type(%CollectionField{field_type: "select"}), do: "select"
+
+  defp payload_input_type(%CollectionField{field_type: type}) when type in ~w(select category),
+    do: "select"
+
   defp payload_input_type(_field), do: "text"
 
   defp payload_label(%CollectionField{} = field) do
@@ -472,7 +480,15 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
   defp datetime_to_string(value) when is_binary(value), do: value
   defp datetime_to_string(value), do: to_string(value)
 
-  defp select_options(%CollectionField{settings: settings}) when is_map(settings) do
+  defp select_options(
+         %CollectionField{field_type: "category", field_key: field_key},
+         category_options
+       ) do
+    Map.get(category_options, field_key, [])
+  end
+
+  defp select_options(%CollectionField{settings: settings}, _category_options)
+       when is_map(settings) do
     settings
     |> Map.get("options", [])
     |> case do
@@ -481,7 +497,34 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
     end
   end
 
-  defp select_options(_field), do: []
+  defp select_options(_field, _category_options), do: []
+
+  defp category_options_by_field(tenant, fields) do
+    fields
+    |> Enum.filter(&(&1.field_type == "category"))
+    |> Map.new(fn field ->
+      {field.field_key, category_entry_options(tenant, field)}
+    end)
+  end
+
+  defp category_entry_options(tenant, %CollectionField{settings: settings})
+       when is_map(settings) do
+    case Map.get(settings, "category_collection_id") do
+      collection_id when is_binary(collection_id) and collection_id != "" ->
+        collection = Collections.get_collection!(tenant, collection_id)
+
+        tenant
+        |> Collections.list_entries(collection, status: "all")
+        |> Enum.map(&{&1.title || &1.slug, &1.id})
+
+      _other ->
+        []
+    end
+  rescue
+    Ecto.NoResultsError -> []
+  end
+
+  defp category_entry_options(_tenant, _field), do: []
 
   defp slug_source_field(fields) do
     Enum.find(fields, fn %CollectionField{settings: settings} ->

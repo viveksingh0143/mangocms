@@ -32,6 +32,17 @@ defmodule MangoCMS.Tenant.Collections do
     end)
   end
 
+  @doc "Lists category collections available as taxonomy sources."
+  @spec list_category_collections(Tenant.t()) :: [Collection.t()]
+  def list_category_collections(%Tenant{} = tenant) do
+    TenantRepoManager.with_repo(tenant, fn repo ->
+      Collection
+      |> where([collection], collection.archetype == "category")
+      |> order_by([collection], asc: collection.name)
+      |> repo.all()
+    end)
+  end
+
   @doc "Returns active, non-deleted item counts keyed by collection id."
   @spec collection_entry_counts(Tenant.t()) :: %{String.t() => non_neg_integer()}
   def collection_entry_counts(%Tenant{} = tenant) do

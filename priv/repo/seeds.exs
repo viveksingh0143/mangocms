@@ -485,6 +485,68 @@ if tenant do
     end
   end
 
+  category_collection =
+    upsert_collection.(
+      %{
+        name: "Product Categories",
+        slug: "product_categories",
+        description: "Category collection for catalog taxonomy and category pages.",
+        status: "active",
+        archetype: "category",
+        item_mode: "multiple",
+        environment: "live",
+        settings: %{"icon" => "tag"}
+      },
+      [
+        %{
+          label: "Title",
+          field_key: "title",
+          field_type: "string",
+          required: true,
+          primary: true,
+          indexed: true,
+          filterable: true,
+          sortable: true,
+          position: 10,
+          settings: %{"slug_source" => "true"}
+        },
+        %{
+          label: "Description",
+          field_key: "description",
+          field_type: "text",
+          indexed: true,
+          position: 20
+        },
+        %{label: "Image", field_key: "image_url", field_type: "image", position: 30}
+      ]
+    )
+
+  category_entries =
+    if category_collection do
+      [
+        {"stainless-steel", "Stainless Steel", "Durable steel cookers for everyday cooking."},
+        {"hard-anodized", "Hard Anodized", "Premium dark finish cookers with even heating."},
+        {"induction-ready", "Induction Ready", "Cookers designed for induction and gas stoves."}
+      ]
+      |> Enum.map(fn {slug, title, description} ->
+        entry =
+          upsert_entry.(category_collection, %{
+            title: title,
+            slug: slug,
+            payload: %{
+              "title" => title,
+              "description" => description,
+              "image_url" => "/images/logo.png"
+            }
+          })
+
+        {slug, entry && entry.id}
+      end)
+      |> Map.new()
+    else
+      %{}
+    end
+
   service_type =
     upsert_collection.(
       %{
@@ -517,6 +579,17 @@ if tenant do
           filterable: true,
           sortable: true,
           position: 20
+        },
+        %{
+          label: "Category",
+          field_key: "category",
+          field_type: "category",
+          indexed: true,
+          filterable: true,
+          position: 22,
+          settings: %{
+            "category_collection_id" => category_collection && category_collection.id
+          }
         },
         %{
           label: "SKU",
@@ -565,12 +638,20 @@ if tenant do
   if service_type do
     Enum.with_index(services, 1)
     |> Enum.each(fn {{slug, name, price}, index} ->
+      category_slug =
+        cond do
+          String.contains?(slug, "stainless") -> "stainless-steel"
+          String.contains?(slug, "anodized") -> "hard-anodized"
+          true -> "induction-ready"
+        end
+
       upsert_entry.(service_type, %{
         title: name,
         slug: slug,
         payload: %{
           "name" => name,
           "price" => price,
+          "category" => Map.get(category_entries, category_slug),
           "sku" => "PC-#{index}-#{String.upcase(String.slice(slug, 0, 3))}",
           "rating" => Float.round(4.4 + index / 10, 1),
           "in_stock" => true,

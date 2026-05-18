@@ -26,7 +26,7 @@ defmodule MangoCMS.Tenant.Collections.CollectionField do
        {"Reference", "reference"},
        {"Multi-reference", "multi_reference"},
        {"Tags", "tags"},
-       {"Category", "category"},
+       {"Categories", "category"},
        {"Select", "select"}
      ]},
     {"Media",

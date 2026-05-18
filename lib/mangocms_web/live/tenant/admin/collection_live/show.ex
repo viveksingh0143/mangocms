@@ -175,7 +175,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
     {:noreply,
      assign(socket, :sort_editor, %{
        index: index,
-       field: (sort && sort["field"]) || "title",
+       field: (sort && sort["field"]) || default_sort_field(socket.assigns.fields),
        direction: (sort && sort["direction"]) || "asc"
      })}
   end
@@ -229,7 +229,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
     {:noreply,
      assign(socket, :filter_editor, %{
        index: index,
-       field: (filter && filter["field"]) || "title",
+       field: (filter && filter["field"]) || default_sort_field(socket.assigns.fields),
        condition: (filter && filter["condition"]) || "is",
        value: (filter && filter["value"]) || ""
      })}
@@ -495,7 +495,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
       />
 
       <section id="collection-workspace">
-        <div class="overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-sm transition-colors">
+        <div class="rounded-lg border border-base-300 bg-base-100 text-base-content shadow-sm transition-colors">
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 p-4">
             <div class="flex flex-wrap items-center gap-3">
               <h2 class="text-lg font-semibold">Default view</h2>
@@ -880,7 +880,11 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
                     <input type="checkbox" class="checkbox checkbox-sm" />
                   </td>
                   <td :for={field <- visible_fields(@fields)} class="border border-primary/20 p-0">
-                    <.inline_field_cell entry={entry} field={field} />
+                    <.inline_field_cell
+                      entry={entry}
+                      field={field}
+                      category_options_by_field={@category_options_by_field}
+                    />
                   </td>
                   <td class="border border-primary/20">{entry.slug}</td>
                   <td class="border border-primary/20">
@@ -1149,6 +1153,10 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
 
     socket
     |> assign(:fields, fields)
+    |> assign(
+      :category_options_by_field,
+      category_options_by_field(socket.assigns.current_tenant, fields)
+    )
     |> stream(:fields, fields, reset: true)
   end
 
@@ -1210,7 +1218,6 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
   defp sort_field_options(fields) do
     system_options = [
       {"Created At", "inserted_at"},
-      {"Title", "title"},
       {"Slug", "slug"},
       {"Status", "status"}
     ]
@@ -1221,6 +1228,16 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
       |> Enum.map(&{&1.label, &1.field_key})
 
     system_options ++ field_options
+  end
+
+  defp default_sort_field(fields) do
+    fields
+    |> sort_field_options()
+    |> List.first()
+    |> case do
+      {_label, field} -> field
+      nil -> "inserted_at"
+    end
   end
 
   defp filter_field_options(fields), do: sort_field_options(fields)
@@ -1279,6 +1296,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
 
   attr :entry, :any, required: true
   attr :field, :any, required: true
+  attr :category_options_by_field, :map, required: true
 
   defp inline_field_cell(assigns) do
     assigns =
@@ -1393,7 +1411,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
       </form>
 
       <form
-        :if={@field.field_type == "select"}
+        :if={@field.field_type in ~w(select category)}
         id={"inline-field-form-#{@cell_id}"}
         phx-change="update_item_field"
         class="group/cell block min-h-10 border-2 border-transparent transition focus-within:border-primary hover:bg-primary/5"
@@ -1407,11 +1425,11 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
         >
           <option value="">Choose</option>
           <option
-            :for={option <- select_options(@field)}
-            value={option}
-            selected={to_string(@value || "") == option}
+            :for={{label, value} <- select_options(@field, @category_options_by_field)}
+            value={value}
+            selected={to_string(@value || "") == value}
           >
-            {option}
+            {label}
           </option>
         </select>
       </form>
@@ -1497,6 +1515,46 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
   end
 
   defp select_options(_field), do: []
+
+  defp select_options(
+         %CollectionField{field_type: "category", field_key: field_key},
+         category_options
+       ) do
+    Map.get(category_options, field_key, [])
+  end
+
+  defp select_options(%CollectionField{} = field, _category_options) do
+    field
+    |> select_options()
+    |> Enum.map(&{&1, &1})
+  end
+
+  defp category_options_by_field(tenant, fields) do
+    fields
+    |> Enum.filter(&(&1.field_type == "category"))
+    |> Map.new(fn field ->
+      {field.field_key, category_entry_options(tenant, field)}
+    end)
+  end
+
+  defp category_entry_options(tenant, %CollectionField{settings: settings})
+       when is_map(settings) do
+    case Map.get(settings, "category_collection_id") do
+      collection_id when is_binary(collection_id) and collection_id != "" ->
+        collection = Collections.get_collection!(tenant, collection_id)
+
+        tenant
+        |> Collections.list_entries(collection, status: "all")
+        |> Enum.map(&{&1.title || &1.slug, &1.id})
+
+      _other ->
+        []
+    end
+  rescue
+    Ecto.NoResultsError -> []
+  end
+
+  defp category_entry_options(_tenant, _field), do: []
 
   defp image_url([url | _rest]) when is_binary(url), do: url
   defp image_url(url) when is_binary(url) and url != "", do: url

@@ -44,6 +44,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
           form={@form}
           selected_field_type={@selected_field_type}
           action={@action}
+          category_collections={@category_collections}
         />
 
         <.field_validations_step
@@ -132,6 +133,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
           form={@form}
           selected_field_type={@selected_field_type}
           action={@action}
+          category_collections={@category_collections}
         />
         <.field_validations_step
           :if={@field_wizard_step == 3}
@@ -284,6 +286,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
   attr :form, :any, required: true
   attr :selected_field_type, :string, required: true
   attr :action, :atom, required: true
+  attr :category_collections, :list, required: true
 
   defp field_settings_step(assigns) do
     ~H"""
@@ -314,6 +317,33 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
         rows="2"
         placeholder="Shown as guidance on item editing forms."
       />
+
+      <div
+        :if={@selected_field_type == "category"}
+        id="collection-field-category-source"
+        class="rounded-lg border border-base-300 bg-base-200 p-4"
+      >
+        <label class="form-control">
+          <span class="label-text">Category collection</span>
+          <select
+            id="collection_field_category_collection_id"
+            name="collection_field[settings][category_collection_id]"
+            class="select select-bordered"
+          >
+            <option value="">Choose category collection</option>
+            <option
+              :for={collection <- @category_collections}
+              value={collection.id}
+              selected={category_collection_selected?(@form, collection.id)}
+            >
+              {collection.name}
+            </option>
+          </select>
+        </label>
+        <p :if={@category_collections == []} class="mt-2 text-sm text-warning">
+          Create a Category Collection first, then connect this field to it.
+        </p>
+      </div>
 
       <div class="grid gap-5 md:grid-cols-2">
         <.input field={@form[:position]} type="number" label="Position" min="0" />
@@ -499,6 +529,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
      |> assign(:field_type_options, @field_type_options)
      |> assign(:field_type_query, "")
      |> assign(:field_type_groups, CollectionField.field_type_groups())
+     |> assign(:category_collections, Collections.list_category_collections(assigns.tenant))
      |> assign(:options_text, options_text(field))
      |> assign(:default_value, default_value(field))
      |> assign(:min_length, setting_value(field, "min_length"))
@@ -639,9 +670,17 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
 
     settings =
       cond do
+        field_type == "category" -> Map.delete(settings, "options")
         field_type != "select" -> Map.delete(settings, "options")
         options == [] -> Map.delete(settings, "options")
         true -> Map.put(settings, "options", options)
+      end
+
+    settings =
+      if field_type == "category" do
+        settings
+      else
+        Map.delete(settings, "category_collection_id")
       end
 
     settings =
@@ -781,7 +820,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
   defp field_type_description("reference"), do: "Single relation"
   defp field_type_description("multi_reference"), do: "Multiple relations"
   defp field_type_description("tags"), do: "Tag list"
-  defp field_type_description("category"), do: "Category value"
+  defp field_type_description("category"), do: "Assign category items"
   defp field_type_description("select"), do: "Fixed choices"
   defp field_type_description("image"), do: "Single image"
   defp field_type_description("gallery"), do: "Image gallery"
@@ -850,6 +889,14 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.FieldFormComponent do
     case form[:settings].value do
       %{"slug_source" => value} -> truthy?(value)
       %{slug_source: value} -> truthy?(value)
+      _other -> false
+    end
+  end
+
+  defp category_collection_selected?(form, collection_id) do
+    case form[:settings].value do
+      %{"category_collection_id" => ^collection_id} -> true
+      %{category_collection_id: ^collection_id} -> true
       _other -> false
     end
   end
