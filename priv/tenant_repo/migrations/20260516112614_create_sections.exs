@@ -8,11 +8,18 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateSections do
       add :template_key, :string, null: false, default: "custom"
       add :group_label, :string, null: false, default: "General"
       add :mode, :string, null: false, default: "static"
+      add :status, :string, null: false, default: "draft"
       add :settings, :map, null: false, default: %{}
       add :source_config, :map, null: false, default: %{}
       add :filters, :map, null: false, default: %{}
       add :loop_settings, :map, null: false, default: %{"enabled" => false, "limit" => 6}
       add :content_tree, {:array, :map}, null: false, default: []
+      add :published_content_tree, {:array, :map}, null: false, default: []
+      add :published_settings, :map, null: false, default: %{}
+      add :published_source_config, :map, null: false, default: %{}
+      add :published_filters, :map, null: false, default: %{}
+      add :published_loop_settings, :map, null: false, default: %{}
+      add :published_at, :utc_datetime
 
       timestamps(type: :utc_datetime)
     end
@@ -21,6 +28,8 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateSections do
     create_if_not_exists index(:sections, [:template_key])
     create_if_not_exists index(:sections, [:group_label])
     create_if_not_exists index(:sections, [:mode])
+    create_if_not_exists index(:sections, [:status])
+    create_if_not_exists index(:sections, [:published_at])
 
     create_if_not_exists table(:section_versions, primary_key: false) do
       add :id, :binary_id, primary_key: true
@@ -50,6 +59,8 @@ defmodule MangoCMS.Tenant.Repo.Migrations.CreateSections do
     drop_if_exists unique_index(:section_versions, [:section_id, :version_number])
     drop_if_exists table(:section_versions)
 
+    drop_if_exists index(:sections, [:published_at])
+    drop_if_exists index(:sections, [:status])
     drop_if_exists index(:sections, [:mode])
     drop_if_exists index(:sections, [:group_label])
     drop_if_exists index(:sections, [:template_key])

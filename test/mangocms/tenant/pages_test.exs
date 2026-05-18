@@ -109,6 +109,55 @@ defmodule MangoCMS.Tenant.PagesTest do
     assert id == section.id
   end
 
+  test "resolves linked page section embeds from the published section snapshot" do
+    tenant = tenant_fixture()
+
+    {:ok, section} =
+      Pages.create_section(tenant, %{
+        name: "Linked CTA",
+        template_key: "cta.linked",
+        group_label: "Marketing",
+        mode: "fixed",
+        content_tree: content_tree_fixture("Published CTA")
+      })
+
+    {:ok, section} = Pages.publish_section(tenant, section)
+
+    section_ref =
+      MangoCMS.ContentTree.normalize_paths([
+        %{
+          "type" => "component",
+          "name" => "section_ref",
+          "id" => "linked_cta",
+          "template_id" => section.id,
+          "template_linked" => true,
+          "props" => %{"section_id" => section.id, "template_linked" => true},
+          "classes" => %{},
+          "children" => []
+        }
+      ])
+
+    {:ok, page} =
+      Pages.create_page(tenant, %{
+        title: "Linked Page",
+        slug: "linked-page",
+        type: "page",
+        status: "published",
+        content_tree: section_ref
+      })
+
+    assert resolved_heading_text(Pages.resolve_page_content_tree(tenant, page)) == "Published CTA"
+
+    {:ok, draft_section} =
+      Pages.update_section(tenant, section, %{content_tree: content_tree_fixture("Draft CTA")})
+
+    assert resolved_heading_text(Pages.resolve_page_content_tree(tenant, page)) == "Published CTA"
+
+    {:ok, _published_section} = Pages.publish_section(tenant, draft_section)
+
+    assert resolved_heading_text(Pages.resolve_page_content_tree(tenant, page)) == "Draft CTA"
+  end
+
   test "does not return draft pages as public pages" do
     tenant = tenant_fixture()
 
@@ -181,5 +230,15 @@ defmodule MangoCMS.Tenant.PagesTest do
                },
                page.content_tree_version
              )
+  end
+
+  defp resolved_heading_text(tree) do
+    get_in(tree, [
+      Access.at(0),
+      "children",
+      Access.at(0),
+      "props",
+      "text"
+    ])
   end
 end

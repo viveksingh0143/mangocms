@@ -53,6 +53,22 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Index do
     {:noreply, stream_delete(socket, :sections, section)}
   end
 
+  def handle_event("publish", %{"id" => id}, socket) do
+    tenant = socket.assigns.current_tenant
+    section = Pages.get_section!(tenant, id)
+
+    case Pages.publish_section(tenant, section, socket.assigns.current_user) do
+      {:ok, section} ->
+        {:noreply,
+         socket
+         |> stream_insert(:sections, section)
+         |> put_flash(:info, "Section published. Linked pages now use the new version.")}
+
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, error_text(changeset))}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -101,6 +117,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Index do
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-semibold text-base-content">{section.name}</span>
                 <span class={mode_class(section.mode)}>{section.mode}</span>
+                <span class={status_class(section.status)}>{section.status}</span>
               </div>
               <p class="mt-1 text-sm text-base-content/60">
                 {section.group_label} · {section.template_key}
@@ -111,6 +128,15 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Index do
             </div>
 
             <div class="flex items-center gap-3 md:justify-end">
+              <button
+                id={"publish-section-#{section.id}"}
+                type="button"
+                phx-click="publish"
+                phx-value-id={section.id}
+                class="btn btn-sm btn-primary"
+              >
+                Publish
+              </button>
               <.link
                 id={"build-section-#{section.id}"}
                 navigate={~p"/admin/sections/#{section}/builder"}
@@ -144,11 +170,23 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Index do
   end
 
   defp mode_class("dynamic"), do: "badge badge-info"
+  defp mode_class("collection"), do: "badge badge-info"
   defp mode_class("reference"), do: "badge badge-secondary"
   defp mode_class(_mode), do: "badge badge-ghost"
+
+  defp status_class("published"), do: "badge badge-success"
+  defp status_class("archived"), do: "badge badge-warning"
+  defp status_class(_status), do: "badge badge-neutral"
 
   defp loop_summary(%Section{loop_settings: %{"enabled" => true, "limit" => limit}}),
     do: "Loops #{limit || "records"} records"
 
   defp loop_summary(_section), do: "Static content tree"
+
+  defp error_text(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(fn {message, _opts} -> message end)
+    |> Enum.flat_map(fn {field, messages} -> Enum.map(messages, &"#{field} #{&1}") end)
+    |> Enum.join(", ")
+  end
 end

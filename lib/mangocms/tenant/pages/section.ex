@@ -18,7 +18,8 @@ defmodule MangoCMS.Tenant.Pages.Section do
   @foreign_key_type :binary_id
   @timestamps_opts [type: :utc_datetime]
 
-  @modes ~w(static dynamic reference)
+  @modes ~w(static dynamic reference fixed collection)
+  @statuses ~w(draft published archived)
 
   @type t :: %__MODULE__{}
 
@@ -27,11 +28,18 @@ defmodule MangoCMS.Tenant.Pages.Section do
     field :template_key, :string, default: "custom"
     field :group_label, :string, default: "General"
     field :mode, :string, default: "static"
+    field :status, :string, default: "draft"
     field :settings, :map, default: %{}
     field :source_config, :map, default: %{}
     field :filters, :map, default: %{}
     field :loop_settings, :map, default: %{"enabled" => false, "limit" => 6}
     field :content_tree, {:array, :map}, default: []
+    field :published_content_tree, {:array, :map}, default: []
+    field :published_settings, :map, default: %{}
+    field :published_source_config, :map, default: %{}
+    field :published_filters, :map, default: %{}
+    field :published_loop_settings, :map, default: %{}
+    field :published_at, :utc_datetime
 
     has_many :versions, SectionVersion
 
@@ -40,7 +48,20 @@ defmodule MangoCMS.Tenant.Pages.Section do
 
   @doc "Returns section mode options."
   @spec mode_options() :: [{String.t(), String.t()}]
-  def mode_options, do: [{"Static", "static"}, {"Dynamic", "dynamic"}, {"Reference", "reference"}]
+  def mode_options do
+    [
+      {"Fixed", "fixed"},
+      {"Collection", "collection"},
+      {"Static", "static"},
+      {"Dynamic", "dynamic"},
+      {"Reference", "reference"}
+    ]
+  end
+
+  @doc "Returns section status options."
+  @spec status_options() :: [{String.t(), String.t()}]
+  def status_options,
+    do: [{"Draft", "draft"}, {"Published", "published"}, {"Archived", "archived"}]
 
   @doc "Builds a changeset for a reusable section."
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
@@ -51,27 +72,34 @@ defmodule MangoCMS.Tenant.Pages.Section do
       :template_key,
       :group_label,
       :mode,
+      :status,
       :settings,
       :source_config,
       :filters,
       :loop_settings,
-      :content_tree
+      :content_tree,
+      :published_content_tree,
+      :published_settings,
+      :published_source_config,
+      :published_filters,
+      :published_loop_settings,
+      :published_at
     ])
     |> normalize_tree()
     |> normalize_maps()
-    |> validate_required([:name, :template_key, :group_label, :mode, :content_tree])
+    |> validate_required([:name, :template_key, :group_label, :mode, :status, :content_tree])
     |> validate_length(:name, min: 2, max: 160)
     |> validate_length(:template_key, min: 2, max: 120)
     |> validate_length(:group_label, min: 2, max: 80)
     |> validate_inclusion(:mode, @modes)
+    |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:name, name: :sections_name_index)
   end
 
   defp normalize_tree(changeset) do
-    case get_field(changeset, :content_tree) do
-      value when is_list(value) -> changeset
-      _other -> put_change(changeset, :content_tree, [])
-    end
+    changeset
+    |> normalize_list(:content_tree)
+    |> normalize_list(:published_content_tree)
   end
 
   defp normalize_maps(changeset) do
@@ -80,6 +108,17 @@ defmodule MangoCMS.Tenant.Pages.Section do
     |> normalize_map(:source_config)
     |> normalize_map(:filters)
     |> normalize_map(:loop_settings, %{"enabled" => false, "limit" => 6})
+    |> normalize_map(:published_settings)
+    |> normalize_map(:published_source_config)
+    |> normalize_map(:published_filters)
+    |> normalize_map(:published_loop_settings)
+  end
+
+  defp normalize_list(changeset, field) do
+    case get_field(changeset, field) do
+      value when is_list(value) -> changeset
+      _other -> put_change(changeset, field, [])
+    end
   end
 
   defp normalize_map(changeset, field, default \\ %{}) do

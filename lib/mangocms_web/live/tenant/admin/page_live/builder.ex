@@ -1319,8 +1319,11 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "id" => node_id("section-ref"),
       "props" => %{
         "section_id" => section_id,
-        "name" => section && section.name
+        "name" => section && section.name,
+        "template_linked" => true
       },
+      "template_id" => section_id,
+      "template_linked" => true,
       "classes" => %{"display" => ""},
       "children" => (section && section.content_tree) || []
     }

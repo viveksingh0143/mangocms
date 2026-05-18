@@ -23,9 +23,12 @@ defmodule MangoCMSWeb.Public.PageLive do
          |> push_navigate(to: "/")}
 
       page ->
+        resolved_tree = Pages.resolve_page_content_tree(tenant, page)
+
         {:ok,
          assign(socket,
            page: page,
+           resolved_tree: resolved_tree,
            can_edit_page:
              Authorization.can?(socket.assigns[:current_user], :tenant, :manage_pages)
          )}
@@ -46,8 +49,8 @@ defmodule MangoCMSWeb.Public.PageLive do
     />
 
     <main id="public-page" class="bg-base-100 text-base-content">
-      <%= if PageRenderer.tree_present?(@page.content_tree) do %>
-        <PageRenderer.render_tree tree={@page.content_tree} />
+      <%= if PageRenderer.tree_present?(@resolved_tree) do %>
+        <PageRenderer.render_tree tree={@resolved_tree} />
       <% else %>
         <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <h1 class="text-4xl font-bold tracking-tight">{@page.title}</h1>

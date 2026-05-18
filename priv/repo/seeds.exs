@@ -394,11 +394,13 @@ if tenant do
         if valid_password?.(attrs.password) do
           case TenantAccounts.create_user(tenant, attrs) do
             {:ok, user} ->
-              confirm_tenant_user.(user)
+              user = confirm_tenant_user.(user)
               IO.puts("Created tenant #{attrs.role}: #{attrs.email}")
+              user
 
             {:error, changeset} ->
               print_changeset_errors.("Could not create tenant user #{attrs.email}", changeset)
+              nil
           end
         end
 
@@ -407,22 +409,25 @@ if tenant do
 
         case TenantAccounts.update_user(tenant, user, attrs) do
           {:ok, user} ->
-            confirm_tenant_user.(user)
+            user = confirm_tenant_user.(user)
             IO.puts("Updated tenant #{attrs.role}: #{attrs.email}")
+            user
 
           {:error, changeset} ->
             print_changeset_errors.("Could not update tenant user #{attrs.email}", changeset)
+            nil
         end
     end
   end
 
-  upsert_tenant_user.(%{
-    email: tenant_owner_email,
-    full_name: tenant_owner_name,
-    role: "owner",
-    locale: "en",
-    timezone: "Asia/Kolkata"
-  })
+  tenant_owner =
+    upsert_tenant_user.(%{
+      email: tenant_owner_email,
+      full_name: tenant_owner_name,
+      role: "owner",
+      locale: "en",
+      timezone: "Asia/Kolkata"
+    })
 
   upsert_tenant_user.(%{
     email: "admin@#{tenant.domain}",
@@ -1060,6 +1065,7 @@ if tenant do
     end
     |> case do
       {:ok, section} ->
+        {:ok, section} = Pages.publish_section(tenant, section, tenant_owner)
         IO.puts("Seeded section: #{section.name}")
         section
 
@@ -1131,32 +1137,34 @@ if tenant do
             )
           ])
         ]),
-        slider_row.(
-          "review_slider_cards",
-          Enum.map(1..4, fn index ->
-            slider_card.("review_slider_card_#{index}", [
-              paragraph.(
-                "review_slider_quote_#{index}",
-                "MangoCMS helped us publish faster without losing tenant isolation or design control.",
-                "text-base leading-7 text-base-content/80"
-              ),
-              heading.(
-                "review_slider_name_#{index}",
-                Enum.at(["Vivek Singh", "Priya Sharma", "Aarav Mehta", "Neha Kapoor"], index - 1),
-                3,
-                "mt-5 text-lg font-semibold text-base-content"
-              ),
-              paragraph.(
-                "review_slider_company_#{index}",
-                Enum.at(
-                  ["Acme Studio", "Northstar Labs", "Saffron Cloud", "Bluepine Works"],
-                  index - 1
+        slider_row.("review_slider_cards", [
+          node.(
+            "loop",
+            "review_slider_loop",
+            %{"source" => "collection_results", "as" => "review"},
+            %{"custom" => "flex gap-4 overflow-x-auto scroll-smooth pb-3 snap-x"},
+            [
+              slider_card.("review_slider_card_template", [
+                paragraph.(
+                  "review_slider_quote",
+                  "{{review.payload.quote}}",
+                  "text-base leading-7 text-base-content/80"
                 ),
-                "mt-1 text-sm text-base-content/60"
-              )
-            ])
-          end)
-        )
+                heading.(
+                  "review_slider_name",
+                  "{{review.payload.customer_name}}",
+                  3,
+                  "mt-5 text-lg font-semibold text-base-content"
+                ),
+                paragraph.(
+                  "review_slider_company",
+                  "{{review.payload.company}} · {{review.payload.rating}}/5",
+                  "mt-1 text-sm text-base-content/60"
+                )
+              ])
+            ]
+          )
+        ])
       ])
     ])
 
@@ -1189,8 +1197,98 @@ if tenant do
       filters: %{"rules" => [%{"field" => "rating", "op" => ">=", "value" => 4}]},
       loop_settings: %{
         "enabled" => true,
-        "limit" => 6,
+        "limit" => 10,
         "layout" => "slider",
+        "item_component" => "review_card"
+      }
+    })
+
+  review_carousel_tree =
+    ContentTree.normalize_paths([
+      section.("review_carousel_section", "bg-base-200", [
+        row.("review_carousel_header_row", [
+          column.("review_carousel_header", "col-span-12 text-center", [
+            heading.(
+              "review_carousel_title",
+              "Customer stories carousel",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "review_carousel_intro",
+              "A carousel-style custom section that pulls the highest-rated reviews from Collections.",
+              "mx-auto mt-3 max-w-3xl text-base text-base-content/70"
+            )
+          ])
+        ]),
+        row.("review_carousel_row", [
+          node.(
+            "loop",
+            "review_carousel_loop",
+            %{"source" => "collection_results", "as" => "review"},
+            %{
+              "custom" =>
+                "col-span-12 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth pb-4"
+            },
+            [
+              column.(
+                "review_carousel_card_template",
+                "w-[26rem] shrink-0 snap-center rounded-2xl border border-base-300 bg-base-100 p-7 shadow-lg",
+                [
+                  paragraph.(
+                    "review_carousel_rating",
+                    "Rating {{review.payload.rating}}/5",
+                    "text-sm font-semibold uppercase tracking-wide text-primary"
+                  ),
+                  paragraph.(
+                    "review_carousel_quote",
+                    "{{review.payload.quote}}",
+                    "mt-4 text-lg leading-8 text-base-content/80"
+                  ),
+                  heading.(
+                    "review_carousel_name",
+                    "{{review.payload.customer_name}}",
+                    3,
+                    "mt-6 text-xl font-semibold text-base-content"
+                  ),
+                  paragraph.(
+                    "review_carousel_company",
+                    "{{review.payload.company}}",
+                    "mt-1 text-sm text-base-content/60"
+                  )
+                ]
+              )
+            ]
+          )
+        ])
+      ])
+    ])
+
+  global_review_carousel =
+    upsert_section.(%{
+      name: "Customer Review Carousel",
+      template_key: "carousel.customer_reviews",
+      group_label: "Proof",
+      mode: "collection",
+      content_tree: review_carousel_tree,
+      settings: %{
+        "section_type" => "carousel",
+        "variant" => "customer_reviews",
+        "items_visible" => %{"desktop" => 2, "tablet" => 1, "mobile" => 1},
+        "interval_ms" => 6500,
+        "transition" => "snap",
+        "controls" => %{"arrows" => true, "dots" => true, "pause_on_hover" => true}
+      },
+      source_config: %{
+        "kind" => "collection",
+        "collection_slug" => "customer_reviews",
+        "sort" => %{"field" => "rating", "direction" => "desc"}
+      },
+      filters: %{"rules" => [%{"field" => "rating", "op" => ">=", "value" => 4}]},
+      loop_settings: %{
+        "enabled" => true,
+        "limit" => 10,
+        "layout" => "carousel",
         "item_component" => "review_card"
       }
     })
@@ -1221,32 +1319,44 @@ if tenant do
             button.("product_slider_button", "See all products", "/services")
           ])
         ]),
-        slider_row.(
-          "product_slider_cards",
-          Enum.map(services, fn {_slug, name, price} ->
-            slider_card.(
-              "product_slider_card_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
-              [
+        slider_row.("product_slider_cards", [
+          node.(
+            "loop",
+            "product_slider_loop",
+            %{"source" => "collection_results", "as" => "product"},
+            %{"custom" => "flex gap-4 overflow-x-auto scroll-smooth pb-3 snap-x"},
+            [
+              slider_card.("product_slider_card_template", [
+                image.(
+                  "product_slider_card_image",
+                  "{{product.payload.image_url}}",
+                  "{{product.payload.name}}"
+                ),
                 heading.(
-                  "product_slider_card_title_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
-                  name,
+                  "product_slider_card_title",
+                  "{{product.payload.name}}",
                   3,
-                  "text-xl font-semibold text-base-content"
+                  "mt-4 text-xl font-semibold text-base-content"
                 ),
                 paragraph.(
-                  "product_slider_card_price_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
-                  "From Rs. #{div(price, 100)}",
+                  "product_slider_card_price",
+                  "Rs. {{product.payload.price}}",
                   "mt-3 text-2xl font-bold text-primary"
                 ),
                 paragraph.(
-                  "product_slider_card_copy_#{String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")}",
-                  MangoCMS.Seeds.Faker.sentence(name),
+                  "product_slider_card_copy",
+                  "{{product.payload.description}}",
                   "mt-3 text-sm leading-6 text-base-content/70"
+                ),
+                button.(
+                  "product_slider_card_button",
+                  "View product",
+                  "/products/{{product.slug}}"
                 )
-              ]
-            )
-          end)
-        )
+              ])
+            ]
+          )
+        ])
       ])
     ])
 
@@ -1285,14 +1395,146 @@ if tenant do
       }
     })
 
+  gallery_tree =
+    ContentTree.normalize_paths([
+      section.("media_gallery_section", "bg-base-100", [
+        row.("media_gallery_header_row", [
+          column.("media_gallery_header", "col-span-12 lg:col-span-8", [
+            heading.(
+              "media_gallery_title",
+              "Reusable media gallery",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "media_gallery_intro",
+              "A fixed gallery section seeded from tenant media assets. Swap images in the section builder.",
+              "mt-3 text-base text-base-content/70"
+            )
+          ])
+        ]),
+        row.("media_gallery_grid", [
+          column.("media_gallery_large", "col-span-12 md:col-span-6", [
+            image.("media_gallery_image_1", media_url.(1), "Gallery image 1")
+          ]),
+          column.("media_gallery_stack", "col-span-12 grid gap-6 md:col-span-6 md:grid-cols-2", [
+            image.("media_gallery_image_2", media_url.(2), "Gallery image 2"),
+            image.("media_gallery_image_3", media_url.(3), "Gallery image 3"),
+            image.("media_gallery_image_4", media_url.(4), "Gallery image 4"),
+            image.("media_gallery_image_5", media_url.(5), "Gallery image 5")
+          ])
+        ])
+      ])
+    ])
+
+  global_media_gallery =
+    upsert_section.(%{
+      name: "Media Gallery",
+      template_key: "gallery.media",
+      group_label: "Media",
+      mode: "fixed",
+      content_tree: gallery_tree,
+      settings: %{
+        "section_type" => "gallery",
+        "variant" => "masonry",
+        "editable_fields" => ["title", "body", "images"],
+        "columns" => %{"desktop" => 4, "tablet" => 2, "mobile" => 1}
+      },
+      source_config: %{"kind" => "fixed"},
+      filters: %{},
+      loop_settings: %{"enabled" => false, "limit" => 5}
+    })
+
+  blog_grid_tree =
+    ContentTree.normalize_paths([
+      section.("blog_grid_section", "bg-base-100", [
+        row.("blog_grid_header_row", [
+          column.("blog_grid_header", "col-span-12", [
+            heading.(
+              "blog_grid_title",
+              "Latest articles",
+              2,
+              "text-3xl font-bold text-base-content"
+            ),
+            paragraph.(
+              "blog_grid_intro",
+              "A dynamic card grid section backed by the Blog Posts collection.",
+              "mt-3 max-w-3xl text-base text-base-content/70"
+            )
+          ])
+        ]),
+        row.("blog_grid_cards_row", [
+          node.(
+            "loop",
+            "blog_grid_loop",
+            %{"source" => "collection_results", "as" => "post"},
+            %{"custom" => "col-span-12 grid gap-6 md:grid-cols-3"},
+            [
+              column.(
+                "blog_grid_card_template",
+                "rounded-xl border border-base-300 bg-base-100 p-6 shadow-sm",
+                [
+                  paragraph.(
+                    "blog_grid_card_author",
+                    "{{post.payload.author}}",
+                    "text-sm font-semibold uppercase tracking-wide text-primary"
+                  ),
+                  heading.(
+                    "blog_grid_card_title",
+                    "{{post.payload.title}}",
+                    3,
+                    "mt-3 text-xl font-semibold text-base-content"
+                  ),
+                  paragraph.(
+                    "blog_grid_card_excerpt",
+                    "{{post.payload.excerpt}}",
+                    "mt-3 text-sm leading-6 text-base-content/70"
+                  ),
+                  button.("blog_grid_card_button", "Read article", "/blog/{{post.slug}}")
+                ]
+              )
+            ]
+          )
+        ])
+      ])
+    ])
+
+  global_blog_grid =
+    upsert_section.(%{
+      name: "Blog Card Grid",
+      template_key: "grid.blog_posts",
+      group_label: "Content",
+      mode: "collection",
+      content_tree: blog_grid_tree,
+      settings: %{
+        "section_type" => "grid",
+        "variant" => "blog_cards",
+        "columns" => %{"desktop" => 3, "tablet" => 2, "mobile" => 1}
+      },
+      source_config: %{
+        "kind" => "collection",
+        "collection_slug" => "blog_posts",
+        "sort" => %{"field" => "published_at", "direction" => "desc"}
+      },
+      filters: %{},
+      loop_settings: %{
+        "enabled" => true,
+        "limit" => 6,
+        "layout" => "grid",
+        "item_component" => "blog_card"
+      }
+    })
+
   section_node = fn id, section ->
     node.(
       "section_ref",
       id,
-      %{"section_id" => section.id, "name" => section.name},
+      %{"section_id" => section.id, "name" => section.name, "template_linked" => true},
       %{"display" => ""},
       section.content_tree
     )
+    |> Map.put("template_id", section.id)
+    |> Map.put("template_linked", true)
   end
 
   upsert_page = fn attrs ->
@@ -1351,6 +1593,7 @@ if tenant do
           ])
         ])
       ]),
+      section_node.("welcome_media_gallery", global_media_gallery),
       section_node.("welcome_global_cta", global_cta)
     ])
 
@@ -1390,6 +1633,7 @@ if tenant do
         ])
       ]),
       section_node.("services_product_slider", global_product_slider),
+      section_node.("services_blog_grid", global_blog_grid),
       section.("services_cards", "bg-base-200", [
         row.("services_cards_row", [
           column.("services_card_1", "col-span-12 md:col-span-6 lg:col-span-4", [
@@ -1469,6 +1713,7 @@ if tenant do
         ])
       ]),
       section_node.("customers_review_slider", global_review_slider),
+      section_node.("customers_review_carousel", global_review_carousel),
       section.("customers_quotes", "bg-base-200", [
         row.("customers_quotes_row", [
           column.("customers_quote_1", "col-span-12 md:col-span-4", [

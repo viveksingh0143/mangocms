@@ -23,8 +23,11 @@ defmodule MangoCMSWeb.PageController do
         |> text("Page not found")
 
       page ->
+        resolved_tree = Pages.resolve_page_content_tree(tenant, page)
+
         render(conn, :show,
           page: page,
+          resolved_tree: resolved_tree,
           can_edit_page: Authorization.can?(conn.assigns[:current_user], :tenant, :manage_pages)
         )
     end

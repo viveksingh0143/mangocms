@@ -2,8 +2,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.FormComponent do
   use MangoCMSWeb, :live_component
 
   alias MangoCMS.Tenant.Pages
-
-  @mode_options [{"Static", "static"}, {"Dynamic", "dynamic"}, {"Reference", "reference"}]
+  alias MangoCMS.Tenant.Pages.Section
 
   @impl true
   def render(assigns) do
@@ -106,7 +105,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:mode_options, @mode_options)
+     |> assign(:mode_options, Section.mode_options())
      |> assign_json_fields(section)
      |> assign_form(changeset)}
   end

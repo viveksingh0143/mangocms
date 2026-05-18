@@ -24,7 +24,18 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       "button",
       "anchor",
       "dynamic_form",
+      "loop",
       "section_ref"
+    ],
+    "loop" => [
+      "heading",
+      "paragraph",
+      "blockquote",
+      "image",
+      "video",
+      "button",
+      "anchor",
+      "column"
     ],
     "section_ref" => []
   }
@@ -160,6 +171,12 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         <%= for child <- @children do %>
           <.editable_node node={child} selected_id={@selected_id} />
         <% end %>
+      <% "loop" -> %>
+        <div class={PageElements.class_names(@classes, "grid gap-4 md:grid-cols-3")}>
+          <%= for child <- @children do %>
+            <.editable_node node={child} selected_id={@selected_id} />
+          <% end %>
+        </div>
       <% "heading" -> %>
         <.editable_text_node node={@node} tag="heading" classes={@classes} />
       <% "paragraph" -> %>

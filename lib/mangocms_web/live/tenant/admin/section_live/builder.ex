@@ -124,6 +124,23 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
     end
   end
 
+  def handle_event("publish_section", _params, socket) do
+    case Pages.publish_section(
+           socket.assigns.current_tenant,
+           socket.assigns.section,
+           socket.assigns.current_user
+         ) do
+      {:ok, section} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Section published. Linked page embeds now use this version.")
+         |> assign(:section, section)}
+
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, error_text(changeset))}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -140,6 +157,14 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         <.button id="back-to-sections-button" navigate={~p"/admin/sections"} class="btn btn-ghost">
           Back
         </.button>
+        <button
+          id="section-builder-publish-button"
+          type="button"
+          phx-click="publish_section"
+          class="btn btn-primary"
+        >
+          Publish section
+        </button>
       </:actions>
 
       <section id="section-builder" class={section_builder_grid_class(assigns)}>
@@ -454,7 +479,8 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
       %{name: "heading", label: "Heading", icon: "hero-h1"},
       %{name: "paragraph", label: "Paragraph", icon: "hero-document-text"},
       %{name: "image", label: "Image", icon: "hero-photo"},
-      %{name: "button", label: "Button", icon: "hero-cursor-arrow-rays"}
+      %{name: "button", label: "Button", icon: "hero-cursor-arrow-rays"},
+      %{name: "loop", label: "Collection loop", icon: "hero-arrow-path-rounded-square"}
     ]
   end
 
@@ -484,6 +510,30 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   defp new_node("button") do
     leaf_node("button", %{"text" => "Learn more", "href" => "#"}, %{"custom" => "btn btn-primary"})
+  end
+
+  defp new_node("loop") do
+    %{
+      "type" => "component",
+      "name" => "loop",
+      "id" => node_id("loop"),
+      "props" => %{"source" => "collection_results", "as" => "item"},
+      "classes" => %{"custom" => "grid gap-4 md:grid-cols-3"},
+      "children" => [
+        container_node("column", %{"custom" => "card bg-base-100 p-5 shadow-sm"})
+        |> Map.put("children", [
+          leaf_node("heading", %{"text" => "{{item.title}}", "level" => "3"}, %{
+            "custom" => "text-xl font-semibold"
+          }),
+          leaf_node("paragraph", %{"text" => "{{item.payload.description}}"}, %{
+            "custom" => "mt-2 text-base-content/70"
+          }),
+          leaf_node("button", %{"text" => "Open", "href" => "/{{item.slug}}"}, %{
+            "custom" => "btn btn-primary btn-sm mt-4"
+          })
+        ])
+      ]
+    }
   end
 
   defp new_node(_name), do: new_node("paragraph")
