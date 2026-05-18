@@ -22,6 +22,10 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
          |> assign(:sorts_open?, false)
          |> assign(:image_modal, nil)
          |> assign(:image_url_modal, nil)
+         |> assign(:confirm_modal, nil)
+         |> assign(:draft_row?, false)
+         |> assign(:draft_payload, %{})
+         |> assign(:draft_status, "draft")
          |> allow_upload(:inline_image,
            accept: ~w(.jpg .jpeg .png .gif .webp .svg),
            max_entries: 1,
@@ -109,17 +113,20 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
 
   @impl true
   def handle_event("delete_field", %{"id" => id}, socket) do
-    tenant = socket.assigns.current_tenant
-    field = Collections.get_collection_field!(tenant, id)
+    {:noreply, delete_field_by_id(socket, id)}
+  end
+
+  def handle_event("confirm_delete_field", %{"id" => id}, socket) do
+    field = Collections.get_collection_field!(socket.assigns.current_tenant, id)
     ensure_field_belongs_to_collection!(socket.assigns.collection, field)
 
-    if field.system do
-      raise Ecto.NoResultsError, queryable: CollectionField
-    end
-
-    {:ok, _field} = Collections.delete_collection_field(tenant, field)
-
-    {:noreply, stream_fields(socket, socket.assigns.collection)}
+    {:noreply,
+     assign(socket, :confirm_modal, %{
+       action: "delete_field",
+       id: field.id,
+       title: "Delete field?",
+       body: "This will remove #{field.label} and rebuild item indexes."
+     })}
   end
 
   def handle_event("toggle_manage_fields", _params, socket) do
@@ -295,12 +302,85 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
   end
 
   def handle_event("delete_entry", %{"id" => id}, socket) do
-    tenant = socket.assigns.current_tenant
-    entry = Collections.get_entry!(tenant, id)
-    ensure_entry_belongs_to_collection!(socket.assigns.collection, entry)
-    {:ok, _entry} = Collections.delete_entry(tenant, entry)
+    {:noreply, delete_entry_by_id(socket, id)}
+  end
 
-    {:noreply, assign_entries(socket, socket.assigns.collection)}
+  def handle_event("confirm_delete_entry", %{"id" => id}, socket) do
+    entry = Collections.get_entry!(socket.assigns.current_tenant, id)
+    ensure_entry_belongs_to_collection!(socket.assigns.collection, entry)
+
+    {:noreply,
+     assign(socket, :confirm_modal, %{
+       action: "delete_entry",
+       id: entry.id,
+       title: "Delete row?",
+       body: "This collection item will be permanently deleted."
+     })}
+  end
+
+  def handle_event("close_confirm_modal", _params, socket) do
+    {:noreply, assign(socket, :confirm_modal, nil)}
+  end
+
+  def handle_event("confirm_modal_action", _params, %{assigns: %{confirm_modal: nil}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("confirm_modal_action", _params, socket) do
+    modal = socket.assigns.confirm_modal
+
+    socket =
+      case modal.action do
+        "delete_entry" -> delete_entry_by_id(socket, modal.id)
+        "delete_field" -> delete_field_by_id(socket, modal.id)
+      end
+
+    {:noreply, assign(socket, :confirm_modal, nil)}
+  end
+
+  def handle_event("start_draft_row", _params, socket) do
+    {:noreply, assign(socket, draft_row?: true, draft_payload: %{}, draft_status: "draft")}
+  end
+
+  def handle_event("cancel_draft_row", _params, socket) do
+    {:noreply, assign(socket, draft_row?: false, draft_payload: %{}, draft_status: "draft")}
+  end
+
+  def handle_event("update_draft_row", %{"field" => field_key, "value" => value}, socket) do
+    field = collection_field!(socket.assigns.fields, field_key)
+    payload = update_payload_value(socket.assigns.draft_payload, field, value)
+    {:noreply, assign(socket, :draft_payload, payload)}
+  end
+
+  def handle_event("update_draft_status", %{"value" => status}, socket)
+      when status in ~w(draft published archived) do
+    {:noreply, assign(socket, :draft_status, status)}
+  end
+
+  def handle_event("save_draft_row", _params, socket) do
+    params =
+      draft_entry_params(
+        socket.assigns.fields,
+        socket.assigns.draft_payload,
+        socket.assigns.draft_status
+      )
+
+    case Collections.create_entry(
+           socket.assigns.current_tenant,
+           socket.assigns.collection,
+           params,
+           owner_id: socket.assigns.current_user && socket.assigns.current_user.id
+         ) do
+      {:ok, _entry} ->
+        {:noreply,
+         socket
+         |> assign(draft_row?: false, draft_payload: %{}, draft_status: "draft")
+         |> assign_entries(socket.assigns.collection)
+         |> put_flash(:info, "Row saved successfully.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not save row. Check required fields.")}
+    end
   end
 
   def handle_event(
@@ -901,23 +981,73 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
                     <button
                       id={"delete-collection-item-#{entry.id}"}
                       type="button"
-                      phx-click="delete_entry"
+                      phx-click="confirm_delete_entry"
                       phx-value-id={entry.id}
-                      data-confirm="Delete this collection item?"
                       class="btn btn-xs btn-ghost text-error"
                     >
                       Delete
                     </button>
                   </td>
                 </tr>
+                <tr :if={@draft_row?} id="draft-collection-row">
+                  <td class="border border-primary/20">
+                    <input type="checkbox" class="checkbox checkbox-sm" disabled />
+                  </td>
+                  <td :for={field <- visible_fields(@fields)} class="border border-primary/20 p-0">
+                    <.draft_field_cell
+                      field={field}
+                      payload={@draft_payload}
+                      category_options_by_field={@category_options_by_field}
+                    />
+                  </td>
+                  <td class="border border-primary/20 text-base-content/40">Generated on save</td>
+                  <td class="border border-primary/20 p-0">
+                    <form id="draft-row-status-form" phx-change="update_draft_status" class="contents">
+                      <select
+                        id="draft-row-status"
+                        name="value"
+                        class="h-10 w-full bg-transparent px-2 text-sm outline-none"
+                      >
+                        <option value="draft" selected={@draft_status == "draft"}>Draft</option>
+                        <option value="published" selected={@draft_status == "published"}>
+                          Published
+                        </option>
+                        <option value="archived" selected={@draft_status == "archived"}>
+                          Archived
+                        </option>
+                      </select>
+                    </form>
+                  </td>
+                  <td class="border border-primary/20">
+                    <button
+                      id="save-draft-row-button"
+                      type="button"
+                      phx-click="save_draft_row"
+                      class="btn btn-xs btn-primary"
+                    >
+                      Save
+                    </button>
+                    <button
+                      id="cancel-draft-row-button"
+                      type="button"
+                      phx-click="cancel_draft_row"
+                      class="btn btn-xs btn-ghost"
+                    >
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
                 <tr>
                   <td colspan={length(visible_fields(@fields)) + 4}>
-                    <.link
-                      patch={"#{@collection_base_path}/#{@collection.id}/items/new"}
+                    <button
+                      id="add-draft-row-button"
+                      type="button"
+                      phx-click="start_draft_row"
+                      disabled={@draft_row?}
                       class="btn btn-ghost text-primary"
                     >
-                      <.icon name="hero-plus" class="size-4" /> Add Item
-                    </.link>
+                      <.icon name="hero-plus" class="size-4" /> Add Row
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -1057,10 +1187,9 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
                     <button
                       id={"delete-collection-field-#{field.id}"}
                       type="button"
-                      phx-click="delete_field"
+                      phx-click="confirm_delete_field"
                       phx-value-id={field.id}
                       disabled={field.system}
-                      data-confirm="Delete this field and rebuild item indexes?"
                       class="text-error"
                     >
                       Delete
@@ -1143,6 +1272,24 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
             <button type="button" phx-click="close_image_url_modal">close</button>
           </form>
         </dialog>
+
+        <dialog :if={@confirm_modal} id="collection-confirm-modal" open class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-semibold">{@confirm_modal.title}</h3>
+            <p class="mt-2 text-sm text-base-content/70">{@confirm_modal.body}</p>
+            <div class="modal-action">
+              <button type="button" phx-click="close_confirm_modal" class="btn btn-ghost">
+                Cancel
+              </button>
+              <button type="button" phx-click="confirm_modal_action" class="btn btn-error">
+                Delete
+              </button>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop">
+            <button type="button" phx-click="close_confirm_modal">close</button>
+          </form>
+        </dialog>
       </section>
     </Layouts.tenant_admin>
     """
@@ -1189,6 +1336,70 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
     if entry.collection_id != collection.id do
       raise Ecto.NoResultsError, queryable: CollectionItem
     end
+  end
+
+  defp delete_entry_by_id(socket, id) do
+    tenant = socket.assigns.current_tenant
+    entry = Collections.get_entry!(tenant, id)
+    ensure_entry_belongs_to_collection!(socket.assigns.collection, entry)
+    {:ok, _entry} = Collections.delete_entry(tenant, entry)
+    assign_entries(socket, socket.assigns.collection)
+  end
+
+  defp delete_field_by_id(socket, id) do
+    tenant = socket.assigns.current_tenant
+    field = Collections.get_collection_field!(tenant, id)
+    ensure_field_belongs_to_collection!(socket.assigns.collection, field)
+
+    if field.system do
+      raise Ecto.NoResultsError, queryable: CollectionField
+    end
+
+    {:ok, _field} = Collections.delete_collection_field(tenant, field)
+
+    socket
+    |> stream_fields(socket.assigns.collection)
+    |> assign_entries(socket.assigns.collection)
+  end
+
+  defp draft_entry_params(fields, payload, status) do
+    title =
+      fields
+      |> draft_title_field()
+      |> then(fn
+        nil -> nil
+        field -> Map.get(payload || %{}, field.field_key)
+      end)
+      |> to_string()
+
+    title = if title == "", do: "New row", else: title
+
+    %{
+      "title" => title,
+      "slug" => draft_slug(title),
+      "status" => status,
+      "payload" => payload || %{}
+    }
+  end
+
+  defp draft_title_field(fields) do
+    Enum.find(fields, & &1.primary) ||
+      Enum.find(fields, fn field ->
+        field.field_key in ["name", "title"]
+      end)
+  end
+
+  defp draft_slug(value) do
+    base =
+      value
+      |> to_string()
+      |> String.downcase()
+      |> String.trim()
+      |> String.replace(~r/[^a-z0-9_-]+/, "-")
+      |> String.trim("-")
+
+    suffix = System.unique_integer([:positive]) |> Integer.to_string()
+    if base == "", do: "new-row-#{suffix}", else: "#{base}-#{suffix}"
   end
 
   defp page_title(:show), do: "Collection"
@@ -1393,7 +1604,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
       </div>
 
       <form
-        :if={@field.field_type not in ~w(image gallery boolean select)}
+        :if={@field.field_type not in ~w(image gallery boolean select category)}
         id={"inline-field-form-#{@cell_id}"}
         phx-change="update_item_field"
         class="group/cell block min-h-10 border-2 border-transparent transition focus-within:border-primary hover:bg-primary/5"
@@ -1450,6 +1661,86 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
         />
         <span class="text-xs text-base-content/60">{@display_value}</span>
       </label>
+    </div>
+    """
+  end
+
+  attr :field, :any, required: true
+  attr :payload, :map, required: true
+  attr :category_options_by_field, :map, required: true
+
+  defp draft_field_cell(assigns) do
+    assigns =
+      assigns
+      |> assign(:value, Map.get(assigns.payload || %{}, assigns.field.field_key))
+      |> assign(:cell_id, "draft-#{assigns.field.field_key}")
+
+    ~H"""
+    <div class="min-w-40">
+      <form
+        :if={@field.field_type not in ~w(image gallery boolean select category)}
+        id={"draft-field-form-#{@cell_id}"}
+        phx-change="update_draft_row"
+        class="group/cell block min-h-10 border-2 border-transparent transition focus-within:border-primary hover:bg-primary/5"
+      >
+        <input type="hidden" name="field" value={@field.field_key} />
+        <input
+          id={"draft-field-input-#{@cell_id}"}
+          name="value"
+          type={inline_input_type(@field)}
+          value={inline_input_value(@value, @field)}
+          phx-debounce="300"
+          class="h-10 w-full min-w-40 bg-transparent px-2 text-sm outline-none"
+        />
+      </form>
+
+      <form
+        :if={@field.field_type in ~w(select category)}
+        id={"draft-field-form-#{@cell_id}"}
+        phx-change="update_draft_row"
+        class="group/cell block min-h-10 border-2 border-transparent transition focus-within:border-primary hover:bg-primary/5"
+      >
+        <input type="hidden" name="field" value={@field.field_key} />
+        <select
+          id={"draft-field-input-#{@cell_id}"}
+          name="value"
+          class="h-10 w-full min-w-40 bg-transparent px-2 text-sm outline-none"
+        >
+          <option value="">Choose</option>
+          <option
+            :for={{label, value} <- select_options(@field, @category_options_by_field)}
+            value={value}
+            selected={to_string(@value || "") == value}
+          >
+            {label}
+          </option>
+        </select>
+      </form>
+
+      <label
+        :if={@field.field_type == "boolean"}
+        class="group/cell flex min-h-10 items-center gap-2 border-2 border-transparent px-2 transition focus-within:border-primary hover:bg-primary/5"
+      >
+        <input
+          id={"draft-field-input-#{@cell_id}"}
+          type="checkbox"
+          checked={@value in [true, "true", "1", 1]}
+          class="toggle toggle-xs"
+          phx-click="update_draft_row"
+          phx-value-field={@field.field_key}
+          phx-value-value={if(@value in [true, "true", "1", 1], do: "false", else: "true")}
+        />
+        <span class="text-xs text-base-content/60">
+          {if(@value in [true, "true", "1", 1], do: "Yes", else: "No")}
+        </span>
+      </label>
+
+      <div
+        :if={@field.field_type in ~w(image gallery)}
+        class="min-h-10 px-2 py-2 text-sm text-base-content/50"
+      >
+        Use full item form for media uploads.
+      </div>
     </div>
     """
   end

@@ -408,8 +408,13 @@ document.addEventListener("click", event => {
   const confirmAction = () => {
     cleanup()
     dialog.close()
+    const confirmMessage = trigger.dataset.confirm
     trigger.dataset.confirmed = "true"
+    delete trigger.dataset.confirm
     trigger.click()
+    window.setTimeout(() => {
+      if (confirmMessage !== undefined) trigger.dataset.confirm = confirmMessage
+    }, 0)
   }
 
   accept.addEventListener("click", confirmAction, {once: true})

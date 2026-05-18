@@ -184,6 +184,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
       assert Collections.get_collection_by_slug(tenant, "services").name == "Service Catalog"
 
       assert index_live |> element("#delete-collection-#{collection.id}") |> render_click()
+      assert has_element?(index_live, "#collection-confirm-modal")
+      assert index_live |> element("#collection-confirm-modal button", "Delete") |> render_click()
       refute Collections.get_collection_by_slug(tenant, "services")
     end
 
@@ -294,6 +296,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
       assert show_live |> element("#manage-fields-button") |> render_click()
       assert has_element?(show_live, "#collection-field-#{field.id}", "Service Price")
       assert show_live |> element("#delete-collection-field-#{field.id}") |> render_click()
+      assert has_element?(show_live, "#collection-confirm-modal")
+      assert show_live |> element("#collection-confirm-modal button", "Delete") |> render_click()
       assert Collections.list_collection_fields(tenant, collection) == []
     end
 
@@ -503,7 +507,39 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLiveTest do
       assert entry.payload["on_sale"] == false
 
       assert entries_live |> element("#delete-collection-item-#{entry.id}") |> render_click()
+      assert has_element?(entries_live, "#collection-confirm-modal")
+
+      assert entries_live
+             |> element("#collection-confirm-modal button", "Delete")
+             |> render_click()
+
       assert Collections.list_entries(tenant, collection, status: "all") == []
+    end
+
+    test "adds a blank table row and saves it from row actions", %{conn: conn} do
+      tenant = tenant_fixture()
+      collection = service_type_with_fields_fixture(tenant)
+      {conn, _user} = conn |> host_conn(tenant.domain) |> register_and_log_in_tenant_user(tenant)
+      {:ok, entries_live, _html} = live(conn, ~p"/admin/collections/#{collection}")
+
+      assert has_element?(entries_live, "#add-draft-row-button", "Add Row")
+      assert entries_live |> element("#add-draft-row-button") |> render_click()
+      assert has_element?(entries_live, "#draft-collection-row")
+
+      assert entries_live
+             |> form("#draft-field-form-draft-name", field: "name", value: "Inline Service")
+             |> render_change()
+
+      assert entries_live
+             |> form("#draft-field-form-draft-price", field: "price", value: "499")
+             |> render_change()
+
+      assert entries_live |> element("#save-draft-row-button") |> render_click()
+
+      [entry] = Collections.list_entries(tenant, collection, status: "all")
+      assert entry.title == "Inline Service"
+      assert entry.payload["price"] == 499.0
+      refute has_element?(entries_live, "#draft-collection-row")
     end
 
     test "updates generated slug and accepts datetime-local payload values", %{conn: conn} do

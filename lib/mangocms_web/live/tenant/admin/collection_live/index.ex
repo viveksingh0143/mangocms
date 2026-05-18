@@ -17,6 +17,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Index do
          |> assign(:collection_query, "")
          |> assign(:collections, collections)
          |> assign(:collection_entry_counts, Collections.collection_entry_counts(tenant))
+         |> assign(:confirm_modal, nil)
          |> stream(:collections, collections)}
 
       {:redirect, socket} ->
@@ -73,16 +74,48 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Index do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
+    {:noreply, delete_collection_by_id(socket, id)}
+  end
+
+  def handle_event("confirm_delete", %{"id" => id}, socket) do
+    tenant = socket.assigns.current_tenant
+    collection = Collections.get_collection!(tenant, id)
+
+    {:noreply,
+     assign(socket, :confirm_modal, %{
+       id: collection.id,
+       title: "Delete collection?",
+       body: "This will remove #{collection.name}, its fields, and all collection items."
+     })}
+  end
+
+  def handle_event("close_confirm_modal", _params, socket) do
+    {:noreply, assign(socket, :confirm_modal, nil)}
+  end
+
+  def handle_event("confirm_modal_action", _params, %{assigns: %{confirm_modal: nil}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("confirm_modal_action", _params, socket) do
+    socket =
+      socket
+      |> delete_collection_by_id(socket.assigns.confirm_modal.id)
+      |> assign(:confirm_modal, nil)
+
+    {:noreply, socket}
+  end
+
+  defp delete_collection_by_id(socket, id) do
     tenant = socket.assigns.current_tenant
     collection = Collections.get_collection!(tenant, id)
     {:ok, _collection} = Collections.delete_collection(tenant, collection)
     collections = Collections.list_collections(tenant)
 
-    {:noreply,
-     socket
-     |> assign(:collections, collections)
-     |> assign(:collection_entry_counts, Collections.collection_entry_counts(tenant))
-     |> stream_delete(:collections, collection)}
+    socket
+    |> assign(:collections, collections)
+    |> assign(:collection_entry_counts, Collections.collection_entry_counts(tenant))
+    |> stream_delete(:collections, collection)
   end
 
   @impl true
@@ -173,6 +206,24 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Index do
           base_path={@collection_base_path}
         />
       </section>
+
+      <dialog :if={@confirm_modal} id="collection-confirm-modal" open class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-semibold">{@confirm_modal.title}</h3>
+          <p class="mt-2 text-sm text-base-content/70">{@confirm_modal.body}</p>
+          <div class="modal-action">
+            <button type="button" phx-click="close_confirm_modal" class="btn btn-ghost">
+              Cancel
+            </button>
+            <button type="button" phx-click="confirm_modal_action" class="btn btn-error">
+              Delete
+            </button>
+          </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+          <button type="button" phx-click="close_confirm_modal">close</button>
+        </form>
+      </dialog>
     </Layouts.tenant_admin>
     """
   end
@@ -272,10 +323,9 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Index do
               <button
                 id={"delete-collection-#{@collection.id}"}
                 type="button"
-                phx-click="delete"
+                phx-click="confirm_delete"
                 phx-value-id={@collection.id}
                 disabled={@locked}
-                data-confirm="Delete this collection and all items?"
               >
                 Delete
               </button>
