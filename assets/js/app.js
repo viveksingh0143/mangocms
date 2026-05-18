@@ -283,6 +283,29 @@ const AstContentEditable = {
     this.lastSent = this.el.textContent || ""
     this.timer = null
 
+    this.handleEvent("builder:update_text_node", ({ id, property, value }) => {
+      if (this.el.dataset.nodeId !== id) return
+      if ((this.el.dataset.property || "text") !== (property || "text")) return
+      if (document.activeElement === this.el) return
+
+      const nextValue = value || ""
+      this.el.textContent = nextValue
+      this.lastSent = nextValue
+    })
+
+    this.handleEvent("builder:update_text_nodes", ({ nodes }) => {
+      const node = nodes && nodes[this.el.dataset.nodeId]
+      if (!node) return
+
+      const property = this.el.dataset.property || "text"
+      if (!Object.prototype.hasOwnProperty.call(node, property)) return
+      if (document.activeElement === this.el) return
+
+      const nextValue = node[property] || ""
+      this.el.textContent = nextValue
+      this.lastSent = nextValue
+    })
+
     this.pushText = () => {
       const value = this.el.textContent || ""
       if (value === this.lastSent) return
