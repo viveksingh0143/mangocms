@@ -5,6 +5,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
   alias MangoCMS.Tenant.Collections.{CollectionItem, CollectionField}
   alias MangoCMS.Uploads
   alias MangoCMSWeb.CoreComponents
+  alias MangoCMSWeb.Tenant.Admin.MediaPickerComponent
 
   @status_options CollectionItem.status_options()
 
@@ -48,6 +49,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
             slug_source_field={@slug_source_field}
             category_options_by_field={@category_options_by_field}
             uploads={@media_uploads}
+            media_overrides={@media_overrides}
+            myself={@myself}
           />
         </div>
 
@@ -58,11 +61,36 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
           </.button>
         </div>
       </.form>
+
+      <.live_component
+        :if={@media_picker}
+        module={MediaPickerComponent}
+        id={"collection-item-media-picker-#{@id}"}
+        tenant={@tenant}
+        current_user={@current_user}
+        kind={media_picker_kind(@media_picker.field_type)}
+        context={@media_picker}
+        notify={%{module: __MODULE__, id: @id}}
+      />
     </section>
     """
   end
 
   @impl true
+  def update(%{media_picker_message: {:closed, _context}}, socket) do
+    {:ok, assign(socket, :media_picker, nil)}
+  end
+
+  def update(%{media_picker_message: {:selected, %{field_key: field_key}, asset}}, socket) do
+    {:ok,
+     socket
+     |> assign(:media_picker, nil)
+     |> assign(
+       :media_overrides,
+       Map.put(socket.assigns[:media_overrides] || %{}, field_key, asset.public_url)
+     )}
+  end
+
   def update(%{entry: entry} = assigns, socket) do
     changeset = Collections.change_entry(entry, assigns.fields)
 
@@ -71,6 +99,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
      |> assign(assigns)
      |> assign(:status_options, @status_options)
      |> assign(:slug_source_field, slug_source_field(assigns.fields))
+     |> assign_new(:media_picker, fn -> nil end)
+     |> assign_new(:media_overrides, fn -> %{} end)
      |> assign(
        :category_options_by_field,
        category_options_by_field(assigns.tenant, assigns.fields)
@@ -98,6 +128,13 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
       |> normalize_entry_params(socket.assigns.fields, socket.assigns.entry)
 
     save_entry(socket, socket.assigns.action, params)
+  end
+
+  def handle_event("open_media_picker", %{"field" => field_key}, socket) do
+    field = collection_field!(socket.assigns.fields, field_key)
+
+    {:noreply,
+     assign(socket, :media_picker, %{field_key: field.field_key, field_type: field.field_type})}
   end
 
   defp save_entry(socket, :new, entry_params) do
@@ -145,6 +182,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
       |> assign(:input_name, "collection_item[payload][#{field.field_key}]")
       |> assign(:input_type, payload_input_type(field))
       |> assign(:input_value, payload_value(assigns.form, field))
+      |> assign(:media_value, Map.get(assigns.media_overrides || %{}, field.field_key))
       |> assign(:input_label, payload_label(field))
       |> assign(:input_options, select_options(field, assigns.category_options_by_field || %{}))
       |> assign(:media_field?, media_field?(field))
@@ -203,7 +241,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
           name={@input_name}
           type={if(@field_def.field_type == "gallery", do: "textarea", else: "text")}
           label={@input_label}
-          value={@input_value}
+          value={@media_value || @input_value}
           rows={if(@field_def.field_type == "gallery", do: "4", else: nil)}
           placeholder="/uploads/tenants/..."
           data-slug-source={@slug_source?}
@@ -213,20 +251,15 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
           id={"#{@input_id}_upload"}
           class="rounded-lg border border-dashed border-base-300 bg-base-100 p-3"
         >
-          <div class="relative">
-            <.live_file_input
-              upload={@upload_config}
-              class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-            />
-            <span class="btn btn-outline btn-sm w-full pointer-events-none">
-              Upload {media_upload_label(@field_def)}
-            </span>
-          </div>
-          <div class="mt-2 grid gap-1">
-            <p :for={entry <- @upload_config.entries} class="text-xs text-base-content/60">
-              {entry.client_name} · {entry.progress}%
-            </p>
-          </div>
+          <button
+            type="button"
+            phx-click="open_media_picker"
+            phx-value-field={@field_def.field_key}
+            phx-target={@myself}
+            class="btn btn-outline btn-sm w-full"
+          >
+            <.icon name="hero-photo" class="size-4" /> Choose {media_upload_label(@field_def)}
+          </button>
         </div>
       </div>
     </div>
@@ -591,6 +624,14 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionItemLive.FormComponent do
 
   defp media_upload_label(%CollectionField{field_type: "gallery"}), do: "gallery images"
   defp media_upload_label(%CollectionField{field_type: type}), do: String.downcase(type)
+
+  defp media_picker_kind("video"), do: "video"
+  defp media_picker_kind(_field_type), do: "image"
+
+  defp collection_field!(fields, field_key) do
+    Enum.find(fields, &(&1.field_key == field_key)) ||
+      raise Ecto.NoResultsError, queryable: CollectionField
+  end
 
   defp safe_map(value) when is_map(value), do: value
   defp safe_map(_value), do: %{}

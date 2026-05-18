@@ -5,6 +5,8 @@ alias MangoCMS.Platform.Accounts.User, as: PlatformUser
 alias MangoCMS.Repo
 alias MangoCMS.Tenant.Accounts, as: TenantAccounts
 alias MangoCMS.Tenant.Collections
+alias MangoCMS.Tenant.Media
+alias MangoCMS.Tenant.Media.MediaAsset
 alias MangoCMS.Tenant.Migrator, as: TenantMigrator
 alias MangoCMS.Tenant.Pages
 alias MangoCMS.Tenant.RepoManager, as: TenantRepoManager
@@ -23,6 +25,24 @@ defmodule MangoCMS.Seeds.Faker do
     "Resume Website",
     "Founder Blog",
     "Customer Story Hub"
+  ]
+  @product_materials [
+    "Stainless Steel",
+    "Hard Anodized",
+    "Induction Ready",
+    "Triply Steel",
+    "Aluminium"
+  ]
+  @product_sizes ["1.5L", "2L", "3L", "5L", "6.5L", "7L", "10L"]
+  @blog_topics [
+    "Local-first CMS design",
+    "Building tenant pages",
+    "When to use AI chat",
+    "Product storytelling",
+    "Small business websites",
+    "Collection-driven content",
+    "Fast SQLite tenant sites",
+    "Landing page conversion"
   ]
 
   def company_name do
@@ -59,8 +79,28 @@ defmodule MangoCMS.Seeds.Faker do
 
   def service_name, do: Enum.random(@services)
 
+  def product_name(index) do
+    "#{Enum.random(@product_materials)} #{Enum.random(@product_sizes)} Pressure Cooker #{index}"
+  end
+
+  def product_material(index) do
+    Enum.at(@product_materials, rem(index, length(@product_materials)))
+  end
+
+  def product_size(index) do
+    Enum.at(@product_sizes, rem(index, length(@product_sizes)))
+  end
+
+  def blog_title(index) do
+    "#{Enum.random(@blog_topics)} #{index}"
+  end
+
   def sentence(topic) do
     "#{topic} for teams that want fast pages, simple editing, and tenant-isolated content."
+  end
+
+  def paragraph(topic) do
+    "#{sentence(topic)} Editors can update records, media, and page sections without changing code."
   end
 end
 
@@ -485,6 +525,76 @@ if tenant do
     end
   end
 
+  slugify = fn value ->
+    value
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9_-]+/, "-")
+    |> String.trim("-")
+  end
+
+  upsert_media_asset = fn attrs ->
+    existing_asset =
+      TenantRepoManager.with_repo(tenant, fn repo ->
+        repo.get_by(MediaAsset, public_url: attrs.public_url)
+      end)
+
+    case existing_asset do
+      nil ->
+        case Media.create_asset(tenant, attrs) do
+          {:ok, asset} ->
+            asset
+
+          {:error, changeset} ->
+            print_changeset_errors.(
+              "Could not seed media asset #{attrs.original_filename}",
+              changeset
+            )
+
+            nil
+        end
+
+      asset ->
+        asset
+    end
+  end
+
+  seeded_media_assets =
+    1..36
+    |> Enum.map(fn index ->
+      seed = "mangocms-#{tenant.slug}-asset-#{index}"
+
+      upsert_media_asset.(%{
+        id: Ecto.UUID.generate(),
+        original_filename: "demo-asset-#{index}.jpg",
+        stored_filename: "original.jpg",
+        mime_type: "image/jpeg",
+        file_ext: ".jpg",
+        file_size: 0,
+        storage_path: "seed://#{seed}",
+        public_url: "https://picsum.photos/seed/#{seed}/1200/800",
+        alt_text: "Demo tenant media asset #{index}",
+        title: "Demo media asset #{index}",
+        description: "Seeded reusable tenant media asset.",
+        folder: "seeded",
+        kind: "image",
+        metadata: %{"seeded" => true, "source" => "picsum"}
+      })
+    end)
+    |> Enum.reject(&is_nil/1)
+
+  media_url = fn index ->
+    case seeded_media_assets do
+      [] ->
+        "/images/logo.png"
+
+      assets ->
+        assets
+        |> Enum.at(rem(index, length(assets)))
+        |> then(& &1.public_url)
+    end
+  end
+
   category_collection =
     upsert_collection.(
       %{
@@ -523,12 +633,30 @@ if tenant do
 
   category_entries =
     if category_collection do
-      [
+      base_categories = [
         {"stainless-steel", "Stainless Steel", "Durable steel cookers for everyday cooking."},
         {"hard-anodized", "Hard Anodized", "Premium dark finish cookers with even heating."},
         {"induction-ready", "Induction Ready", "Cookers designed for induction and gas stoves."}
       ]
+
+      generated_categories =
+        4..120
+        |> Enum.map(fn index ->
+          material = MangoCMS.Seeds.Faker.product_material(index)
+          size = MangoCMS.Seeds.Faker.product_size(index)
+          title = "#{material} #{size} Category #{index}"
+
+          {
+            "#{slugify.(title)}",
+            title,
+            "Seeded category #{index} for #{material} #{size} catalog filtering."
+          }
+        end)
+
+      (base_categories ++ generated_categories)
       |> Enum.map(fn {slug, title, description} ->
+        index = :erlang.phash2(slug, 10_000)
+
         entry =
           upsert_entry.(category_collection, %{
             title: title,
@@ -536,7 +664,7 @@ if tenant do
             payload: %{
               "title" => title,
               "description" => description,
-              "image_url" => "/images/logo.png"
+              "image_url" => media_url.(index)
             }
           })
 
@@ -636,12 +764,35 @@ if tenant do
     )
 
   if service_type do
-    Enum.with_index(services, 1)
-    |> Enum.each(fn {{slug, name, price}, index} ->
+    base_products =
+      services
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{slug, name, price}, index} ->
+        %{slug: slug, name: name, price: price, index: index}
+      end)
+
+    generated_products =
+      6..120
+      |> Enum.map(fn index ->
+        name = MangoCMS.Seeds.Faker.product_name(index)
+
+        %{
+          slug: slugify.(name),
+          name: name,
+          price: 199_900 + index * 2_500,
+          index: index
+        }
+      end)
+
+    (base_products ++ generated_products)
+    |> Enum.each(fn %{slug: slug, name: name, price: price, index: index} ->
       category_slug =
         cond do
           String.contains?(slug, "stainless") -> "stainless-steel"
           String.contains?(slug, "anodized") -> "hard-anodized"
+          String.contains?(slug, "induction") -> "induction-ready"
+          rem(index, 3) == 0 -> "stainless-steel"
+          rem(index, 3) == 1 -> "hard-anodized"
           true -> "induction-ready"
         end
 
@@ -653,10 +804,11 @@ if tenant do
           "price" => price,
           "category" => Map.get(category_entries, category_slug),
           "sku" => "PC-#{index}-#{String.upcase(String.slice(slug, 0, 3))}",
-          "rating" => Float.round(4.4 + index / 10, 1),
-          "in_stock" => true,
-          "image_url" => "/images/logo.png",
-          "capacity" => Regex.run(~r/\d+L/, name) |> List.wrap() |> List.first() || "5L",
+          "rating" => Float.round(3.8 + rem(index, 13) / 10, 1),
+          "in_stock" => rem(index, 9) != 0,
+          "image_url" => media_url.(index),
+          "capacity" =>
+            Regex.run(~r/\d+(?:\.\d+)?L/, name) |> List.wrap() |> List.first() || "5L",
           "description" =>
             "#{name} is seeded as a catalog item with price, SKU, capacity, and stock fields."
         }
@@ -721,9 +873,10 @@ if tenant do
     )
 
   if review_type do
-    Enum.each(1..6, fn index ->
+    Enum.each(1..120, fn index ->
       name = MangoCMS.Seeds.Faker.person_name()
       company = MangoCMS.Seeds.Faker.company_name()
+      rating = if(index <= 84, do: 5, else: Enum.random([3, 4, 4, 5]))
 
       upsert_entry.(review_type, %{
         title: "#{name} Review",
@@ -731,9 +884,9 @@ if tenant do
         payload: %{
           "customer_name" => name,
           "company" => company,
-          "rating" => if(index <= 4, do: 5, else: 4),
+          "rating" => rating,
           "quote" =>
-            "#{company} launched a sharper tenant website and kept updates inside the CMS.",
+            "#{company} launched a sharper tenant website and kept updates inside the CMS. #{MangoCMS.Seeds.Faker.sentence("Review #{index}")}",
           "reviewed_at" =>
             DateTime.utc_now(:second)
             |> DateTime.add(-index * 86_400, :second)
@@ -791,22 +944,23 @@ if tenant do
     )
 
   if blog_type do
-    Enum.each(
-      ["Local-first CMS design", "Building tenant pages", "When to use AI chat"],
-      fn title ->
-        upsert_entry.(blog_type, %{
-          title: title,
-          slug:
-            title |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "-") |> String.trim("-"),
-          payload: %{
-            "title" => title,
-            "excerpt" => MangoCMS.Seeds.Faker.sentence(title),
-            "author" => MangoCMS.Seeds.Faker.person_name(),
-            "published_at" => DateTime.utc_now(:second) |> DateTime.to_iso8601()
-          }
-        })
-      end
-    )
+    Enum.each(1..120, fn index ->
+      title = MangoCMS.Seeds.Faker.blog_title(index)
+
+      upsert_entry.(blog_type, %{
+        title: title,
+        slug: slugify.(title),
+        payload: %{
+          "title" => title,
+          "excerpt" => MangoCMS.Seeds.Faker.paragraph(title),
+          "author" => MangoCMS.Seeds.Faker.person_name(),
+          "published_at" =>
+            DateTime.utc_now(:second)
+            |> DateTime.add(-index * 43_200, :second)
+            |> DateTime.to_iso8601()
+        }
+      })
+    end)
   end
 
   node = fn name, id, props, classes, children ->

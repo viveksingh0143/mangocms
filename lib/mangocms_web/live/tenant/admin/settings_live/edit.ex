@@ -2,8 +2,8 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
   use MangoCMSWeb, :live_view
 
   alias MangoCMS.Tenant.Settings, as: TenantSettings
-  alias MangoCMS.Uploads
   alias MangoCMSWeb.AdminGuard
+  alias MangoCMSWeb.Tenant.Admin.MediaPickerComponent
 
   @impl true
   def mount(_params, _session, socket) do
@@ -13,18 +13,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
 
         {:ok,
          socket
-         |> allow_upload(:light_logo,
-           accept: ~w(.jpg .jpeg .png .gif .webp .svg),
-           max_entries: 1,
-           max_file_size: 5_000_000,
-           auto_upload: true
-         )
-         |> allow_upload(:dark_logo,
-           accept: ~w(.jpg .jpeg .png .gif .webp .svg),
-           max_entries: 1,
-           max_file_size: 5_000_000,
-           auto_upload: true
-         )
+         |> assign(:logo_picker, nil)
          |> assign(:settings, settings)
          |> assign(:current_tenant_settings, settings)
          |> assign_form(TenantSettings.change_site_settings(settings))}
@@ -47,11 +36,6 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
   def handle_event("validate", _params, socket), do: {:noreply, socket}
 
   def handle_event("save", %{"site_settings" => settings_params}, socket) do
-    settings_params =
-      settings_params
-      |> put_uploaded_logo(socket, :light_logo, "logo_url")
-      |> put_uploaded_logo(socket, :dark_logo, "dark_logo_url")
-
     case TenantSettings.update_site_settings(
            socket.assigns.current_tenant,
            socket.assigns.settings,
@@ -67,6 +51,42 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
+    end
+  end
+
+  def handle_event("open_logo_picker", %{"field" => field}, socket)
+      when field in ~w(logo_url dark_logo_url) do
+    {:noreply, assign(socket, :logo_picker, %{field: field})}
+  end
+
+  @impl true
+  def handle_info({MediaPickerComponent, {:closed, _context}}, socket) do
+    {:noreply, assign(socket, :logo_picker, nil)}
+  end
+
+  def handle_info({MediaPickerComponent, {:selected, %{field: field}, asset}}, socket)
+      when field in ~w(logo_url dark_logo_url) do
+    settings_params = %{field => asset.public_url}
+
+    case TenantSettings.update_site_settings(
+           socket.assigns.current_tenant,
+           socket.assigns.settings,
+           settings_params
+         ) do
+      {:ok, settings} ->
+        {:noreply,
+         socket
+         |> assign(:logo_picker, nil)
+         |> assign(:settings, settings)
+         |> assign(:current_tenant_settings, settings)
+         |> assign_form(TenantSettings.change_site_settings(settings))
+         |> put_flash(:info, "Logo selected from media library.")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(:logo_picker, nil)
+         |> assign_form(changeset)}
     end
   end
 
@@ -101,14 +121,14 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
               title="Light theme logo"
               input_label="Light theme logo URL"
               field={@form[:logo_url]}
-              upload={@uploads.light_logo}
+              field_name="logo_url"
               current_url={@settings.logo_url}
             />
             <.logo_upload_card
               title="Dark theme logo"
               input_label="Dark theme logo URL"
               field={@form[:dark_logo_url]}
-              upload={@uploads.dark_logo}
+              field_name="dark_logo_url"
               current_url={@settings.dark_logo_url}
             />
           </div>
@@ -133,6 +153,16 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
           </div>
         </.form>
       </section>
+
+      <.live_component
+        :if={@logo_picker}
+        module={MediaPickerComponent}
+        id="tenant-logo-media-picker"
+        tenant={@current_tenant}
+        current_user={@current_user}
+        kind="image"
+        context={@logo_picker}
+      />
     </Layouts.tenant_admin>
     """
   end
@@ -144,7 +174,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
   attr :title, :string, required: true
   attr :input_label, :string, required: true
   attr :field, Phoenix.HTML.FormField, required: true
-  attr :upload, :any, required: true
+  attr :field_name, :string, required: true
   attr :current_url, :string, default: nil
 
   defp logo_upload_card(assigns) do
@@ -170,39 +200,18 @@ defmodule MangoCMSWeb.Tenant.Admin.SettingsLive.Edit do
 
       <div class="mt-4 space-y-3">
         <.input field={@field} type="text" label={@input_label} />
-        <div>
-          <.live_file_input upload={@upload} class="file-input file-input-bordered w-full" />
-          <div :if={@upload.entries != []} class="mt-3 grid gap-2">
-            <div
-              :for={entry <- @upload.entries}
-              class="flex items-center gap-3 rounded-md border border-base-300 bg-base-100 p-2"
-            >
-              <.live_img_preview entry={entry} class="size-12 rounded object-contain" />
-              <div class="min-w-0 text-xs">
-                <p class="truncate font-medium">{entry.client_name}</p>
-                <p class="text-base-content/60">{entry.progress}% uploaded</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <button
+          id={"pick-#{@field_name}-button"}
+          type="button"
+          phx-click="open_logo_picker"
+          phx-value-field={@field_name}
+          class="btn btn-outline btn-sm w-full"
+        >
+          <.icon name="hero-photo" class="size-4" /> Choose from media library
+        </button>
       </div>
     </div>
     """
-  end
-
-  defp put_uploaded_logo(settings_params, socket, upload_name, field) do
-    uploaded_paths =
-      consume_uploaded_entries(socket, upload_name, fn meta, entry ->
-        {:ok,
-         Uploads.store_live_upload!(entry, meta, {:tenant, socket.assigns.current_tenant},
-           type: ["settings", "logos"]
-         )}
-      end)
-
-    case uploaded_paths do
-      [path | _rest] -> Map.put(settings_params, field, path)
-      [] -> settings_params
-    end
   end
 
   defp present?(value) when is_binary(value), do: String.trim(value) != ""

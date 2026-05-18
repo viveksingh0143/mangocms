@@ -61,7 +61,27 @@ defmodule MangoCMS.Uploads do
   end
 
   defp safe_extension(extension)
-       when extension in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"],
+       when extension in [
+              ".jpg",
+              ".jpeg",
+              ".png",
+              ".gif",
+              ".webp",
+              ".svg",
+              ".mp4",
+              ".webm",
+              ".mov",
+              ".mp3",
+              ".wav",
+              ".ogg",
+              ".pdf",
+              ".doc",
+              ".docx",
+              ".xls",
+              ".xlsx",
+              ".csv",
+              ".txt"
+            ],
        do: extension
 
   defp safe_extension(_extension), do: ".bin"

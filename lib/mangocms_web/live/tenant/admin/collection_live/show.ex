@@ -3,8 +3,8 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
 
   alias MangoCMS.Tenant.Collections
   alias MangoCMS.Tenant.Collections.{CollectionItem, CollectionField}
-  alias MangoCMS.Uploads
   alias MangoCMSWeb.AdminGuard
+  alias MangoCMSWeb.Tenant.Admin.MediaPickerComponent
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,13 +25,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
          |> assign(:confirm_modal, nil)
          |> assign(:draft_row?, false)
          |> assign(:draft_payload, %{})
-         |> assign(:draft_status, "draft")
-         |> allow_upload(:inline_image,
-           accept: ~w(.jpg .jpeg .png .gif .webp .svg),
-           max_entries: 1,
-           max_file_size: 5_000_000,
-           auto_upload: true
-         )}
+         |> assign(:draft_status, "draft")}
 
       {:redirect, socket} ->
         {:ok, socket}
@@ -109,6 +103,33 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
         socket
       ) do
     {:noreply, assign_entries(socket, socket.assigns.collection)}
+  end
+
+  @impl true
+  def handle_info({MediaPickerComponent, {:closed, _context}}, socket) do
+    {:noreply, assign(socket, :image_modal, nil)}
+  end
+
+  def handle_info(
+        {MediaPickerComponent, {:selected, %{entry_id: id, field_key: field_key}, asset}},
+        socket
+      ) do
+    tenant = socket.assigns.current_tenant
+    entry = Collections.get_entry!(tenant, id)
+    ensure_entry_belongs_to_collection!(socket.assigns.collection, entry)
+    field = collection_field!(socket.assigns.fields, field_key)
+    payload = put_image_payload_value(entry.payload, field, asset.public_url)
+
+    case Collections.update_entry(tenant, entry, %{"payload" => payload}) do
+      {:ok, _entry} ->
+        {:noreply,
+         socket
+         |> assign(:image_modal, nil)
+         |> assign_entries(socket.assigns.collection)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not replace #{field.label}.")}
+    end
   end
 
   @impl true
@@ -409,9 +430,11 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
     field = collection_field!(socket.assigns.fields, field_key)
 
     {:noreply,
-     socket
-     |> assign(:image_modal, %{entry_id: entry.id, field_key: field.field_key, label: field.label})
-     |> cancel_uploads(:inline_image)}
+     assign(socket, :image_modal, %{
+       entry_id: entry.id,
+       field_key: field.field_key,
+       label: field.label
+     })}
   end
 
   def handle_event("open_image_url_modal", %{"id" => id, "field" => field_key}, socket) do
@@ -429,7 +452,7 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
   end
 
   def handle_event("close_image_modal", _params, socket) do
-    {:noreply, assign(socket, :image_modal, nil) |> cancel_uploads(:inline_image)}
+    {:noreply, assign(socket, :image_modal, nil)}
   end
 
   def handle_event("close_image_url_modal", _params, socket) do
@@ -449,45 +472,6 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not remove #{field.label}.")}
-    end
-  end
-
-  def handle_event("save_item_image", _params, %{assigns: %{image_modal: nil}} = socket) do
-    {:noreply, socket}
-  end
-
-  def handle_event("save_item_image", _params, socket) do
-    %{entry_id: id, field_key: field_key} = socket.assigns.image_modal
-    tenant = socket.assigns.current_tenant
-    entry = Collections.get_entry!(tenant, id)
-    ensure_entry_belongs_to_collection!(socket.assigns.collection, entry)
-    field = collection_field!(socket.assigns.fields, field_key)
-
-    urls =
-      consume_uploaded_entries(socket, :inline_image, fn meta, upload_entry ->
-        {:ok,
-         Uploads.store_live_upload!(upload_entry, meta, {:tenant, tenant},
-           type: ["collections", socket.assigns.collection.id, field.field_key, "images"]
-         )}
-      end)
-
-    case urls do
-      [url | _rest] ->
-        payload = put_image_payload_value(entry.payload, field, url)
-
-        case Collections.update_entry(tenant, entry, %{"payload" => payload}) do
-          {:ok, _entry} ->
-            {:noreply,
-             socket
-             |> assign(:image_modal, nil)
-             |> assign_entries(socket.assigns.collection)}
-
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Could not replace #{field.label}.")}
-        end
-
-      [] ->
-        {:noreply, put_flash(socket, :error, "Choose an image before saving.")}
     end
   end
 
@@ -1211,36 +1195,15 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
           </div>
         </aside>
 
-        <dialog :if={@image_modal} id="collection-image-modal" open class="modal modal-open">
-          <div class="modal-box">
-            <h3 class="font-semibold">Replace {@image_modal.label}</h3>
-            <p class="mt-1 text-sm text-base-content/60">
-              Upload a new image for this collection item.
-            </p>
-            <div class="mt-4 rounded-lg border border-dashed border-base-300 bg-base-200 p-4">
-              <.live_file_input
-                upload={@uploads.inline_image}
-                class="file-input file-input-bordered w-full"
-              />
-              <div class="mt-3 grid gap-2">
-                <p :for={entry <- @uploads.inline_image.entries} class="text-sm text-base-content/70">
-                  {entry.client_name} · {entry.progress}%
-                </p>
-              </div>
-            </div>
-            <div class="modal-action">
-              <button type="button" phx-click="close_image_modal" class="btn btn-ghost">
-                Cancel
-              </button>
-              <button type="button" phx-click="save_item_image" class="btn btn-primary">
-                Save image
-              </button>
-            </div>
-          </div>
-          <form method="dialog" class="modal-backdrop">
-            <button type="button" phx-click="close_image_modal">close</button>
-          </form>
-        </dialog>
+        <.live_component
+          :if={@image_modal}
+          module={MediaPickerComponent}
+          id="collection-image-modal"
+          tenant={@current_tenant}
+          current_user={@current_user}
+          kind="image"
+          context={@image_modal}
+        />
 
         <dialog :if={@image_url_modal} id="collection-image-url-modal" open class="modal modal-open">
           <div class="modal-box">
@@ -2022,12 +1985,6 @@ defmodule MangoCMSWeb.Tenant.Admin.CollectionLive.Show do
   end
 
   defp parse_inline_number(value), do: value
-
-  defp cancel_uploads(socket, upload_name) do
-    Enum.reduce(socket.assigns.uploads[upload_name].entries, socket, fn entry, socket ->
-      cancel_upload(socket, upload_name, entry.ref)
-    end)
-  end
 
   defp status_class("published"), do: "badge badge-success"
   defp status_class("archived"), do: "badge badge-ghost"
