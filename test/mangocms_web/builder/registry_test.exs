@@ -59,6 +59,13 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "kbd"))
       assert Enum.any?(manifests, &(&1.name == "status"))
       assert Enum.any?(manifests, &(&1.name == "text_rotate"))
+      assert Enum.any?(manifests, &(&1.name == "textarea"))
+      assert Enum.any?(manifests, &(&1.name == "select"))
+      assert Enum.any?(manifests, &(&1.name == "checkbox"))
+      assert Enum.any?(manifests, &(&1.name == "radio"))
+      assert Enum.any?(manifests, &(&1.name == "toggle"))
+      assert Enum.any?(manifests, &(&1.name == "range"))
+      assert Enum.any?(manifests, &(&1.name == "rating"))
 
       assert Registry.get!("button").renderer ==
                {MangoCMSWeb.BuilderLibrary.ActionComponents, :button}
@@ -236,7 +243,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
+            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input textarea select checkbox radio toggle range rating alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -423,6 +430,63 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert text_rotate_html =~ "x-data"
       assert text_rotate_html =~ "words"
+    end
+
+    test "renders data input batch 1 components" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("textarea")) =~
+               "textarea"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("textarea", "ghost")) =~
+               "textarea-ghost"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("select")) =~
+               "select"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("select", "multiple")) =~
+               "multiple"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("checkbox")) =~
+               "checkbox"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("checkbox", "group")) =~
+               "Option"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("radio")) =~
+               "radio"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("radio", "horizontal")
+             ) =~
+               "flex-row"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("toggle")) =~
+               "toggle"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("toggle", "label_right")
+             ) =~
+               "toggle"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("range")) =~
+               "range"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("range", "stepped")) =~
+               "range"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("rating")) =~
+               "mask-star-2"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("rating", "hearts")) =~
+               "mask-heart"
+    end
+
+    test "data input batch 1 manifests are in Data input group with variants" do
+      for name <- ~w(textarea select checkbox radio toggle range rating) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Data input", "#{name} should be in Data input group"
+        assert manifest.variants != [], "#{name} should have variants"
+        assert manifest.alpine == %{}, "#{name} should have empty alpine (no JS needed)"
+      end
     end
 
     test "renders data display batch one defaults and bindings" do
