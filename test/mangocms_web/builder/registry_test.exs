@@ -49,6 +49,16 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "timeline"))
       assert Enum.any?(manifests, &(&1.name == "tabs"))
       assert Enum.any?(manifests, &(&1.name == "input"))
+      assert Enum.any?(manifests, &(&1.name == "avatar"))
+      assert Enum.any?(manifests, &(&1.name == "badge"))
+      assert Enum.any?(manifests, &(&1.name == "chat_bubble"))
+      assert Enum.any?(manifests, &(&1.name == "countdown"))
+      assert Enum.any?(manifests, &(&1.name == "diff"))
+      assert Enum.any?(manifests, &(&1.name == "hover_3d_card"))
+      assert Enum.any?(manifests, &(&1.name == "hover_gallery"))
+      assert Enum.any?(manifests, &(&1.name == "kbd"))
+      assert Enum.any?(manifests, &(&1.name == "status"))
+      assert Enum.any?(manifests, &(&1.name == "text_rotate"))
 
       assert Registry.get!("button").renderer ==
                {MangoCMSWeb.BuilderLibrary.ActionComponents, :button}
@@ -102,6 +112,22 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       for name <-
             ~w(dropdown modal fab swap theme_controller toast tooltip drawer hero menu navbar accordion collapse carousel tabs) do
         assert Registry.get!(name).alpine.component
+      end
+    end
+
+    test "data display batch 2 manifests are in Data display group with variants" do
+      for name <-
+            ~w(avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Data display", "#{name} should be in Data display group"
+        assert manifest.variants != [], "#{name} should have variants"
+      end
+    end
+
+    test "declares Alpine metadata for batch 2 interactive components" do
+      for name <- ~w(countdown hover_3d_card text_rotate) do
+        assert Registry.get!(name).alpine.component,
+               "#{name} should declare Alpine component metadata"
       end
     end
 
@@ -210,7 +236,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps) do
+            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -342,6 +368,61 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert render_component(&Renderer.node/1, node: Registry.default_node("steps", "vertical")) =~
                "steps-vertical"
+    end
+
+    test "renders data display batch 2 defaults and Alpine behavior" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("avatar")) =~
+               "avatar"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("avatar", "group")) =~
+               "avatar-group"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("badge")) =~
+               "badge"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("badge", "outline")) =~
+               "badge-outline"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("chat_bubble")) =~
+               "chat-bubble"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("chat_bubble", "end")) =~
+               "chat-end"
+
+      countdown_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("countdown", "full"))
+
+      assert countdown_html =~ "countdown"
+      assert countdown_html =~ "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("diff", "text")) =~
+               "diff"
+
+      hover_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("hover_3d_card"))
+
+      assert hover_html =~ "perspective"
+      assert hover_html =~ "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("hover_gallery")) =~
+               "grid-cols-3"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("hover_gallery", "grid_4")
+             ) =~
+               "grid-cols-4"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("kbd")) =~
+               "kbd"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("status")) =~
+               "status"
+
+      text_rotate_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("text_rotate"))
+
+      assert text_rotate_html =~ "x-data"
+      assert text_rotate_html =~ "words"
     end
 
     test "renders data display batch one defaults and bindings" do

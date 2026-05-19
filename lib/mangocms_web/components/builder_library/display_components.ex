@@ -595,4 +595,577 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
   defp tabs_responsive(true), do: "max-sm:tabs-vertical"
   defp tabs_responsive("true"), do: "max-sm:tabs-vertical"
   defp tabs_responsive(_responsive), do: ""
+
+  # ── Batch 2 ──────────────────────────────────────────────────────────────────
+
+  @doc "Renders an avatar or avatar group."
+  @spec avatar(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :image
+
+  def avatar(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:image, fn -> [] end)
+
+    ~H"""
+    <%= if @props["variant"] == "group" do %>
+      <div class={["avatar-group -space-x-6 rtl:space-x-reverse", class_value(@classes, "custom")]}>
+        <div :for={_ <- 1..avatar_count(@props)} class="avatar">
+          <div class={["rounded-full", avatar_size(@props["size"])]}>
+            <img
+              src={@props["image_src"] || "/images/placeholder.svg"}
+              alt={@props["alt"] || ""}
+            />
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class={[
+        "avatar",
+        avatar_placeholder_cls(@props["image_src"]),
+        avatar_status_cls(@props["status"]),
+        class_value(@classes, "custom")
+      ]}>
+        <div class={[
+          avatar_size(@props["size"]),
+          avatar_shape(@props["shape"]),
+          avatar_placeholder_bg(@props["image_src"])
+        ]}>
+          <%= if @image != [] do %>
+            {render_slot(@image)}
+          <% else %>
+            <%= if @props["image_src"] not in [nil, ""] do %>
+              <img src={@props["image_src"]} alt={@props["alt"] || ""} />
+            <% else %>
+              <span class="text-xl font-bold">{@props["initials"] || "A"}</span>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
+  @doc "Renders a badge label."
+  @spec badge(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :inner
+
+  def badge(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:inner, fn -> [] end)
+
+    ~H"""
+    <span class={[
+      "badge",
+      badge_tone(@props["tone"]),
+      badge_size(@props["size"]),
+      badge_variant(@props["style"]),
+      class_value(@classes, "custom")
+    ]}>
+      <%= if @inner != [] do %>
+        {render_slot(@inner)}
+      <% else %>
+        {@props["label"] || "Badge"}
+      <% end %>
+    </span>
+    """
+  end
+
+  @doc "Renders a chat bubble."
+  @spec chat_bubble(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :content
+
+  def chat_bubble(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:content, fn -> [] end)
+
+    ~H"""
+    <div class={[chat_align(@props["align"]), class_value(@classes, "custom")]}>
+      <div :if={@props["avatar_enabled"] == true} class="chat-image avatar">
+        <div class="w-10 rounded-full">
+          <img
+            src={@props["avatar_src"] || "/images/placeholder.svg"}
+            alt={@props["avatar_alt"] || ""}
+          />
+        </div>
+      </div>
+      <div :if={@props["header"] not in [nil, ""]} class="chat-header">
+        {@props["header"]}
+        <time :if={@props["time"] not in [nil, ""]} class="text-xs opacity-50">
+          {@props["time"]}
+        </time>
+      </div>
+      <div class={["chat-bubble", chat_tone(@props["tone"])]}>
+        <%= if @content != [] do %>
+          {render_slot(@content)}
+        <% else %>
+          {@props["message"] || "Chat message"}
+        <% end %>
+      </div>
+      <div :if={@props["footer"] not in [nil, ""]} class="chat-footer text-xs opacity-50">
+        {@props["footer"]}
+      </div>
+    </div>
+    """
+  end
+
+  @doc "Renders an Alpine-powered countdown timer."
+  @spec countdown(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def countdown(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div
+      class={["flex gap-5 font-mono text-center", class_value(@classes, "custom")]}
+      x-data={countdown_xdata(@props)}
+      x-init="tick()"
+    >
+      <div :if={@props["show_days"] == true} class="flex flex-col items-center">
+        <span class="countdown text-5xl font-bold">
+          <span x-bind:style="'--value:' + dd"></span>
+        </span>
+        <span class="mt-1 text-xs uppercase opacity-70">{@props["label_days"] || "days"}</span>
+      </div>
+      <div class="flex flex-col items-center">
+        <span class="countdown text-5xl font-bold">
+          <span x-bind:style="'--value:' + hh"></span>
+        </span>
+        <span class="mt-1 text-xs uppercase opacity-70">{@props["label_hours"] || "hours"}</span>
+      </div>
+      <div class="flex flex-col items-center">
+        <span class="countdown text-5xl font-bold">
+          <span x-bind:style="'--value:' + mm"></span>
+        </span>
+        <span class="mt-1 text-xs uppercase opacity-70">{@props["label_minutes"] || "min"}</span>
+      </div>
+      <div class="flex flex-col items-center">
+        <span class="countdown text-5xl font-bold">
+          <span x-bind:style="'--value:' + ss"></span>
+        </span>
+        <span class="mt-1 text-xs uppercase opacity-70">{@props["label_seconds"] || "sec"}</span>
+      </div>
+    </div>
+    """
+  end
+
+  @doc "Renders a side-by-side diff slider."
+  @spec diff(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def diff(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={["diff aspect-video rounded-box", class_value(@classes, "custom")]}>
+      <div class="diff-item-1">
+        <%= if @props["type"] == "text" do %>
+          <div class="grid size-full place-content-center bg-base-200 text-6xl font-black">
+            {@props["before_text"] || "Before"}
+          </div>
+        <% else %>
+          <img
+            src={@props["before_src"] || "/images/placeholder.svg"}
+            alt={@props["before_alt"] || "Before"}
+            class="size-full object-cover"
+          />
+        <% end %>
+      </div>
+      <div class="diff-item-2">
+        <%= if @props["type"] == "text" do %>
+          <div class="grid size-full place-content-center bg-base-content text-6xl font-black text-base-100">
+            {@props["after_text"] || "After"}
+          </div>
+        <% else %>
+          <img
+            src={@props["after_src"] || "/images/placeholder.svg"}
+            alt={@props["after_alt"] || "After"}
+            class="size-full object-cover"
+          />
+        <% end %>
+      </div>
+      <div class="diff-resizer"></div>
+    </div>
+    """
+  end
+
+  @doc "Renders a 3D tilt card powered by Alpine mouse tracking."
+  @spec hover_3d_card(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :content
+
+  def hover_3d_card(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:content, fn -> [] end)
+
+    ~H"""
+    <div
+      class={["group", card_3d_size(@props["size"]), class_value(@classes, "custom")]}
+      style="perspective: 1000px"
+      x-data={tilt3d_xdata()}
+      x-on:mousemove="tilt($event)"
+      x-on:mouseleave="reset()"
+    >
+      <div
+        class="card bg-base-100 shadow-xl transition-transform duration-200 ease-out"
+        x-bind:style="{ transform: tiltCss }"
+      >
+        <figure :if={@props["image_src"] not in [nil, ""]}>
+          <img
+            src={@props["image_src"]}
+            alt={@props["image_alt"] || ""}
+            class="w-full object-cover"
+          />
+        </figure>
+        <div class="card-body">
+          <%= if @content != [] do %>
+            {render_slot(@content)}
+          <% else %>
+            <h2 class="card-title">{@props["title"] || "3D Card"}</h2>
+            <p class="text-sm text-base-content/70">
+              {@props["body"] || "Hover to tilt this card in 3D space."}
+            </p>
+          <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc "Renders an image gallery with CSS hover zoom."
+  @spec hover_gallery(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :items
+
+  def hover_gallery(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:items, fn -> [] end)
+
+    ~H"""
+    <div class={[
+      "grid",
+      gallery_columns(@props["columns"]),
+      gallery_gap(@props["gap"]),
+      class_value(@classes, "custom")
+    ]}>
+      <%= if @items != [] do %>
+        {render_slot(@items)}
+      <% else %>
+        <div :for={item <- gallery_items(@props)} class="group overflow-hidden rounded-box">
+          <img
+            src={item["src"] || "/images/placeholder.svg"}
+            alt={item["alt"] || ""}
+            class={[
+              "h-48 w-full object-cover transition-transform duration-500 ease-out",
+              gallery_hover_class(@props["effect"])
+            ]}
+          />
+          <p :if={item["caption"] not in [nil, ""]} class="mt-1 text-center text-sm opacity-70">
+            {item["caption"]}
+          </p>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc "Renders keyboard key badges."
+  @spec kbd(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def kbd(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={["flex flex-wrap items-center gap-1", class_value(@classes, "custom")]}>
+      <kbd :for={key <- kbd_keys(@props)} class={["kbd", kbd_size(@props["size"])]}>
+        {key}
+      </kbd>
+    </div>
+    """
+  end
+
+  @doc "Renders a status indicator dot with optional label."
+  @spec status(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def status(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={["inline-flex items-center gap-2", class_value(@classes, "custom")]}>
+      <span class={["status", status_tone(@props["tone"]), status_size(@props["size"])]}></span>
+      <span :if={@props["label"] not in [nil, ""]} class="text-sm">{@props["label"]}</span>
+    </div>
+    """
+  end
+
+  @doc "Renders Alpine-powered rotating text."
+  @spec text_rotate(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def text_rotate(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div
+      class={["flex flex-wrap items-baseline gap-2", class_value(@classes, "custom")]}
+      x-data={text_rotate_xdata(@props)}
+      x-init="start()"
+    >
+      <span :if={@props["prefix"] not in [nil, ""]} class={[rotate_size(@props["size"])]}>
+        {@props["prefix"]}
+      </span>
+      <span
+        class={["font-bold text-primary", rotate_size(@props["size"])]}
+        x-text="words[idx]"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 -translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-2"
+      >
+        {List.first(rotate_words(@props)) || "word"}
+      </span>
+      <span :if={@props["suffix"] not in [nil, ""]} class={[rotate_size(@props["size"])]}>
+        {@props["suffix"]}
+      </span>
+    </div>
+    """
+  end
+
+  # ── Batch 2 helpers ───────────────────────────────────────────────────────────
+
+  defp avatar_placeholder_cls(src) when src in [nil, ""], do: "placeholder"
+  defp avatar_placeholder_cls(_src), do: nil
+
+  defp avatar_placeholder_bg(src) when src in [nil, ""], do: "bg-neutral text-neutral-content"
+  defp avatar_placeholder_bg(_src), do: nil
+
+  defp avatar_size("xs"), do: "w-8"
+  defp avatar_size("sm"), do: "w-12"
+  defp avatar_size("lg"), do: "w-20"
+  defp avatar_size("xl"), do: "w-32"
+  defp avatar_size(_size), do: "w-16"
+
+  defp avatar_shape("rounded"), do: "rounded-lg"
+  defp avatar_shape("square"), do: "rounded-none"
+  defp avatar_shape(_shape), do: "rounded-full"
+
+  defp avatar_status_cls("online"), do: "avatar-online"
+  defp avatar_status_cls("offline"), do: "avatar-offline"
+  defp avatar_status_cls("away"), do: "avatar-away"
+  defp avatar_status_cls("busy"), do: "avatar-busy"
+  defp avatar_status_cls(_status), do: nil
+
+  defp avatar_count(%{"count" => count}) when is_integer(count) and count >= 1, do: min(count, 8)
+  defp avatar_count(_props), do: 3
+
+  defp badge_tone("primary"), do: "badge-primary"
+  defp badge_tone("secondary"), do: "badge-secondary"
+  defp badge_tone("accent"), do: "badge-accent"
+  defp badge_tone("neutral"), do: "badge-neutral"
+  defp badge_tone("success"), do: "badge-success"
+  defp badge_tone("warning"), do: "badge-warning"
+  defp badge_tone("error"), do: "badge-error"
+  defp badge_tone("info"), do: "badge-info"
+  defp badge_tone("ghost"), do: "badge-ghost"
+  defp badge_tone(_tone), do: ""
+
+  defp badge_size("xs"), do: "badge-xs"
+  defp badge_size("sm"), do: "badge-sm"
+  defp badge_size("lg"), do: "badge-lg"
+  defp badge_size("xl"), do: "badge-xl"
+  defp badge_size(_size), do: ""
+
+  defp badge_variant("outline"), do: "badge-outline"
+  defp badge_variant("soft"), do: "badge-soft"
+  defp badge_variant("dash"), do: "badge-dash"
+  defp badge_variant(_style), do: ""
+
+  defp chat_align("end"), do: "chat chat-end"
+  defp chat_align(_align), do: "chat chat-start"
+
+  defp chat_tone("primary"), do: "chat-bubble-primary"
+  defp chat_tone("secondary"), do: "chat-bubble-secondary"
+  defp chat_tone("accent"), do: "chat-bubble-accent"
+  defp chat_tone("neutral"), do: "chat-bubble-neutral"
+  defp chat_tone("info"), do: "chat-bubble-info"
+  defp chat_tone("success"), do: "chat-bubble-success"
+  defp chat_tone("warning"), do: "chat-bubble-warning"
+  defp chat_tone("error"), do: "chat-bubble-error"
+  defp chat_tone(_tone), do: ""
+
+  defp countdown_xdata(props) do
+    secs = countdown_seconds(props)
+    dd = div(secs, 86_400)
+    hh = div(rem(secs, 86_400), 3_600)
+    mm = div(rem(secs, 3_600), 60)
+    ss = rem(secs, 60)
+
+    "{ dd: #{dd}, hh: #{hh}, mm: #{mm}, ss: #{ss}, remaining: #{secs}," <>
+      " tick() { setInterval(() => { if (this.remaining > 0) {" <>
+      " this.remaining--;" <>
+      " this.dd = Math.floor(this.remaining / 86400);" <>
+      " this.hh = Math.floor(this.remaining % 86400 / 3600);" <>
+      " this.mm = Math.floor(this.remaining % 3600 / 60);" <>
+      " this.ss = this.remaining % 60; } }, 1000); } }"
+  end
+
+  defp countdown_seconds(%{"target_seconds" => s}) when is_integer(s) and s > 0, do: s
+
+  defp countdown_seconds(%{"target_seconds" => s}) when is_binary(s) do
+    case Integer.parse(s) do
+      {int, _} when int > 0 -> int
+      _ -> 3_661
+    end
+  end
+
+  defp countdown_seconds(_props), do: 3_661
+
+  defp tilt3d_xdata do
+    "{ tiltCss: ''," <>
+      " tilt(e) { const r = this.$el.getBoundingClientRect();" <>
+      " const x = (e.clientY - r.top) / r.height - 0.5;" <>
+      " const y = (e.clientX - r.left) / r.width - 0.5;" <>
+      " this.tiltCss = 'perspective(1000px) rotateX(' + (-x * 20) + 'deg) rotateY(' + (y * 20) + 'deg)'; }," <>
+      " reset() { this.tiltCss = ''; } }"
+  end
+
+  defp card_3d_size("sm"), do: "w-full max-w-xs"
+  defp card_3d_size("lg"), do: "w-full max-w-lg"
+  defp card_3d_size(_size), do: "w-full max-w-sm"
+
+  defp gallery_columns("2"), do: "grid-cols-2"
+  defp gallery_columns("3"), do: "grid-cols-3"
+  defp gallery_columns("4"), do: "grid-cols-4"
+  defp gallery_columns("5"), do: "grid-cols-5"
+  defp gallery_columns(2), do: "grid-cols-2"
+  defp gallery_columns(3), do: "grid-cols-3"
+  defp gallery_columns(4), do: "grid-cols-4"
+  defp gallery_columns(5), do: "grid-cols-5"
+  defp gallery_columns(_columns), do: "grid-cols-3"
+
+  defp gallery_gap("sm"), do: "gap-2"
+  defp gallery_gap("lg"), do: "gap-6"
+  defp gallery_gap(_gap), do: "gap-4"
+
+  defp gallery_hover_class("zoom_out"), do: "group-hover:scale-90"
+  defp gallery_hover_class("brightness"), do: "group-hover:brightness-125"
+  defp gallery_hover_class("grayscale"), do: "grayscale group-hover:grayscale-0"
+  defp gallery_hover_class(_effect), do: "group-hover:scale-110"
+
+  defp gallery_items(%{"items" => items}) when is_list(items) and items != [], do: items
+
+  defp gallery_items(_props) do
+    [
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 1", "caption" => "Gallery item"},
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 2"},
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 3"},
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 4"},
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 5"},
+      %{"src" => "/images/placeholder.svg", "alt" => "Photo 6"}
+    ]
+  end
+
+  defp kbd_keys(%{"keys" => keys}) when is_list(keys) and keys != [], do: keys
+
+  defp kbd_keys(%{"keys" => keys}) when is_binary(keys) and keys != "" do
+    keys |> String.split("+") |> Enum.map(&String.trim/1)
+  end
+
+  defp kbd_keys(_props), do: ["ctrl", "K"]
+
+  defp kbd_size("xs"), do: "kbd-xs"
+  defp kbd_size("sm"), do: "kbd-sm"
+  defp kbd_size("lg"), do: "kbd-lg"
+  defp kbd_size("xl"), do: "kbd-xl"
+  defp kbd_size(_size), do: ""
+
+  defp status_tone("success"), do: "status-success"
+  defp status_tone("warning"), do: "status-warning"
+  defp status_tone("error"), do: "status-error"
+  defp status_tone("info"), do: "status-info"
+  defp status_tone("primary"), do: "status-primary"
+  defp status_tone("secondary"), do: "status-secondary"
+  defp status_tone("accent"), do: "status-accent"
+  defp status_tone("neutral"), do: "status-neutral"
+  defp status_tone(_tone), do: ""
+
+  defp status_size("xs"), do: "status-xs"
+  defp status_size("sm"), do: "status-sm"
+  defp status_size("lg"), do: "status-lg"
+  defp status_size("xl"), do: "status-xl"
+  defp status_size(_size), do: ""
+
+  defp rotate_words(%{"words" => words}) when is_list(words) and words != [], do: words
+
+  defp rotate_words(%{"words" => words}) when is_binary(words) and words != "" do
+    words |> String.split(",") |> Enum.map(&String.trim/1)
+  end
+
+  defp rotate_words(_props), do: ["fast", "scalable", "composable"]
+
+  defp rotate_size("sm"), do: "text-xl"
+  defp rotate_size("lg"), do: "text-5xl"
+  defp rotate_size("xl"), do: "text-7xl"
+  defp rotate_size(_size), do: "text-3xl"
+
+  defp text_rotate_xdata(props) do
+    words = rotate_words(props)
+    interval = props["interval_ms"] || 2_000
+
+    words_js =
+      "[" <>
+        Enum.map_join(words, ", ", fn w ->
+          ~s("#{String.replace(w, "\"", "\\\"")}")
+        end) <> "]"
+
+    "{ words: #{words_js}, idx: 0," <>
+      " start() { setInterval(() => { this.idx = (this.idx + 1) % this.words.length; }, #{interval}); } }"
+  end
 end

@@ -47,7 +47,17 @@ defmodule MangoCMSWeb.Builder.Registry do
     Manifests.Table,
     Manifests.Timeline,
     Manifests.Tabs,
-    Manifests.Input
+    Manifests.Input,
+    Manifests.Avatar,
+    Manifests.Badge,
+    Manifests.ChatBubble,
+    Manifests.Countdown,
+    Manifests.Diff,
+    Manifests.Hover3dCard,
+    Manifests.HoverGallery,
+    Manifests.Kbd,
+    Manifests.Status,
+    Manifests.TextRotate
   ]
 
   @doc "Returns manifest modules loaded by the registry."
