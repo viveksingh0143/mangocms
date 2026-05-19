@@ -66,6 +66,12 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "toggle"))
       assert Enum.any?(manifests, &(&1.name == "range"))
       assert Enum.any?(manifests, &(&1.name == "rating"))
+      assert Enum.any?(manifests, &(&1.name == "calendar"))
+      assert Enum.any?(manifests, &(&1.name == "fieldset"))
+      assert Enum.any?(manifests, &(&1.name == "file_input"))
+      assert Enum.any?(manifests, &(&1.name == "filter"))
+      assert Enum.any?(manifests, &(&1.name == "label"))
+      assert Enum.any?(manifests, &(&1.name == "validator"))
 
       assert Registry.get!("button").renderer ==
                {MangoCMSWeb.BuilderLibrary.ActionComponents, :button}
@@ -243,7 +249,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input textarea select checkbox radio toggle range rating alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
+            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input textarea select checkbox radio toggle range rating calendar fieldset file_input filter label validator alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -487,6 +493,77 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
         assert manifest.variants != [], "#{name} should have variants"
         assert manifest.alpine == %{}, "#{name} should have empty alpine (no JS needed)"
       end
+    end
+
+    test "renders data input batch 2 components" do
+      calendar_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("calendar", "monthly"))
+
+      assert calendar_html =~ "x-data"
+      assert calendar_html =~ "monthLabel"
+      assert calendar_html =~ "grid-cols-7"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("calendar", "mini")) =~
+               "x-data"
+
+      fieldset_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("fieldset", "default"))
+
+      assert fieldset_html =~ "fieldset"
+      assert fieldset_html =~ "Personal details"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("fieldset", "bordered")
+             ) =~
+               "border"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("file_input")) =~
+               "file-input"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("file_input", "image")
+             ) =~
+               "image/*"
+
+      filter_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("filter", "default"))
+
+      assert filter_html =~ "filter"
+      assert filter_html =~ "x-data"
+      assert filter_html =~ "filter-reset"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("filter", "primary")) =~
+               "btn-primary"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("label", "default")) =~
+               "label-text"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("label", "with_alt")) =~
+               "label-text-alt"
+
+      validator_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("validator", "required"))
+
+      assert validator_html =~ "validator"
+      assert validator_html =~ "required"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("validator", "pattern")
+             ) =~
+               "pattern"
+    end
+
+    test "data input batch 2 manifests are in Data input group with variants" do
+      for name <- ~w(calendar fieldset file_input filter label validator) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Data input", "#{name} should be in Data input group"
+        assert manifest.variants != [], "#{name} should have variants"
+      end
+
+      assert Registry.get!("calendar").alpine.component == "calendar"
+      assert Registry.get!("filter").alpine.component == "filter"
+      assert Registry.get!("fieldset").slots != []
+      assert Registry.get!("fieldset").accepted_children != []
     end
 
     test "renders data display batch one defaults and bindings" do

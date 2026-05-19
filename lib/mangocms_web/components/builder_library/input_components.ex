@@ -389,6 +389,266 @@ defmodule MangoCMSWeb.BuilderLibrary.InputComponents do
     """
   end
 
+  # ── Batch 2 additions ────────────────────────────────────────────────────────
+
+  @doc "Renders a month calendar / date-picker with Alpine.js navigation."
+  @spec calendar(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def calendar(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div
+      class={["w-full", class_value(@classes, "custom")]}
+      x-data={calendar_xdata(@props)}
+      x-init="init()"
+    >
+      <div :if={@props["label"] not in [nil, ""]} class="label mb-1">
+        <span class="label-text font-medium">{@props["label"]}</span>
+      </div>
+      <div class="card bg-base-100 shadow-sm border border-base-300 w-full max-w-sm">
+        <div class="card-body p-4">
+          <%!-- Month navigation header --%>
+          <div class="flex items-center justify-between mb-3">
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-circle"
+              x-on:click="prevMonth()"
+            >
+              &#8249;
+            </button>
+            <span class="font-semibold text-sm" x-text="monthLabel()"></span>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-circle"
+              x-on:click="nextMonth()"
+            >
+              &#8250;
+            </button>
+          </div>
+          <%!-- Weekday headers --%>
+          <div class="grid grid-cols-7 text-center mb-1">
+            <span :for={d <- ~w(Su Mo Tu We Th Fr Sa)} class="text-xs font-medium opacity-50">
+              {d}
+            </span>
+          </div>
+          <%!-- Day grid rendered by Alpine --%>
+          <div class="grid grid-cols-7 text-center gap-y-1">
+            <template x-for="blank in firstDay()" x-bind:key="'b'+blank">
+              <span></span>
+            </template>
+            <template x-for="day in daysInMonth()" x-bind:key="day">
+              <button
+                type="button"
+                class="btn btn-xs btn-circle"
+                x-bind:class="{
+                  'btn-primary': isSelected(day),
+                  'btn-outline btn-primary': isToday(day) && !isSelected(day),
+                  'btn-ghost': !isToday(day) && !isSelected(day)
+                }"
+                x-text="day"
+                x-on:click="selectDay(day)"
+              >
+              </button>
+            </template>
+          </div>
+          <%!-- Hidden input carries selected value --%>
+          <input
+            type="hidden"
+            name={@props["field_name"] || "date"}
+            x-bind:value="selected"
+          />
+          <div :if={@props["show_selected"] == true} class="mt-2 text-center text-xs opacity-60">
+            <span x-text="selected || 'No date selected'"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc "Renders a fieldset wrapper that groups related form fields."
+  @spec fieldset(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def fieldset(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <fieldset
+      class={["fieldset w-full", fieldset_style(@props["style"]), class_value(@classes, "custom")]}
+      disabled={@props["disabled"] == true}
+    >
+      <legend :if={@props["legend"] not in [nil, ""]} class="fieldset-legend">
+        {@props["legend"]}
+      </legend>
+      <p :if={@props["help"] not in [nil, ""]} class="fieldset-label opacity-60 mb-3">
+        {@props["help"]}
+      </p>
+      <%!-- Slot placeholder shown in builder preview --%>
+      <div class="flex flex-col gap-3 min-h-12 rounded-box border-2 border-dashed border-base-300 p-3">
+        <span class="text-xs opacity-40 text-center self-center">Drop form fields here</span>
+      </div>
+    </fieldset>
+    """
+  end
+
+  @doc "Renders a styled file input."
+  @spec file_input(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def file_input(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <label class={["form-control w-full", class_value(@classes, "custom")]}>
+      <div :if={@props["label"] not in [nil, ""]} class="label">
+        <span class="label-text">{@props["label"]}</span>
+        <span :if={@props["required"] == true} class="label-text-alt text-error">*</span>
+      </div>
+      <input
+        type="file"
+        name={@props["field_name"] || "file"}
+        accept={@props["accept"] || ""}
+        multiple={@props["multiple"] == true}
+        required={@props["required"] == true}
+        disabled={@props["disabled"] == true}
+        class={[
+          "file-input w-full",
+          file_input_style(@props["style"]),
+          file_input_size(@props["size"])
+        ]}
+      />
+      <div class="label">
+        <span :if={@props["help"] not in [nil, ""]} class="label-text-alt opacity-60">
+          {@props["help"]}
+        </span>
+        <span :if={@props["accept"] not in [nil, ""]} class="label-text-alt opacity-40">
+          {@props["accept"]}
+        </span>
+      </div>
+    </label>
+    """
+  end
+
+  @doc "Renders a daisyUI filter bar (radio pills)."
+  @spec filter(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def filter(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={[class_value(@classes, "custom")]}>
+      <div :if={@props["label"] not in [nil, ""]} class="label mb-1">
+        <span class="label-text font-medium">{@props["label"]}</span>
+      </div>
+      <div class={["filter", filter_size(@props["size"])]} x-data={filter_xdata(@props)}>
+        <input
+          class="btn filter-reset"
+          type="radio"
+          name={@props["field_name"] || "filter"}
+          aria-label={@props["reset_label"] || "All"}
+          x-on:click="active = ''"
+          checked
+        />
+        <input
+          :for={opt <- filter_options(@props)}
+          class={["btn", filter_tone(@props["tone"])]}
+          type="radio"
+          name={@props["field_name"] || "filter"}
+          aria-label={opt["label"]}
+          value={opt["value"]}
+          x-on:click={"active = '#{opt["value"]}'"}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  @doc "Renders a standalone form label."
+  @spec label(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def label(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={["form-control", class_value(@classes, "custom")]}>
+      <label class={["label", label_size(@props["size"])]}>
+        <span class="label-text">{@props["text"] || "Label"}</span>
+        <span :if={@props["alt_text"] not in [nil, ""]} class="label-text-alt opacity-60">
+          {@props["alt_text"]}
+        </span>
+      </label>
+    </div>
+    """
+  end
+
+  @doc "Renders a daisyUI validator wrapper showing live validation hints."
+  @spec validator(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def validator(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div class={["form-control w-full", class_value(@classes, "custom")]}>
+      <div :if={@props["label"] not in [nil, ""]} class="label">
+        <span class="label-text">{@props["label"]}</span>
+        <span :if={@props["required"] == true} class="label-text-alt text-error">*</span>
+      </div>
+      <input
+        type={@props["input_type"] || "text"}
+        name={@props["field_name"] || "field"}
+        placeholder={@props["placeholder"] || ""}
+        required={@props["required"] == true}
+        minlength={validator_attr(@props["min_length"])}
+        maxlength={validator_attr(@props["max_length"])}
+        pattern={validator_attr(@props["pattern"])}
+        class={["input input-bordered w-full validator"]}
+      />
+      <p
+        :if={@props["hint"] not in [nil, ""]}
+        class="validator-hint"
+      >
+        {@props["hint"]}
+      </p>
+      <p
+        :if={@props["success_message"] not in [nil, ""]}
+        class="validator-hint"
+      >
+        {@props["success_message"]}
+      </p>
+    </div>
+    """
+  end
+
   # ── Input batch 1 helpers ─────────────────────────────────────────────────────
 
   defp textarea_style("ghost"), do: "textarea-ghost"
@@ -569,4 +829,108 @@ defmodule MangoCMSWeb.BuilderLibrary.InputComponents do
   end
 
   defp rating_value(_props), do: 0
+
+  # ── Input batch 2 helpers ─────────────────────────────────────────────────────
+
+  defp calendar_xdata(props) do
+    selected = props["value"] || ""
+    field_name = props["field_name"] || "date"
+
+    """
+    {
+      selected: '#{selected}',
+      year: new Date().getFullYear(),
+      month: new Date().getMonth(),
+      today: new Date().toISOString().substring(0,10),
+      fieldName: '#{field_name}',
+      init() {
+        if (this.selected) {
+          const d = new Date(this.selected + 'T00:00:00');
+          this.year = d.getFullYear();
+          this.month = d.getMonth();
+        }
+      },
+      daysInMonth() {
+        return new Date(this.year, this.month + 1, 0).getDate();
+      },
+      firstDay() {
+        return new Date(this.year, this.month, 1).getDay();
+      },
+      prevMonth() {
+        if (this.month === 0) { this.month = 11; this.year--; }
+        else { this.month--; }
+      },
+      nextMonth() {
+        if (this.month === 11) { this.month = 0; this.year++; }
+        else { this.month++; }
+      },
+      selectDay(d) {
+        const mm = String(this.month + 1).padStart(2,'0');
+        const dd = String(d).padStart(2,'0');
+        this.selected = this.year + '-' + mm + '-' + dd;
+      },
+      isToday(d) {
+        const mm = String(this.month + 1).padStart(2,'0');
+        const dd = String(d).padStart(2,'0');
+        return this.today === this.year + '-' + mm + '-' + dd;
+      },
+      isSelected(d) {
+        const mm = String(this.month + 1).padStart(2,'0');
+        const dd = String(d).padStart(2,'0');
+        return this.selected === this.year + '-' + mm + '-' + dd;
+      },
+      monthLabel() {
+        return new Date(this.year, this.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+    }
+    """
+  end
+
+  defp fieldset_style("bordered"), do: "border border-base-300 rounded-box p-4"
+  defp fieldset_style(_style), do: ""
+
+  defp file_input_style("ghost"), do: "file-input-ghost"
+  defp file_input_style("primary"), do: "file-input-primary"
+  defp file_input_style(_style), do: "file-input-bordered"
+
+  defp file_input_size("xs"), do: "file-input-xs"
+  defp file_input_size("sm"), do: "file-input-sm"
+  defp file_input_size("lg"), do: "file-input-lg"
+  defp file_input_size("xl"), do: "file-input-xl"
+  defp file_input_size(_size), do: ""
+
+  defp filter_options(%{"options" => opts}) when is_list(opts) and opts != [], do: opts
+
+  defp filter_options(_props) do
+    [
+      %{"label" => "Anime", "value" => "anime"},
+      %{"label" => "Movies", "value" => "movies"},
+      %{"label" => "TV Shows", "value" => "tv"}
+    ]
+  end
+
+  defp filter_size("xs"), do: "filter-xs"
+  defp filter_size("sm"), do: "filter-sm"
+  defp filter_size("lg"), do: "filter-lg"
+  defp filter_size(_size), do: ""
+
+  defp filter_tone("primary"), do: "btn-primary"
+  defp filter_tone("secondary"), do: "btn-secondary"
+  defp filter_tone("accent"), do: "btn-accent"
+  defp filter_tone(_tone), do: ""
+
+  defp filter_xdata(props) do
+    default = props["default_value"] || ""
+    "{ active: '#{default}' }"
+  end
+
+  defp label_size("xs"), do: "label-xs"
+  defp label_size("sm"), do: "label-sm"
+  defp label_size("lg"), do: "label-lg"
+  defp label_size("xl"), do: "label-xl"
+  defp label_size(_size), do: ""
+
+  defp validator_attr(nil), do: nil
+  defp validator_attr(""), do: nil
+  defp validator_attr(val), do: val
 end
