@@ -191,6 +191,9 @@ defmodule MangoCMSWeb.Router do
       live("/users/:id/edit", UserLive.Index, :edit)
 
       live("/settings", SettingsLive.Edit, :edit)
+
+      live("/ui-library", UILibraryLive.Index, :index)
+      live("/ui-library/:name", UILibraryLive.Index, :show)
     end
   end
 

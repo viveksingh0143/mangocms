@@ -174,6 +174,12 @@ defmodule MangoCMSWeb.Layouts do
           href: ~p"/admin/settings",
           current: active == :settings,
           permission: :manage_settings
+        },
+        %{
+          label: "UI Library",
+          href: ~p"/admin/ui-library",
+          current: active == :ui_library,
+          permission: :manage_pages
         }
       ],
       :tenant,
