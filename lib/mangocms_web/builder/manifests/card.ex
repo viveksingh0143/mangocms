@@ -18,7 +18,10 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
       accepted_children: ["image", "heading", "paragraph", "button", "anchor"],
       default_props: %{
         "title" => "Card title",
+        "eyebrow" => "",
         "body" => "Card body",
+        "meta" => "",
+        "collection" => "",
         "image_enabled" => true,
         "image_position" => "top",
         "image_src" => "",
@@ -40,7 +43,10 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           default_props: %{"image_enabled" => true, "image_position" => "top"},
           fields: [
             :title,
+            :eyebrow,
             :body,
+            :meta,
+            :collection,
             :image_enabled,
             :image_src,
             :image_alt,
@@ -57,7 +63,10 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           default_props: %{"image_enabled" => true, "image_position" => "bottom"},
           fields: [
             :title,
+            :eyebrow,
             :body,
+            :meta,
+            :collection,
             :image_enabled,
             :image_src,
             :image_alt,
@@ -72,7 +81,33 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           label: "Plain",
           description: "Text-only card",
           default_props: %{"image_enabled" => false},
-          fields: [:title, :body, :style, :classes, :slots],
+          fields: [:title, :eyebrow, :body, :meta, :collection, :style, :classes, :slots],
+          slots: ["body", "actions"]
+        },
+        %{
+          id: "collection",
+          label: "Collection card",
+          description: "Card prepared for {{item.field}} bindings",
+          default_props: %{
+            "title" => "{{item.title}}",
+            "eyebrow" => "{{item.category}}",
+            "body" => "{{item.excerpt}}",
+            "meta" => "{{item.price}}",
+            "image_src" => "{{item.image}}"
+          },
+          fields: [
+            :title,
+            :eyebrow,
+            :body,
+            :meta,
+            :collection,
+            :image_enabled,
+            :image_src,
+            :image_alt,
+            :style,
+            :classes,
+            :slots
+          ],
           slots: ["body", "actions"]
         }
       ],
@@ -96,11 +131,18 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
         %{
           variant: "plain",
           props: %{"title" => "Simple card", "body" => "No image, just clear content."}
+        },
+        %{
+          variant: "collection",
+          props: %{"title" => "{{item.name}}", "body" => "{{item.description}}"}
         }
       ],
       fields: %{
         title: Field.text("title", label: "Title", bindable: true, required: true),
+        eyebrow: Field.text("eyebrow", label: "Eyebrow", bindable: true),
         body: Field.textarea("body", label: "Body", bindable: true),
+        meta: Field.text("meta", label: "Meta", bindable: true),
+        collection: Field.text("collection", label: "Collection key", bindable: true),
         image_enabled: Field.toggle("image_enabled", label: "Show image"),
         image_src: Field.media("image_src", label: "Image", bindable: true),
         image_alt: Field.text("image_alt", label: "Image alt text", bindable: true),

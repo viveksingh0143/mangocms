@@ -20,7 +20,12 @@ defmodule MangoCMSWeb.Builder.Manifests.Carousel do
         "transition" => "slide",
         "items_count" => 3,
         "controls_enabled" => true,
-        "items_visible_desktop" => 1
+        "items_visible_desktop" => 1,
+        "collection" => "",
+        "title_template" => "{{item.title}}",
+        "body_template" => "{{item.excerpt}}",
+        "image_template" => "{{item.image}}",
+        "interval_ms" => 5000
       },
       default_classes: %{"custom" => ""},
       alpine: %{component: "carousel", owns: ["active", "total"]},
@@ -37,6 +42,11 @@ defmodule MangoCMSWeb.Builder.Manifests.Carousel do
             :transition,
             :items_count,
             :items_visible_desktop,
+            :interval_ms,
+            :collection,
+            :title_template,
+            :body_template,
+            :image_template,
             :controls_enabled,
             :classes,
             :slots
@@ -52,6 +62,11 @@ defmodule MangoCMSWeb.Builder.Manifests.Carousel do
             :transition,
             :items_count,
             :items_visible_desktop,
+            :interval_ms,
+            :collection,
+            :title_template,
+            :body_template,
+            :image_template,
             :controls_enabled,
             :classes,
             :slots
@@ -72,6 +87,12 @@ defmodule MangoCMSWeb.Builder.Manifests.Carousel do
         items_count: Field.number("items_count", label: "Preview items", min: 1, max: 12),
         items_visible_desktop:
           Field.number("items_visible_desktop", label: "Items visible on desktop", min: 1, max: 6),
+        interval_ms:
+          Field.number("interval_ms", label: "Interval milliseconds", min: 1000, max: 60000),
+        collection: Field.text("collection", label: "Collection key", bindable: true),
+        title_template: Field.text("title_template", label: "Title template", bindable: true),
+        body_template: Field.textarea("body_template", label: "Body template", bindable: true),
+        image_template: Field.media("image_template", label: "Image template", bindable: true),
         controls_enabled: Field.toggle("controls_enabled", label: "Show controls"),
         classes: Field.class_list("custom", label: "Custom classes"),
         slots: Field.slot_controls("slots", label: "Slots")

@@ -11,6 +11,7 @@ defmodule MangoCMSWeb.Builder.Registry do
 
   @manifest_modules [
     Manifests.Button,
+    Manifests.Accordion,
     Manifests.Card,
     Manifests.Hero,
     Manifests.Modal,
@@ -40,6 +41,11 @@ defmodule MangoCMSWeb.Builder.Registry do
     Manifests.Pagination,
     Manifests.Steps,
     Manifests.Carousel,
+    Manifests.Collapse,
+    Manifests.List,
+    Manifests.Stat,
+    Manifests.Table,
+    Manifests.Timeline,
     Manifests.Tabs,
     Manifests.Input
   ]

@@ -12,6 +12,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       manifests = Registry.all()
 
       assert Enum.any?(manifests, &(&1.name == "button"))
+      assert Enum.any?(manifests, &(&1.name == "accordion"))
       assert Enum.any?(manifests, &(&1.name == "card"))
       assert Enum.any?(manifests, &(&1.name == "hero"))
       assert Enum.any?(manifests, &(&1.name == "modal"))
@@ -41,6 +42,11 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "pagination"))
       assert Enum.any?(manifests, &(&1.name == "steps"))
       assert Enum.any?(manifests, &(&1.name == "carousel"))
+      assert Enum.any?(manifests, &(&1.name == "collapse"))
+      assert Enum.any?(manifests, &(&1.name == "list"))
+      assert Enum.any?(manifests, &(&1.name == "stat"))
+      assert Enum.any?(manifests, &(&1.name == "table"))
+      assert Enum.any?(manifests, &(&1.name == "timeline"))
       assert Enum.any?(manifests, &(&1.name == "tabs"))
       assert Enum.any?(manifests, &(&1.name == "input"))
 
@@ -61,7 +67,18 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       fields = Registry.fields_for_variant("card", "plain")
 
       assert variant.label == "Plain"
-      assert Enum.map(fields, & &1.key) == ["title", "body", "style", "custom", "slots"]
+
+      assert Enum.map(fields, & &1.key) == [
+               "title",
+               "eyebrow",
+               "body",
+               "meta",
+               "collection",
+               "style",
+               "custom",
+               "slots"
+             ]
+
       refute Enum.any?(fields, &(&1.key == "image_src"))
     end
 
@@ -83,8 +100,22 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
     test "declares Alpine metadata for interactive components" do
       for name <-
-            ~w(dropdown modal fab swap theme_controller toast tooltip drawer hero menu navbar carousel tabs) do
+            ~w(dropdown modal fab swap theme_controller toast tooltip drawer hero menu navbar accordion collapse carousel tabs) do
         assert Registry.get!(name).alpine.component
+      end
+    end
+
+    test "data display manifests expose collection-friendly fields" do
+      for name <- ~w(accordion card carousel collapse list stat table timeline) do
+        manifest = Registry.get!(name)
+
+        assert manifest.group == "Data display"
+        assert manifest.variants != []
+      end
+
+      for name <- ~w(accordion card carousel list table timeline) do
+        fields = Registry.fields_for_variant(name)
+        assert Enum.any?(fields, & &1.bindable)
       end
     end
 
@@ -179,7 +210,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button card hero modal dropdown fab swap theme_controller carousel tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps) do
+            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -311,6 +342,34 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert render_component(&Renderer.node/1, node: Registry.default_node("steps", "vertical")) =~
                "steps-vertical"
+    end
+
+    test "renders data display batch one defaults and bindings" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("accordion")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("card", "collection")) =~
+               "{{item.title}}"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("carousel")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("collapse", "plus")) =~
+               "collapse-plus"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("list")) =~
+               "{{item.excerpt}}"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("stat")) =~
+               "{{item.value}}"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("table")) =~
+               "table-zebra"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("timeline", "horizontal")
+             ) =~
+               "timeline-horizontal"
     end
   end
 end
