@@ -34,6 +34,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
      |> assign(:right_sidebar_open?, true)
      |> assign(:right_sidebar_size, "normal")
      |> assign(:collections, Collections.list_collections(tenant))
+     |> assign(:pages, Pages.list_pages(tenant))
      |> assign(:collection_fields, collection_fields)
      |> assign(:settings, section.settings || %{})
      |> assign(:source_config, source_config)
@@ -75,6 +76,69 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   def handle_event("add_node", %{"name" => name}, socket) do
     tree = ContentTree.insert_node(socket.assigns.tree, "root", new_node(name), :into)
     {:noreply, socket |> assign(:tree, tree) |> assign_preview_tree()}
+  end
+
+  def handle_event(
+        "drop_node",
+        %{"dragged_id" => dragged_id, "target_id" => target_id} = params,
+        socket
+      ) do
+    position = parse_position(Map.get(params, "position"))
+    tree = socket.assigns.tree
+    target_name = target_container_name(tree, target_id, position)
+    dragged_name = target_name(tree, dragged_id)
+
+    cond do
+      target_id == "root" and position == :into ->
+        {:noreply,
+         socket
+         |> assign(:tree, ContentTree.move_node(tree, dragged_id, "root", :into))
+         |> assign(:selected_id, dragged_id)
+         |> assign_preview_tree()}
+
+      EditorCanvas.accepts?(target_name, dragged_name) ->
+        {:noreply,
+         socket
+         |> assign(:tree, ContentTree.move_node(tree, dragged_id, target_id, position))
+         |> assign(:selected_id, dragged_id)
+         |> assign_preview_tree()}
+
+      true ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "#{human_name(dragged_name)} cannot be dropped into #{human_name(target_name)}"
+         )}
+    end
+  end
+
+  def handle_event(
+        "drop_palette_node",
+        %{"name" => name, "target_id" => target_id} = params,
+        socket
+      ) do
+    position = parse_position(Map.get(params, "position"))
+    node = new_node(name)
+    parent_name = target_container_name(socket.assigns.tree, target_id, position)
+    child_name = Map.get(node, "name")
+
+    if target_id == "root" or EditorCanvas.accepts?(parent_name, child_name) do
+      tree = ContentTree.insert_node(socket.assigns.tree, target_id, node, position)
+
+      {:noreply,
+       socket
+       |> assign(:tree, tree)
+       |> assign(:selected_id, Map.get(node, "id"))
+       |> assign_preview_tree()}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "#{human_name(child_name)} cannot be added to #{human_name(parent_name)}"
+       )}
+    end
   end
 
   def handle_event("delete_node", %{"id" => id}, socket) do
@@ -130,6 +194,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
       params
       |> Map.take(["text", "href", "src", "alt", "target", "title", "level"])
       |> Map.reject(fn {_key, value} -> is_nil(value) end)
+      |> maybe_apply_link_preset(params)
 
     tree = ContentTree.update_node_props(socket.assigns.tree, selected_id, prop_updates)
 
@@ -289,7 +354,11 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         </button>
       </:actions>
 
-      <section id="section-builder" class={section_builder_grid_class(assigns)}>
+      <section
+        id="section-builder"
+        phx-hook="AstBuilderCanvas"
+        class={section_builder_grid_class(assigns)}
+      >
         <aside class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100">
           <div class="border-b border-base-300 p-3">
             <div class="join w-full">
@@ -409,7 +478,11 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
                 Selected element
               </h2>
               <%= if selected = selected_node(@tree, @selected_id) do %>
-                <.selected_node_form node={selected} collection_fields={@collection_fields} />
+                <.selected_node_form
+                  node={selected}
+                  collection_fields={@collection_fields}
+                  link_options={link_options(@pages, @collections)}
+                />
               <% else %>
                 <p class="mt-3 text-sm text-base-content/60">
                   Select a block in the canvas to edit text, links, media, and classes.
@@ -444,6 +517,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   attr :node, :map, required: true
   attr :collection_fields, :list, default: []
+  attr :link_options, :list, default: []
 
   defp selected_node_form(assigns) do
     props = Map.get(assigns.node, "props", %{})
@@ -509,8 +583,17 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         id="section-builder-selected-href"
         name="node[href]"
         type="text"
-        label="Link"
+        label="Custom link"
         value={@props["href"] || ""}
+      />
+      <.input
+        :if={@name in ["button", "anchor", "image"]}
+        id="section-builder-selected-link-preset"
+        name="node[link_preset]"
+        type="select"
+        label="Link to existing"
+        value=""
+        options={@link_options}
       />
       <.input
         id="section-builder-selected-src"
@@ -777,7 +860,14 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
       |> assign(:children, safe_children(assigns.node))
 
     ~H"""
-    <li>
+    <li
+      id={"section-builder-layer-row-#{@node_id}"}
+      data-node-id={@node_id}
+      data-drop-target-id={@node_id}
+      data-drop-target-name={@name}
+      draggable="true"
+      class="rounded"
+    >
       <button
         id={"section-builder-layer-#{@node_id}"}
         type="button"
@@ -1006,6 +1096,26 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   defp field_options(fields), do: Enum.map(fields, &{&1.label, &1.field_key})
 
+  defp link_options(pages, collections) do
+    page_options =
+      Enum.map(pages || [], fn page ->
+        {"Page: #{page.title}", "/#{page.slug}"}
+      end)
+
+    collection_options =
+      Enum.flat_map(collections || [], fn collection ->
+        base_path = "/#{collection.slug}"
+        label_prefix = if collection.archetype == "category", do: "Category", else: "Collection"
+
+        [
+          {"#{label_prefix} index: #{collection.name}", base_path},
+          {"#{label_prefix} item: #{collection.name}", "#{base_path}/{{item.slug}}"}
+        ]
+      end)
+
+    [{"Choose an internal link", ""}] ++ page_options ++ collection_options
+  end
+
   defp first_filter_rule(%{"rules" => [rule | _rest]}) when is_map(rule), do: rule
   defp first_filter_rule(_filters), do: %{}
 
@@ -1036,6 +1146,46 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   defp bindable_props("image"), do: ["src", "alt", "href"]
   defp bindable_props("video"), do: ["src", "title"]
   defp bindable_props(_name), do: []
+
+  defp maybe_apply_link_preset(prop_updates, %{"link_preset" => link_preset})
+       when is_binary(link_preset) and link_preset != "" do
+    Map.put(prop_updates, "href", link_preset)
+  end
+
+  defp maybe_apply_link_preset(prop_updates, _params), do: prop_updates
+
+  defp target_name(_tree, "root"), do: "root"
+
+  defp target_name(tree, id) do
+    case ContentTree.find_node(tree, id) do
+      %{"name" => name} -> name
+      _other -> "root"
+    end
+  end
+
+  defp target_container_name(tree, target_id, :into), do: target_name(tree, target_id)
+  defp target_container_name(_tree, "root", _position), do: "root"
+
+  defp target_container_name(tree, target_id, _position) do
+    with %{"path" => path} <- ContentTree.find_node(tree, target_id),
+         parent_id when is_binary(parent_id) <- path |> String.split(".") |> List.last() do
+      target_name(tree, parent_id)
+    else
+      _other -> "root"
+    end
+  end
+
+  defp parse_position("before"), do: :before
+  defp parse_position("after"), do: :after
+  defp parse_position(_position), do: :into
+
+  defp human_name(value) when is_binary(value) do
+    value
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+
+  defp human_name(_value), do: "Block"
 
   defp assign_preview_tree(socket) do
     assign(socket, :preview_tree, preview_tree(socket))

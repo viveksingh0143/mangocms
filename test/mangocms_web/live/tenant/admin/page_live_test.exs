@@ -114,6 +114,53 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLiveTest do
   end
 
   describe "sections and public render" do
+    test "section creation wizard preserves details across steps and saves at the end", %{
+      conn: conn
+    } do
+      tenant = tenant_fixture()
+
+      {conn, _user} =
+        conn |> host_conn(tenant.domain, 4000) |> register_and_log_in_tenant_user(tenant)
+
+      {:ok, section_live, _html} = live(conn, ~p"/admin/sections")
+
+      assert section_live |> element("#new-section-button") |> render_click()
+      assert has_element?(section_live, "#section-template-step")
+
+      assert section_live |> element("#section-template-hero") |> render_click()
+      assert has_element?(section_live, "#section-details-step")
+
+      assert section_live
+             |> form("#section-form",
+               section: %{
+                 "template_preset" => "hero",
+                 "name" => "Homepage Hero",
+                 "group_label" => "Marketing",
+                 "template_key" => "homepage_hero",
+                 "mode" => "fixed"
+               }
+             )
+             |> render_change()
+
+      assert section_live |> element("#section-wizard-next-button") |> render_click()
+
+      assert has_element?(section_live, "#section-settings-step")
+
+      assert section_live
+             |> form("#section-form",
+               section: %{
+                 "template_preset" => "hero",
+                 "settings" => %{"section_type" => "hero", "variant" => "default"},
+                 "source_config" => %{"kind" => "fixed"},
+                 "loop_settings" => %{"enabled" => "false", "limit" => "6"}
+               }
+             )
+             |> render_submit()
+
+      assert_patch(section_live, ~p"/admin/sections")
+      assert Enum.any?(Pages.list_sections(tenant), &(&1.name == "Homepage Hero"))
+    end
+
     test "builder edits AST content, saves snapshots, and renders the public page", %{conn: conn} do
       tenant = tenant_fixture()
       page = page_fixture(tenant, title: "Builder", slug: "builder")

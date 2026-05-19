@@ -92,9 +92,10 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       phx-value-id={@node_id}
       phx-value-source="canvas"
       class={[
-        "group relative my-1 rounded-md border border-dashed border-base-300 transition hover:border-primary/60 hover:bg-primary/5",
+        "group relative rounded-md border border-transparent transition hover:border-dashed hover:border-primary/60 hover:bg-primary/5",
         canvas_wrapper_class(@node),
-        @selected_id == @node_id && "border-primary bg-primary/10"
+        @selected_id == @node_id && "border-primary bg-primary/10",
+        empty_container?(@node, @children) && "min-h-12 border-dashed border-base-300"
       ]}
     >
       <div class="pointer-events-none absolute top-2 left-2 z-10 rounded-md bg-base-100/90 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-base-content/60 shadow-sm opacity-0 transition group-hover:opacity-100">
@@ -122,7 +123,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         </button>
       </div>
 
-      <div class="p-2">
+      <div class={if(empty_container?(@node, @children), do: "p-2", else: "p-0")}>
         <.editable_node_body
           node={@node}
           name={@name}
@@ -254,6 +255,9 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
     do: PageElements.class_names(classes, "border-l-4 pl-4 italic")
 
   defp text_node_class(_tag, classes), do: PageElements.class_names(classes, "")
+
+  defp empty_container?(%{"name" => name}, []), do: name in ["section", "row", "column", "loop"]
+  defp empty_container?(_node, _children), do: false
 
   defp canvas_wrapper_class(%{"name" => "column", "classes" => classes}) when is_map(classes) do
     PageElements.class_names(classes, "col-span-12")

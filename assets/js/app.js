@@ -506,6 +506,7 @@ const AstBuilderCanvas = {
       const node = event.target.closest("[data-node-id]")
       if (!node) return
       this.draggingNodeId = node.dataset.nodeId
+      this.el.dataset.dragging = "true"
       event.dataTransfer.effectAllowed = "move"
       event.dataTransfer.setData("text/plain", this.draggingNodeId)
     }
@@ -513,6 +514,7 @@ const AstBuilderCanvas = {
     this.handleDragEnd = () => {
       this.draggingNodeId = null
       this.draggingPalette = null
+      delete this.el.dataset.dragging
       this.clearDropIndicator()
     }
 
@@ -578,6 +580,7 @@ const AstBuilderCanvas = {
         position,
       })
       this.draggingNodeId = null
+      delete this.el.dataset.dragging
     })
   },
 
