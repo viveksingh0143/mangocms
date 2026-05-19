@@ -118,16 +118,24 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
     ~H"""
     <div
       class={class_value(@classes, "custom")}
-      x-data="{ active: 0 }"
+      x-data={"{ active: '#{active_tab(@props)}' }"}
     >
-      <div role="tablist" class={["tabs", @props["style"] || "tabs-boxed"]}>
+      <div
+        role="tablist"
+        class={[
+          "tabs",
+          @props["style"] || "tabs-boxed",
+          tabs_align(@props["align"]),
+          tabs_responsive(@props["responsive"])
+        ]}
+      >
         <button
           :for={tab <- tab_items(@props)}
           type="button"
           role="tab"
           class="tab"
-          x-bind:class={"active === #{tab.index} && 'tab-active'"}
-          x-on:click={"active = #{tab.index}"}
+          x-bind:class={"active === '#{tab.id}' && 'tab-active'"}
+          x-on:click={"active = '#{tab.id}'"}
         >
           {tab.label}
         </button>
@@ -138,7 +146,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <% else %>
           <section
             :for={tab <- tab_items(@props)}
-            x-show={"active === #{tab.index}"}
+            x-show={"active === '#{tab.id}'"}
             x-transition
             class="rounded-box border border-base-300 p-4"
           >
@@ -173,13 +181,31 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
   defp tab_items(props) do
     props
     |> Map.get("tabs", [
-      %{"label" => "Overview", "body" => "Overview content"},
-      %{"label" => "Details", "body" => "Details content"},
-      %{"label" => "Settings", "body" => "Settings content"}
+      %{"id" => "overview", "label" => "Overview", "body" => "Overview content"},
+      %{"id" => "details", "label" => "Details", "body" => "Details content"},
+      %{"id" => "settings", "label" => "Settings", "body" => "Settings content"}
     ])
     |> Enum.with_index()
     |> Enum.map(fn {item, index} ->
-      %{index: index, label: item["label"] || "Tab", body: item["body"] || ""}
+      %{
+        id: item["id"] || item["label"] || "tab_#{index}",
+        index: index,
+        label: item["label"] || "Tab",
+        body: item["body"] || ""
+      }
     end)
   end
+
+  defp active_tab(props) do
+    props["active_item"] || props["active_tab"] ||
+      props |> tab_items() |> List.first(%{}) |> Map.get(:id, "overview")
+  end
+
+  defp tabs_align("center"), do: "justify-center"
+  defp tabs_align("end"), do: "justify-end"
+  defp tabs_align(_align), do: "justify-start"
+
+  defp tabs_responsive(true), do: "max-sm:tabs-vertical"
+  defp tabs_responsive("true"), do: "max-sm:tabs-vertical"
+  defp tabs_responsive(_responsive), do: ""
 end

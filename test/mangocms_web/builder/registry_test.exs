@@ -19,6 +19,27 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "fab"))
       assert Enum.any?(manifests, &(&1.name == "swap"))
       assert Enum.any?(manifests, &(&1.name == "theme_controller"))
+      assert Enum.any?(manifests, &(&1.name == "alert"))
+      assert Enum.any?(manifests, &(&1.name == "loading"))
+      assert Enum.any?(manifests, &(&1.name == "progress"))
+      assert Enum.any?(manifests, &(&1.name == "radial_progress"))
+      assert Enum.any?(manifests, &(&1.name == "skeleton"))
+      assert Enum.any?(manifests, &(&1.name == "toast"))
+      assert Enum.any?(manifests, &(&1.name == "tooltip"))
+      assert Enum.any?(manifests, &(&1.name == "divider"))
+      assert Enum.any?(manifests, &(&1.name == "drawer"))
+      assert Enum.any?(manifests, &(&1.name == "footer"))
+      assert Enum.any?(manifests, &(&1.name == "indicator"))
+      assert Enum.any?(manifests, &(&1.name == "join"))
+      assert Enum.any?(manifests, &(&1.name == "mask"))
+      assert Enum.any?(manifests, &(&1.name == "stack"))
+      assert Enum.any?(manifests, &(&1.name == "breadcrumbs"))
+      assert Enum.any?(manifests, &(&1.name == "dock"))
+      assert Enum.any?(manifests, &(&1.name == "link"))
+      assert Enum.any?(manifests, &(&1.name == "menu"))
+      assert Enum.any?(manifests, &(&1.name == "navbar"))
+      assert Enum.any?(manifests, &(&1.name == "pagination"))
+      assert Enum.any?(manifests, &(&1.name == "steps"))
       assert Enum.any?(manifests, &(&1.name == "carousel"))
       assert Enum.any?(manifests, &(&1.name == "tabs"))
       assert Enum.any?(manifests, &(&1.name == "input"))
@@ -61,9 +82,37 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
     end
 
     test "declares Alpine metadata for interactive components" do
-      for name <- ~w(dropdown modal fab swap theme_controller carousel tabs) do
+      for name <-
+            ~w(dropdown modal fab swap theme_controller toast tooltip drawer hero menu navbar carousel tabs) do
         assert Registry.get!(name).alpine.component
       end
+    end
+
+    test "layout manifests expose slots and accepted child types" do
+      for name <- ~w(drawer footer hero indicator join mask stack) do
+        manifest = Registry.get!(name)
+
+        assert manifest.slots != []
+        assert manifest.accepted_children != []
+        assert Enum.all?(manifest.slots, &(&1.accepts != []))
+      end
+
+      assert Registry.get!("divider").slots == []
+      assert Registry.get!("divider").accepted_children == []
+    end
+
+    test "navigation manifests expose slots and accepted child types" do
+      for name <- ~w(breadcrumbs dock menu navbar pagination steps tabs) do
+        manifest = Registry.get!(name)
+
+        assert manifest.group == "Navigation"
+        assert manifest.slots != []
+        assert manifest.accepted_children != []
+        assert Enum.all?(manifest.slots, &(&1.accepts != []))
+      end
+
+      assert Registry.get!("link").group == "Navigation"
+      assert Registry.get!("link").slots == []
     end
   end
 
@@ -130,7 +179,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button card hero modal dropdown fab swap theme_controller carousel tabs input) do
+            ~w(button card hero modal dropdown fab swap theme_controller carousel tabs input alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -168,6 +217,100 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert render_component(&Renderer.node/1, node: Registry.default_node("theme_controller")) =~
                "Cupcake"
+    end
+
+    test "renders feedback component defaults and Alpine behavior" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("alert", "success")) =~
+               "alert-success"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("loading", "dots")) =~
+               "loading-dots"
+
+      assert render_component(&Renderer.node/1,
+               node: Registry.default_node("progress", "warning")
+             ) =~
+               "progress-warning"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("radial_progress")) =~
+               "radial-progress"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("skeleton", "avatar")) =~
+               "skeleton"
+
+      toast_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("toast", "success"))
+
+      tooltip_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("tooltip", "top"))
+
+      assert toast_html =~ "x-data"
+      assert toast_html =~ "toast"
+      assert tooltip_html =~ "x-data"
+      assert tooltip_html =~ "data-tip"
+    end
+
+    test "renders layout component defaults and Alpine behavior" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("divider", "labeled")) =~
+               "divider"
+
+      drawer_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("drawer", "right"))
+
+      hero_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("hero", "fullscreen"))
+
+      assert drawer_html =~ "drawer"
+      assert drawer_html =~ "drawer-end"
+      assert drawer_html =~ "x-data"
+      assert hero_html =~ "min-h-screen"
+      assert hero_html =~ "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("footer", "minimal")) =~
+               "footer"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("indicator")) =~
+               "indicator"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("join", "vertical")) =~
+               "join-vertical"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("mask", "hexagon")) =~
+               "mask-hexagon"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("stack")) =~
+               "stack"
+    end
+
+    test "renders navigation component defaults and Alpine behavior" do
+      assert render_component(&Renderer.node/1, node: Registry.default_node("breadcrumbs")) =~
+               "breadcrumbs"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("dock")) =~
+               "dock-active"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("link", "button")) =~
+               "btn-primary"
+
+      menu_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("menu", "horizontal"))
+
+      navbar_html = render_component(&Renderer.node/1, node: Registry.default_node("navbar"))
+
+      tabs_html =
+        render_component(&Renderer.node/1, node: Registry.default_node("tabs", "bordered"))
+
+      assert menu_html =~ "menu-horizontal"
+      assert menu_html =~ "x-data"
+      assert navbar_html =~ "navbar"
+      assert navbar_html =~ "x-data"
+      assert tabs_html =~ "tabs-border"
+      assert tabs_html =~ "active:"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("pagination")) =~
+               "btn-active"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("steps", "vertical")) =~
+               "steps-vertical"
     end
   end
 end

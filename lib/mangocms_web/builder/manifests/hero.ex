@@ -20,10 +20,12 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
         "eyebrow" => "MangoCMS",
         "title" => "Build faster tenant websites",
         "subtitle" => "Composable sections, collections, and publishing tools.",
-        "layout" => "split_left"
+        "layout" => "split_left",
+        "height" => "standard",
+        "content_width" => "wide"
       },
       default_classes: %{"custom" => ""},
-      alpine: %{},
+      alpine: %{component: "hero", owns: ["visible"]},
       slots: [
         %{id: "content", label: "Content", accepts: ["heading", "paragraph", "badge", "list"]},
         %{id: "media", label: "Media", accepts: ["image", "video"], max_children: 1},
@@ -35,7 +37,16 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
           label: "Split left",
           description: "Text left, media right",
           default_props: %{"layout" => "split_left"},
-          fields: [:eyebrow, :title, :subtitle, :layout, :classes, :slots],
+          fields: [
+            :eyebrow,
+            :title,
+            :subtitle,
+            :layout,
+            :height,
+            :content_width,
+            :classes,
+            :slots
+          ],
           slots: ["content", "media", "actions"]
         },
         %{
@@ -43,7 +54,16 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
           label: "Split right",
           description: "Text right, media left",
           default_props: %{"layout" => "split_right"},
-          fields: [:eyebrow, :title, :subtitle, :layout, :classes, :slots],
+          fields: [
+            :eyebrow,
+            :title,
+            :subtitle,
+            :layout,
+            :height,
+            :content_width,
+            :classes,
+            :slots
+          ],
           slots: ["content", "media", "actions"]
         },
         %{
@@ -51,7 +71,33 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
           label: "Centered",
           description: "Centered text hero",
           default_props: %{"layout" => "centered"},
-          fields: [:eyebrow, :title, :subtitle, :layout, :classes, :slots],
+          fields: [
+            :eyebrow,
+            :title,
+            :subtitle,
+            :layout,
+            :height,
+            :content_width,
+            :classes,
+            :slots
+          ],
+          slots: ["content", "actions"]
+        },
+        %{
+          id: "fullscreen",
+          label: "Fullscreen",
+          description: "Full-height hero for landing pages",
+          default_props: %{"height" => "full", "layout" => "centered"},
+          fields: [
+            :eyebrow,
+            :title,
+            :subtitle,
+            :layout,
+            :height,
+            :content_width,
+            :classes,
+            :slots
+          ],
           slots: ["content", "actions"]
         }
       ],
@@ -76,6 +122,13 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
             "title" => "MangoCMS builder library",
             "subtitle" => "Composable UI blocks backed by Elixir manifests."
           }
+        },
+        %{
+          variant: "fullscreen",
+          props: %{
+            "title" => "Publish a complete site",
+            "subtitle" => "A full viewport opening section with responsive content width."
+          }
         }
       ],
       fields: %{
@@ -89,6 +142,25 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
               {"Split left", "split_left"},
               {"Split right", "split_right"},
               {"Centered", "centered"}
+            ]
+          ),
+        height:
+          Field.select("height",
+            label: "Height",
+            options: [
+              {"Compact", "compact"},
+              {"Standard", "standard"},
+              {"Fullscreen", "full"}
+            ]
+          ),
+        content_width:
+          Field.select("content_width",
+            label: "Content width",
+            options: [
+              {"Narrow", "narrow"},
+              {"Default", "default"},
+              {"Wide", "wide"},
+              {"Full", "full"}
             ]
           ),
         classes: Field.class_list("custom", label: "Custom classes"),
