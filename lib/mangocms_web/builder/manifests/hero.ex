@@ -55,6 +55,29 @@ defmodule MangoCMSWeb.Builder.Manifests.Hero do
           slots: ["content", "actions"]
         }
       ],
+      examples: [
+        %{
+          variant: "split_left",
+          props: %{
+            "title" => "Launch your tenant website",
+            "subtitle" => "Publish pages, catalogs, and content collections from one admin."
+          }
+        },
+        %{
+          variant: "split_right",
+          props: %{
+            "title" => "Local-first content engine",
+            "subtitle" => "Fast tenant sites with clean public rendering."
+          }
+        },
+        %{
+          variant: "centered",
+          props: %{
+            "title" => "MangoCMS builder library",
+            "subtitle" => "Composable UI blocks backed by Elixir manifests."
+          }
+        }
+      ],
       fields: %{
         eyebrow: Field.text("eyebrow", label: "Eyebrow", bindable: true),
         title: Field.text("title", label: "Title", bindable: true, required: true),

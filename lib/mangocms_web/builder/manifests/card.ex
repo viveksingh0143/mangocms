@@ -76,6 +76,28 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           slots: ["body", "actions"]
         }
       ],
+      examples: [
+        %{
+          variant: "image_top",
+          props: %{
+            "title" => "Pressure Cooker",
+            "body" => "Fast cooking for modern kitchens.",
+            "image_src" => "/images/placeholder.svg"
+          }
+        },
+        %{
+          variant: "image_bottom",
+          props: %{
+            "title" => "Customer story",
+            "body" => "A compact story card with visual emphasis.",
+            "image_src" => "/images/placeholder.svg"
+          }
+        },
+        %{
+          variant: "plain",
+          props: %{"title" => "Simple card", "body" => "No image, just clear content."}
+        }
+      ],
       fields: %{
         title: Field.text("title", label: "Title", bindable: true, required: true),
         body: Field.textarea("body", label: "Body", bindable: true),

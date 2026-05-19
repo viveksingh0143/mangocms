@@ -12,7 +12,12 @@ defmodule MangoCMSWeb.Builder.Registry do
   @manifest_modules [
     Manifests.Button,
     Manifests.Card,
-    Manifests.Hero
+    Manifests.Hero,
+    Manifests.Modal,
+    Manifests.Dropdown,
+    Manifests.Carousel,
+    Manifests.Tabs,
+    Manifests.Input
   ]
 
   @doc "Returns manifest modules loaded by the registry."
@@ -115,6 +120,20 @@ defmodule MangoCMSWeb.Builder.Registry do
       "slots" => empty_slots(manifest, variant_id),
       "children" => []
     }
+  end
+
+  @doc "Returns example nodes declared by a manifest, one per variant where possible."
+  @spec examples(String.t() | Manifest.t()) :: [map()]
+  def examples(name) when is_binary(name), do: name |> get!() |> examples()
+
+  def examples(manifest) when is_map(manifest) do
+    Enum.map(manifest.examples, fn example ->
+      node = default_node(manifest.name, example.variant)
+
+      node
+      |> put_in(["props"], Map.merge(node["props"], Map.get(example, :props, %{})))
+      |> put_in(["classes"], Map.merge(node["classes"], Map.get(example, :classes, %{})))
+    end)
   end
 
   defp empty_slots(manifest, variant_id) do

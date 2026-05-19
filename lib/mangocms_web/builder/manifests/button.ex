@@ -41,6 +41,10 @@ defmodule MangoCMSWeb.Builder.Manifests.Button do
           fields: [:label, :href, :target, :style, :icon, :classes]
         }
       ],
+      examples: [
+        %{variant: "primary", props: %{"label" => "Get started", "href" => "/signup"}},
+        %{variant: "ghost", props: %{"label" => "Learn more", "href" => "/about"}}
+      ],
       fields: %{
         label: Field.text("label", label: "Text", bindable: true, required: true),
         href: Field.link("href", label: "Link", bindable: true),

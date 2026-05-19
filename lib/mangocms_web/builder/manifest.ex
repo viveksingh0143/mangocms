@@ -34,7 +34,8 @@ defmodule MangoCMSWeb.Builder.Manifest do
           required(:fields) => %{atom() => MangoCMSWeb.Builder.Field.t()},
           required(:slots) => [slot()],
           required(:accepted_children) => [String.t()],
-          required(:alpine) => map()
+          required(:alpine) => map(),
+          optional(:examples) => [map()]
         }
 
   @callback manifest() :: t()
@@ -50,5 +51,6 @@ defmodule MangoCMSWeb.Builder.Manifest do
     |> Map.put_new(:slots, [])
     |> Map.put_new(:accepted_children, [])
     |> Map.put_new(:alpine, %{})
+    |> Map.put_new(:examples, [])
   end
 end

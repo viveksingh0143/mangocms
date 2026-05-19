@@ -17,6 +17,9 @@ defmodule MangoCMSWeb.BuilderLibrary.LayoutComponents do
       assigns
       |> assign(:props, Map.get(assigns.node, "props", %{}))
       |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:content, fn -> [] end)
+      |> assign_new(:media, fn -> [] end)
+      |> assign_new(:actions, fn -> [] end)
 
     ~H"""
     <section class={["hero min-h-[28rem] bg-base-200", class_value(@classes, "custom")]}>
