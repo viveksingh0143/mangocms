@@ -1209,10 +1209,10 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       class_value(@classes, "custom")
     ]}>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "top"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_al<truncated omitted_approx_tokens="66" />nder_slot(@actions)}</div>
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_al<truncated omitted_approx_tokens="66" />nder_slot(@actions)}</div>
       </div>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "bottom"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_alt"] || ""} />
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
       </figure>
     </article>
     """
@@ -1863,7 +1863,7 @@ end
 +          props: %{
 +            "title" => "Pressure Cooker",
 +            "body" => "Fast cooking for modern kitchens.",
-+            "image_src" => "/images/placeholder.svg"
++            "image_src" => "/images/no-image-placeholder.webp"
 +          }
 +        },
 +        %{
@@ -1871,7 +1871,7 @@ end
 +          props: %{
 +            "title" => "Customer story",
 +            "body" => "A compact story card with visual emphasis.",
-+            "image_src" => "/images/placeholder.svg"
++            "image_src" => "/images/no-image-placeholder.webp"
 +          }
 +        },
 +        %{
@@ -8580,7 +8580,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       class_value(@classes, "custom")
     ]}>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "top"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_alt"] || ""} />
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
       </figure>
       {render_slot(@media)}
       <div class="card-body">
@@ -8590,7 +8590,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <div :if={@actions != []} class="card-actions justify-end">{render_slot(@actions)}</div>
       </div>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "bottom"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_alt"] || ""} />
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
       </figure>
     </article>
     """
@@ -8758,7 +8758,7 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           props: %{
             "title" => "Pressure Cooker",
             "body" => "Fast cooking for modern kitchens.",
-            "image_src" => "/images/placeholder.svg"
+            "image_src" => "/images/no-image-placeholder.webp"
           }
         },
         %{
@@ -8766,7 +8766,7 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           props: %{
             "title" => "Customer story",
             "body" => "A compact story card with visual emphasis.",
-            "image_src" => "/images/placeholder.svg"
+            "image_src" => "/images/no-image-placeholder.webp"
           }
         },
         %{

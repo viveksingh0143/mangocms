@@ -306,7 +306,7 @@ defmodule MangoCMSWeb.BuilderLibrary.LayoutComponents do
         {render_slot(@content)}
       <% else %>
         <img
-          src={@props["image_src"] || "/images/placeholder.svg"}
+          src={@props["image_src"] || "/images/no-image-placeholder.webp"}
           alt={@props["image_alt"] || ""}
           class="h-full w-full object-cover"
         />

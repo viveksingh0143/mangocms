@@ -19,7 +19,7 @@ defmodule MangoCMSWeb.Builder.Manifests.Mask do
       default_props: %{
         "shape" => "circle",
         "size" => "md",
-        "image_src" => "/images/placeholder.svg",
+        "image_src" => "/images/no-image-placeholder.webp",
         "image_alt" => ""
       },
       default_classes: %{"custom" => ""},

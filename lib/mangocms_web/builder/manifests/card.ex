@@ -117,7 +117,7 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           props: %{
             "title" => "Pressure Cooker",
             "body" => "Fast cooking for modern kitchens.",
-            "image_src" => "/images/placeholder.svg"
+            "image_src" => "/images/no-image-placeholder.webp"
           }
         },
         %{
@@ -125,7 +125,7 @@ defmodule MangoCMSWeb.Builder.Manifests.Card do
           props: %{
             "title" => "Customer story",
             "body" => "A compact story card with visual emphasis.",
-            "image_src" => "/images/placeholder.svg"
+            "image_src" => "/images/no-image-placeholder.webp"
           }
         },
         %{

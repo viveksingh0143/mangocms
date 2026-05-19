@@ -74,7 +74,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       class_value(@classes, "custom")
     ]}>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "top"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_alt"] || ""} />
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
       </figure>
       {render_slot(@media)}
       <div class="card-body">
@@ -93,7 +93,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <div :if={@actions != []} class="card-actions justify-end">{render_slot(@actions)}</div>
       </div>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "bottom"}>
-        <img src={@props["image_src"] || "/images/placeholder.svg"} alt={@props["image_alt"] || ""} />
+        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
       </figure>
     </article>
     """
@@ -617,7 +617,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <div :for={_ <- 1..avatar_count(@props)} class="avatar">
           <div class={["rounded-full", avatar_size(@props["size"])]}>
             <img
-              src={@props["image_src"] || "/images/placeholder.svg"}
+              src={@props["image_src"] || "/images/no-image-placeholder.webp"}
               alt={@props["alt"] || ""}
             />
           </div>
@@ -698,7 +698,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       <div :if={@props["avatar_enabled"] == true} class="chat-image avatar">
         <div class="w-10 rounded-full">
           <img
-            src={@props["avatar_src"] || "/images/placeholder.svg"}
+            src={@props["avatar_src"] || "/images/no-image-placeholder.webp"}
             alt={@props["avatar_alt"] || ""}
           />
         </div>
@@ -788,7 +788,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
           </div>
         <% else %>
           <img
-            src={@props["before_src"] || "/images/placeholder.svg"}
+            src={@props["before_src"] || "/images/no-image-placeholder.webp"}
             alt={@props["before_alt"] || "Before"}
             class="size-full object-cover"
           />
@@ -801,7 +801,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
           </div>
         <% else %>
           <img
-            src={@props["after_src"] || "/images/placeholder.svg"}
+            src={@props["after_src"] || "/images/no-image-placeholder.webp"}
             alt={@props["after_alt"] || "After"}
             class="size-full object-cover"
           />
@@ -884,7 +884,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       <% else %>
         <div :for={item <- gallery_items(@props)} class="group overflow-hidden rounded-box">
           <img
-            src={item["src"] || "/images/placeholder.svg"}
+            src={item["src"] || "/images/no-image-placeholder.webp"}
             alt={item["alt"] || ""}
             class={[
               "h-48 w-full object-cover transition-transform duration-500 ease-out",
@@ -1103,12 +1103,12 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
 
   defp gallery_items(_props) do
     [
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 1", "caption" => "Gallery item"},
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 2"},
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 3"},
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 4"},
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 5"},
-      %{"src" => "/images/placeholder.svg", "alt" => "Photo 6"}
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 1", "caption" => "Gallery item"},
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 2"},
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 3"},
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 4"},
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 5"},
+      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 6"}
     ]
   end
 

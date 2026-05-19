@@ -48,8 +48,8 @@ defmodule MangoCMSWeb.Builder.Manifests.Diff do
         %{
           variant: "image",
           props: %{
-            "before_src" => "/images/placeholder.svg",
-            "after_src" => "/images/placeholder.svg"
+            "before_src" => "/images/no-image-placeholder.webp",
+            "after_src" => "/images/no-image-placeholder.webp"
           }
         },
         %{variant: "text", props: %{"before_text" => "Before", "after_text" => "After"}}
