@@ -70,7 +70,11 @@ defmodule MangoCMSWeb.Builder.Registry do
     Manifests.HoverGallery,
     Manifests.Kbd,
     Manifests.Status,
-    Manifests.TextRotate
+    Manifests.TextRotate,
+    Manifests.MockupBrowser,
+    Manifests.MockupCode,
+    Manifests.MockupPhone,
+    Manifests.MockupWindow
   ]
 
   @doc "Returns manifest modules loaded by the registry."

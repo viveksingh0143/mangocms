@@ -72,6 +72,10 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "filter"))
       assert Enum.any?(manifests, &(&1.name == "label"))
       assert Enum.any?(manifests, &(&1.name == "validator"))
+      assert Enum.any?(manifests, &(&1.name == "mockup_browser"))
+      assert Enum.any?(manifests, &(&1.name == "mockup_code"))
+      assert Enum.any?(manifests, &(&1.name == "mockup_phone"))
+      assert Enum.any?(manifests, &(&1.name == "mockup_window"))
 
       assert Registry.get!("button").renderer ==
                {MangoCMSWeb.BuilderLibrary.ActionComponents, :button}
@@ -249,7 +253,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
       for name <-
-            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input textarea select checkbox radio toggle range rating calendar fieldset file_input filter label validator alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate) do
+            ~w(button accordion card hero modal dropdown fab swap theme_controller carousel collapse list stat table timeline tabs input textarea select checkbox radio toggle range rating calendar fieldset file_input filter label validator alert loading progress radial_progress skeleton toast tooltip divider drawer footer indicator join mask stack breadcrumbs dock link menu navbar pagination steps avatar badge chat_bubble countdown diff hover_3d_card hover_gallery kbd status text_rotate mockup_browser mockup_code mockup_phone mockup_window) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -564,6 +568,76 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Registry.get!("filter").alpine.component == "filter"
       assert Registry.get!("fieldset").slots != []
       assert Registry.get!("fieldset").accepted_children != []
+    end
+
+    test "renders mockup components in both themes" do
+      browser_light =
+        render_component(&Renderer.node/1,
+          node: Registry.default_node("mockup_browser", "default")
+        )
+
+      browser_dark =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_browser", "dark"))
+
+      assert browser_light =~ "mockup-browser"
+      assert browser_light =~ "mockup-browser-toolbar"
+      assert browser_light =~ "https://example.com"
+      assert browser_dark =~ "mockup-browser"
+
+      code_terminal =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_code", "terminal"))
+
+      code_light =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_code", "light"))
+
+      assert code_terminal =~ "mockup-code"
+      assert code_terminal =~ "bg-neutral"
+      assert code_terminal =~ "mix phx.server"
+      assert code_terminal =~ "text-success"
+      assert code_light =~ "mockup-code"
+      assert code_light =~ "npm install"
+
+      phone_default =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_phone", "default"))
+
+      phone_large =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_phone", "large"))
+
+      assert phone_default =~ "mockup-phone"
+      assert phone_default =~ "phone-1"
+      assert phone_default =~ "camera"
+      assert phone_large =~ "phone-3"
+
+      window_light =
+        render_component(&Renderer.node/1,
+          node: Registry.default_node("mockup_window", "default")
+        )
+
+      window_dark =
+        render_component(&Renderer.node/1, node: Registry.default_node("mockup_window", "dark"))
+
+      assert window_light =~ "mockup-window"
+      assert window_light =~ "bg-base-100"
+      assert window_dark =~ "mockup-window"
+      assert window_dark =~ "bg-neutral"
+    end
+
+    test "mockup manifests are in Mockup group with slots and variants" do
+      for name <- ~w(mockup_browser mockup_code mockup_phone mockup_window) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Mockup", "#{name} should be in Mockup group"
+        assert manifest.variants != [], "#{name} should have variants"
+        assert manifest.alpine == %{}, "#{name} should have no Alpine (static chrome)"
+      end
+
+      assert Registry.get!("mockup_browser").slots != []
+      assert Registry.get!("mockup_window").slots != []
+      assert Registry.get!("mockup_phone").slots != []
+      assert Registry.get!("mockup_code").slots == []
+
+      assert Registry.get!("mockup_browser").accepted_children != []
+      assert Registry.get!("mockup_window").accepted_children != []
+      assert Registry.get!("mockup_code").accepted_children == []
     end
 
     test "renders data display batch one defaults and bindings" do
