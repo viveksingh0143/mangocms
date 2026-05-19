@@ -427,17 +427,25 @@ defmodule MangoCMS.Tenant.Pages do
     loop_items = Map.get(bindings, "collection_results", [])
     item_alias = node |> node_map("props") |> Map.get("as", "item")
 
-    loop_items
-    |> Enum.flat_map(fn item ->
-      item_bindings =
-        bindings
-        |> Map.put("item", item)
-        |> Map.put(item_alias, item)
+    loop_children =
+      loop_items
+      |> Enum.flat_map(fn item ->
+        item_bindings =
+          bindings
+          |> Map.put("item", item)
+          |> Map.put(item_alias, item)
 
-      tenant
-      |> resolve_tree(children(node), item_bindings, opts)
-      |> suffix_tree_ids(item["id"])
-    end)
+        tenant
+        |> resolve_tree(children(node), item_bindings, opts)
+        |> suffix_tree_ids(item["id"])
+      end)
+
+    [
+      node
+      |> interpolate_node(bindings)
+      |> apply_loop_layout_class(Map.get(bindings, "section_settings", %{}))
+      |> Map.put("children", loop_children)
+    ]
   end
 
   defp resolve_node(%Tenant{} = tenant, node, bindings, opts) when is_map(node) do
@@ -458,6 +466,8 @@ defmodule MangoCMS.Tenant.Pages do
         section_bindings =
           bindings
           |> Map.put("section", section_to_binding(section))
+          |> Map.put("section_settings", snapshot.settings || %{})
+          |> Map.put("loop_settings", snapshot.loop_settings || %{})
           |> Map.put("collection_results", collection_results(tenant, snapshot))
 
         resolve_tree(tenant, snapshot.content_tree, section_bindings, opts)
@@ -568,6 +578,28 @@ defmodule MangoCMS.Tenant.Pages do
   end
 
   defp suffix_node_id(node, _suffix), do: node
+
+  defp apply_loop_layout_class(node, settings) do
+    visible = settings |> get_in(["items_visible", "desktop"]) |> integer_value(3)
+
+    Map.update(node, "classes", %{}, fn classes ->
+      classes
+      |> node_map_value()
+      |> Map.put("display", loop_layout_class(visible))
+    end)
+  end
+
+  defp node_map_value(value) when is_map(value), do: value
+  defp node_map_value(_value), do: %{}
+
+  defp loop_layout_class(1), do: "grid gap-4 md:grid-cols-1"
+  defp loop_layout_class(2), do: "grid gap-4 md:grid-cols-2"
+  defp loop_layout_class(3), do: "grid gap-4 md:grid-cols-3"
+  defp loop_layout_class(4), do: "grid gap-4 md:grid-cols-4"
+  defp loop_layout_class(5), do: "grid gap-4 md:grid-cols-5"
+  defp loop_layout_class(6), do: "grid gap-4 md:grid-cols-6"
+  defp loop_layout_class(visible) when visible < 1, do: loop_layout_class(1)
+  defp loop_layout_class(_visible), do: loop_layout_class(6)
 
   defp section_overrides(node), do: node_map(node, "overrides")
 

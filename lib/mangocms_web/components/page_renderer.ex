@@ -67,7 +67,9 @@ defmodule MangoCMSWeb.PageRenderer do
       <% "section_ref" -> %>
         <.render_tree tree={@children} />
       <% "loop" -> %>
-        <.render_tree tree={@children} />
+        <div class={PageElements.class_names(@classes, "grid gap-4 md:grid-cols-3")}>
+          <.render_tree tree={@children} />
+        </div>
       <% _other -> %>
         <PageElements.unknown props={@props} classes={@classes}>
           <.render_tree tree={@children} />

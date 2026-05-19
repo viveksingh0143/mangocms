@@ -755,23 +755,48 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       |> assign(:node_id, Map.get(assigns.node, "id", ""))
       |> assign(:name, Map.get(assigns.node, "name", "unknown"))
       |> assign(:children, Map.get(assigns.node, "children", []))
+      |> assign(:accepted_types, accepted_types(Map.get(assigns.node, "name", "unknown")))
 
     ~H"""
-    <li>
-      <button
-        type="button"
-        phx-click="select_element"
-        phx-value-id={@node_id}
-        phx-value-source="layers"
+    <li
+      id={"page-builder-layer-row-#{@node_id}"}
+      data-node-id={@node_id}
+      data-node-name={@name}
+      data-drop-target-id={@node_id}
+      data-drop-target-name={@name}
+      data-accepted-types={@accepted_types}
+      draggable="true"
+      class="rounded"
+    >
+      <div
         data-layer-node-id={@node_id}
         class={[
-          "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
+          "group flex items-center gap-1 rounded transition hover:bg-base-200",
           @selected_id == @node_id && "bg-primary/10 text-primary"
         ]}
-        style={"padding-left: #{@depth * 0.75 + 0.5}rem"}
       >
-        {@name}
-      </button>
+        <button
+          type="button"
+          phx-click="select_element"
+          phx-value-id={@node_id}
+          phx-value-source="layers"
+          class="min-w-0 flex-1 truncate px-2 py-1 text-left"
+          style={"padding-left: #{@depth * 0.75 + 0.5}rem"}
+        >
+          {@name}
+        </button>
+        <button
+          id={"page-builder-layer-delete-#{@node_id}"}
+          type="button"
+          phx-click="delete_node"
+          phx-value-id={@node_id}
+          class="btn btn-ghost btn-xs btn-circle shrink-0 text-base-content/50 opacity-0 transition hover:text-error group-hover:opacity-100"
+          aria-label={"Delete #{@name}"}
+          title="Delete"
+        >
+          <.icon name="hero-trash" class="size-3.5" />
+        </button>
+      </div>
       <ul :if={@children != []} class="space-y-1">
         <.layers_node
           :for={child <- @children}
@@ -783,6 +808,8 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     </li>
     """
   end
+
+  defp accepted_types(name), do: name |> EditorCanvas.accepted_child_types() |> Enum.join(",")
 
   attr(:selected_node, :map, default: nil)
   attr(:clipboard, :map, default: nil)

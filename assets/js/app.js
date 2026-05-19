@@ -478,9 +478,27 @@ const AstBuilderCanvas = {
       return "into"
     }
 
+    this.draggedName = () => {
+      if (this.draggingPalette) return this.draggingPalette.name
+      if (!this.draggingNodeId) return null
+      return this.el.querySelector(`[data-node-id="${this.draggingNodeId}"]`)?.dataset.nodeName || null
+    }
+
+    this.normalizedDropPosition = (event, target) => {
+      const position = this.dropPosition(event, target)
+      if (position !== "into" || !target || target.dataset.dropTargetId === "root") return position
+
+      const draggedName = this.draggedName()
+      const acceptedTypes = (target.dataset.acceptedTypes || "").split(",").filter(Boolean)
+      if (!draggedName || acceptedTypes.includes(draggedName)) return position
+
+      const rect = target.getBoundingClientRect()
+      return event.clientY < rect.top + rect.height / 2 ? "before" : "after"
+    }
+
     this.showDropIndicator = event => {
       const target = this.closestDropTarget(event)
-      const position = this.dropPosition(event, target)
+      const position = this.normalizedDropPosition(event, target)
       if (!target || target.dataset.dropTargetId === "root") {
         this.el.querySelector("#editor-canvas-root")?.appendChild(this.dropIndicator)
         return
@@ -560,7 +578,7 @@ const AstBuilderCanvas = {
 
       const target = this.closestDropTarget(event)
       const targetId = target?.dataset.dropTargetId || "root"
-      const position = this.dropPosition(event, target)
+      const position = this.normalizedDropPosition(event, target)
       this.clearDropIndicator()
 
       if (this.draggingPalette) {

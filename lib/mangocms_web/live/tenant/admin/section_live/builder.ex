@@ -285,25 +285,17 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
      |> push_preview_text_updates()}
   end
 
-  def handle_event("save_section", _params, socket) do
-    attrs = %{
-      "settings" => socket.assigns.settings,
-      "source_config" => socket.assigns.source_config,
-      "filters" => socket.assigns.filters,
-      "loop_settings" => socket.assigns.loop_settings,
-      "content_tree" => socket.assigns.tree
-    }
-
+  def handle_event("save_draft", _params, socket) do
     case Pages.update_section(
            socket.assigns.current_tenant,
            socket.assigns.section,
-           attrs,
+           Map.put(current_section_attrs(socket), "status", "draft"),
            socket.assigns.current_user
          ) do
       {:ok, section} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Section builder saved")
+         |> put_flash(:info, "Section draft saved")
          |> assign(:section, section)}
 
       {:error, changeset} ->
@@ -311,21 +303,40 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
     end
   end
 
-  def handle_event("publish_section", _params, socket) do
-    case Pages.publish_section(
-           socket.assigns.current_tenant,
-           socket.assigns.section,
-           socket.assigns.current_user
-         ) do
-      {:ok, section} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Section published. Linked page embeds now use this version.")
-         |> assign(:section, section)}
+  def handle_event("save_section", _params, socket), do: handle_event("save_draft", %{}, socket)
 
+  def handle_event("publish_section", _params, socket) do
+    with {:ok, draft_section} <-
+           Pages.update_section(
+             socket.assigns.current_tenant,
+             socket.assigns.section,
+             current_section_attrs(socket),
+             socket.assigns.current_user
+           ),
+         {:ok, section} <-
+           Pages.publish_section(
+             socket.assigns.current_tenant,
+             draft_section,
+             socket.assigns.current_user
+           ) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "Section published. Linked page embeds now use this version.")
+       |> assign(:section, section)}
+    else
       {:error, changeset} ->
         {:noreply, put_flash(socket, :error, error_text(changeset))}
     end
+  end
+
+  defp current_section_attrs(socket) do
+    %{
+      "settings" => socket.assigns.settings,
+      "source_config" => socket.assigns.source_config,
+      "filters" => socket.assigns.filters,
+      "loop_settings" => socket.assigns.loop_settings,
+      "content_tree" => socket.assigns.tree
+    }
   end
 
   @impl true
@@ -344,6 +355,14 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         <.button id="back-to-sections-button" navigate={~p"/admin/sections"} class="btn btn-ghost">
           Back
         </.button>
+        <button
+          id="section-builder-save-draft-button"
+          type="button"
+          phx-click="save_draft"
+          class="btn btn-ghost"
+        >
+          Save draft
+        </button>
         <button
           id="section-builder-publish-button"
           type="button"
@@ -499,14 +518,6 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
               >
                 Delete selected
               </button>
-              <button
-                id="section-builder-save-button"
-                type="button"
-                phx-click="save_section"
-                class="btn btn-primary"
-              >
-                Save
-              </button>
             </div>
           </.form>
         </aside>
@@ -654,15 +665,6 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
             {tab.label}
           </button>
         </div>
-
-        <button
-          id="section-config-save-button"
-          type="button"
-          phx-click="save_section"
-          class="btn btn-primary btn-sm"
-        >
-          Save section
-        </button>
       </div>
 
       <.form
@@ -825,6 +827,13 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
             label="Interval ms"
             value={@settings["interval_ms"] || 5000}
           />
+          <.input
+            id="section-config-items-visible-desktop"
+            name="section_config[settings][items_visible_desktop]"
+            type="number"
+            label="Items visible on desktop"
+            value={get_in(@settings, ["items_visible", "desktop"]) || 3}
+          />
         </div>
       </.form>
     </section>
@@ -858,30 +867,49 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
       |> assign(:node_id, Map.get(assigns.node, "id", ""))
       |> assign(:name, Map.get(assigns.node, "name", "unknown"))
       |> assign(:children, safe_children(assigns.node))
+      |> assign(:accepted_types, accepted_types(Map.get(assigns.node, "name", "unknown")))
 
     ~H"""
     <li
       id={"section-builder-layer-row-#{@node_id}"}
       data-node-id={@node_id}
+      data-node-name={@name}
       data-drop-target-id={@node_id}
       data-drop-target-name={@name}
+      data-accepted-types={@accepted_types}
       draggable="true"
       class="rounded"
     >
-      <button
-        id={"section-builder-layer-#{@node_id}"}
-        type="button"
-        phx-click="select_element"
-        phx-value-id={@node_id}
-        phx-value-source="layers"
+      <div
+        data-layer-node-id={@node_id}
         class={[
-          "block w-full rounded px-2 py-1.5 text-left transition hover:bg-base-200",
+          "group flex items-center gap-1 rounded transition hover:bg-base-200",
           @selected_id == @node_id && "bg-primary/10 text-primary"
         ]}
-        style={"padding-left: #{@depth * 0.75 + 0.5}rem"}
       >
-        {@name}
-      </button>
+        <button
+          id={"section-builder-layer-#{@node_id}"}
+          type="button"
+          phx-click="select_element"
+          phx-value-id={@node_id}
+          phx-value-source="layers"
+          class="min-w-0 flex-1 truncate px-2 py-1.5 text-left"
+          style={"padding-left: #{@depth * 0.75 + 0.5}rem"}
+        >
+          {@name}
+        </button>
+        <button
+          id={"section-builder-layer-delete-#{@node_id}"}
+          type="button"
+          phx-click="delete_node"
+          phx-value-id={@node_id}
+          class="btn btn-ghost btn-xs btn-circle shrink-0 text-base-content/50 opacity-0 transition hover:text-error group-hover:opacity-100"
+          aria-label={"Delete #{@name}"}
+          title="Delete"
+        >
+          <.icon name="hero-trash" class="size-3.5" />
+        </button>
+      </div>
       <ul :if={@children != []} class="space-y-1">
         <.layers_node
           :for={child <- @children}
@@ -896,6 +924,8 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   defp safe_children(%{"children" => children}) when is_list(children), do: children
   defp safe_children(_node), do: []
+
+  defp accepted_types(name), do: name |> EditorCanvas.accepted_child_types() |> Enum.join(",")
 
   defp block_palette do
     [
@@ -1072,6 +1102,12 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   end
 
   defp update_settings(existing, params) do
+    visible =
+      parse_integer(
+        params["items_visible_desktop"],
+        get_in(existing, ["items_visible", "desktop"]) || 3
+      )
+
     existing
     |> Map.merge(%{
       "section_type" => params["section_type"] || existing["section_type"] || "custom",
@@ -1079,6 +1115,10 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
       "transition" => params["transition"] || existing["transition"] || "slide",
       "interval_ms" => parse_integer(params["interval_ms"], existing["interval_ms"] || 5000)
     })
+    |> Map.put(
+      "items_visible",
+      (existing["items_visible"] || %{}) |> Map.put("desktop", visible)
+    )
   end
 
   defp config_tabs do
@@ -1197,12 +1237,14 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   end
 
   defp preview_bindings(socket) do
-    item = sample_collection_item(socket)
+    items = sample_collection_items(socket)
+    item = List.first(items)
     item_alias = socket.assigns.loop_settings["as"] || "item"
-    collection_results = if is_map(item), do: [item], else: []
 
     %{
-      "collection_results" => collection_results,
+      "collection_results" => items,
+      "section_settings" => socket.assigns.settings || %{},
+      "loop_settings" => socket.assigns.loop_settings || %{},
       "item" => item || %{},
       item_alias => item || %{}
     }
@@ -1212,9 +1254,11 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   defp maybe_merge_item(bindings, item) when is_map(item), do: Map.merge(bindings, item)
   defp maybe_merge_item(bindings, _item), do: bindings
 
-  defp sample_collection_item(socket) do
+  defp sample_collection_items(socket) do
     source_config = socket.assigns.source_config || %{}
     collection = source_config["collection_id"] || source_config["collection_slug"]
+    visible = socket.assigns.settings |> get_in(["items_visible", "desktop"]) |> parse_integer(3)
+    limit = max(visible, 1)
 
     if collection_source?(source_config) and is_binary(collection) and collection != "" do
       filters = get_in(socket.assigns.filters || %{}, ["rules"]) || source_config["filters"] || []
@@ -1225,13 +1269,15 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         status: "all",
         filters: filters,
         sort: sort,
-        limit: 1
+        limit: limit
       )
-      |> List.first()
-      |> entry_binding()
+      |> Enum.map(&entry_binding/1)
+      |> Enum.reject(&is_nil/1)
+    else
+      []
     end
   rescue
-    Ecto.NoResultsError -> nil
+    Ecto.NoResultsError -> []
   end
 
   defp collection_source?(%{"kind" => kind}) when kind in ["collection", "catalog"], do: true
@@ -1270,22 +1316,33 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   defp preview_nodes(_nodes, _bindings), do: []
 
   defp preview_node(%{"name" => "loop"} = node, bindings) do
-    item = bindings |> Map.get("collection_results", []) |> List.first()
+    items = Map.get(bindings, "collection_results", [])
     item_alias = node |> node_map("props") |> Map.get("as", Map.get(bindings, "as", "item"))
 
-    loop_bindings =
-      if is_map(item) do
-        bindings
-        |> Map.put("item", item)
-        |> Map.put(item_alias, item)
-        |> maybe_merge_item(item)
-      else
-        bindings
+    loop_children =
+      case items do
+        [] ->
+          preview_nodes(children(node), bindings)
+
+        _items ->
+          Enum.flat_map(items, fn item ->
+            loop_bindings =
+              bindings
+              |> Map.put("item", item)
+              |> Map.put(item_alias, item)
+              |> maybe_merge_item(item)
+
+            node
+            |> children()
+            |> preview_nodes(loop_bindings)
+            |> suffix_tree_ids(item["id"])
+          end)
       end
 
     node
-    |> interpolate_node(loop_bindings)
-    |> put_preview_children(preview_nodes(children(node), loop_bindings))
+    |> interpolate_node(bindings)
+    |> apply_preview_loop_layout_class(Map.get(bindings, "section_settings", %{}))
+    |> put_preview_children(loop_children)
   end
 
   defp preview_node(node, bindings) when is_map(node) do
@@ -1295,6 +1352,45 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   end
 
   defp preview_node(node, _bindings), do: node
+
+  defp suffix_tree_ids(nodes, suffix) when is_list(nodes) and is_binary(suffix) do
+    Enum.map(nodes, &suffix_node_id(&1, suffix))
+  end
+
+  defp suffix_tree_ids(nodes, _suffix), do: nodes
+
+  defp suffix_node_id(node, suffix) when is_map(node) do
+    node
+    |> Map.update("id", nil, fn
+      nil -> nil
+      id -> "#{id}-preview-#{suffix}"
+    end)
+    |> Map.update("children", [], &suffix_tree_ids(&1, suffix))
+  end
+
+  defp suffix_node_id(node, _suffix), do: node
+
+  defp apply_preview_loop_layout_class(node, settings) do
+    visible = settings |> get_in(["items_visible", "desktop"]) |> parse_integer(3)
+
+    Map.update(node, "classes", %{}, fn classes ->
+      classes
+      |> node_map_value()
+      |> Map.put("display", loop_layout_class(visible))
+    end)
+  end
+
+  defp node_map_value(value) when is_map(value), do: value
+  defp node_map_value(_value), do: %{}
+
+  defp loop_layout_class(1), do: "grid gap-4 md:grid-cols-1"
+  defp loop_layout_class(2), do: "grid gap-4 md:grid-cols-2"
+  defp loop_layout_class(3), do: "grid gap-4 md:grid-cols-3"
+  defp loop_layout_class(4), do: "grid gap-4 md:grid-cols-4"
+  defp loop_layout_class(5), do: "grid gap-4 md:grid-cols-5"
+  defp loop_layout_class(6), do: "grid gap-4 md:grid-cols-6"
+  defp loop_layout_class(visible) when visible < 1, do: loop_layout_class(1)
+  defp loop_layout_class(_visible), do: loop_layout_class(6)
 
   defp put_preview_children(node, children) do
     if Map.has_key?(node, "children") do
