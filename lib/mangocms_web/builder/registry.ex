@@ -15,6 +15,9 @@ defmodule MangoCMSWeb.Builder.Registry do
     Manifests.Hero,
     Manifests.Modal,
     Manifests.Dropdown,
+    Manifests.Fab,
+    Manifests.Swap,
+    Manifests.ThemeController,
     Manifests.Carousel,
     Manifests.Tabs,
     Manifests.Input

@@ -159,6 +159,136 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
     """
   end
 
+  @doc "Renders an Alpine-powered floating action button or speed dial."
+  @spec fab(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :actions
+
+  def fab(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:actions, fn -> [] end)
+
+    ~H"""
+    <div
+      class={[
+        "fixed z-30 flex flex-col-reverse items-end gap-2",
+        fab_position(@props["position"]),
+        class_value(@classes, "custom")
+      ]}
+      x-data="{ open: false }"
+    >
+      <div
+        :if={@props["mode"] == "speed_dial"}
+        class="flex flex-col-reverse items-end gap-2"
+        x-show="open"
+        x-transition
+      >
+        <%= if @actions != [] do %>
+          {render_slot(@actions)}
+        <% else %>
+          <a
+            :for={action <- action_items(@props)}
+            href={action["href"] || "#"}
+            class={["btn btn-sm shadow", action["style"] || "btn-ghost"]}
+          >
+            <.icon :if={action["icon"] not in [nil, ""]} name={action["icon"]} class="size-4" />
+            {action["label"]}
+          </a>
+        <% end %>
+      </div>
+      <button
+        type="button"
+        class={[
+          "btn btn-circle shadow-lg",
+          @props["button_style"] || "btn-primary",
+          fab_size(@props["size"])
+        ]}
+        x-on:click="open = !open"
+        x-bind:aria-expanded="open.toString()"
+        aria-label={@props["label"] || "Open actions"}
+      >
+        <.icon name={@props["icon"] || "hero-plus"} class="size-5" />
+      </button>
+    </div>
+    """
+  end
+
+  @doc "Renders an Alpine-powered swap control."
+  @spec swap(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+  slot :on
+  slot :off
+
+  def swap(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+      |> assign_new(:on, fn -> [] end)
+      |> assign_new(:off, fn -> [] end)
+
+    ~H"""
+    <button
+      type="button"
+      class={["swap", swap_effect(@props["effect"]), class_value(@classes, "custom")]}
+      x-data={"{ active: #{@props["default_on"] == true} }"}
+      x-bind:class="{ 'swap-active': active }"
+      x-on:click="active = !active"
+      aria-label={@props["label"] || "Toggle"}
+    >
+      <span class="swap-on">
+        <%= if @on != [] do %>
+          {render_slot(@on)}
+        <% else %>
+          <.icon name={@props["on_icon"] || "hero-check"} class="size-6" />
+        <% end %>
+      </span>
+      <span class="swap-off">
+        <%= if @off != [] do %>
+          {render_slot(@off)}
+        <% else %>
+          <.icon name={@props["off_icon"] || "hero-x-mark"} class="size-6" />
+        <% end %>
+      </span>
+    </button>
+    """
+  end
+
+  @doc "Renders a daisyUI theme controller with Alpine persistence."
+  @spec theme_controller(map()) :: Phoenix.LiveView.Rendered.t()
+  attr :node, :map, required: true
+  attr :context, :map, default: %{}
+
+  def theme_controller(assigns) do
+    assigns =
+      assigns
+      |> assign(:props, Map.get(assigns.node, "props", %{}))
+      |> assign(:classes, Map.get(assigns.node, "classes", %{}))
+
+    ~H"""
+    <div
+      class={["join", class_value(@classes, "custom")]}
+      x-data={"{ theme: localStorage.getItem('mango_theme') || '#{@props["default_theme"] || "light"}' }"}
+      x-init="document.documentElement.dataset.theme = theme"
+    >
+      <button
+        :for={theme <- themes(@props)}
+        type="button"
+        class="btn join-item"
+        x-bind:class={"theme === '#{theme}' && 'btn-active'"}
+        x-on:click={"theme = '#{theme}'; localStorage.setItem('mango_theme', theme); document.documentElement.dataset.theme = theme"}
+      >
+        {String.capitalize(theme)}
+      </button>
+    </div>
+    """
+  end
+
   defp class_value(classes, key) when is_map(classes), do: Map.get(classes, key, "")
   defp class_value(_classes, _key), do: ""
 
@@ -173,6 +303,19 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
   defp modal_size("xl"), do: "max-w-5xl"
   defp modal_size(_size), do: ""
 
+  defp fab_position("bottom_left"), do: "bottom-6 left-6"
+  defp fab_position("top_right"), do: "right-6 top-6"
+  defp fab_position("top_left"), do: "left-6 top-6"
+  defp fab_position(_position), do: "bottom-6 right-6"
+
+  defp fab_size("sm"), do: "btn-sm"
+  defp fab_size("lg"), do: "btn-lg"
+  defp fab_size(_size), do: ""
+
+  defp swap_effect("flip"), do: "swap-flip"
+  defp swap_effect("rotate"), do: "swap-rotate"
+  defp swap_effect(_effect), do: ""
+
   defp menu_items(%{"items" => items}) when is_list(items), do: items
 
   defp menu_items(_props) do
@@ -182,4 +325,16 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
       %{"label" => "Logout", "href" => "#logout"}
     ]
   end
+
+  defp action_items(%{"actions" => actions}) when is_list(actions), do: actions
+
+  defp action_items(_props) do
+    [
+      %{"label" => "New page", "href" => "#new-page", "icon" => "hero-document-plus"},
+      %{"label" => "Upload", "href" => "#upload", "icon" => "hero-arrow-up-tray"}
+    ]
+  end
+
+  defp themes(%{"themes" => themes}) when is_list(themes) and themes != [], do: themes
+  defp themes(_props), do: ["light", "dark", "cupcake"]
 end

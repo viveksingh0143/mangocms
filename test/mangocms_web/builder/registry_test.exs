@@ -16,6 +16,9 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(manifests, &(&1.name == "hero"))
       assert Enum.any?(manifests, &(&1.name == "modal"))
       assert Enum.any?(manifests, &(&1.name == "dropdown"))
+      assert Enum.any?(manifests, &(&1.name == "fab"))
+      assert Enum.any?(manifests, &(&1.name == "swap"))
+      assert Enum.any?(manifests, &(&1.name == "theme_controller"))
       assert Enum.any?(manifests, &(&1.name == "carousel"))
       assert Enum.any?(manifests, &(&1.name == "tabs"))
       assert Enum.any?(manifests, &(&1.name == "input"))
@@ -58,7 +61,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
     end
 
     test "declares Alpine metadata for interactive components" do
-      for name <- ~w(dropdown modal carousel tabs) do
+      for name <- ~w(dropdown modal fab swap theme_controller carousel tabs) do
         assert Registry.get!(name).alpine.component
       end
     end
@@ -126,7 +129,8 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
   describe "renderer" do
     test "renders every golden component in public and builder contexts" do
-      for name <- ~w(button card hero modal dropdown carousel tabs input) do
+      for name <-
+            ~w(button card hero modal dropdown fab swap theme_controller carousel tabs input) do
         node = Registry.default_node(name)
 
         public_html = render_component(&Renderer.node/1, node: node, context: %{mode: :public})
@@ -150,6 +154,20 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert render_component(&Renderer.node/1, node: button) =~ "Start now"
       assert render_component(&Renderer.node/1, node: input) =~ "Email address"
+    end
+
+    test "renders action component Alpine hooks and default content" do
+      for name <- ~w(dropdown modal fab swap theme_controller) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+
+        assert html =~ "x-data"
+      end
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("fab", "speed_dial")) =~
+               "New page"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("theme_controller")) =~
+               "Cupcake"
     end
   end
 end
