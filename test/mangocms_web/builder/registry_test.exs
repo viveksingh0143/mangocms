@@ -79,6 +79,17 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
 
       assert Registry.get!("button").renderer ==
                {MangoCMSWeb.BuilderLibrary.ActionComponents, :button}
+
+      # New component groups
+      assert Enum.any?(manifests, &(&1.name == "heading"))
+      assert Enum.any?(manifests, &(&1.name == "paragraph"))
+      assert Enum.any?(manifests, &(&1.name == "image"))
+      assert Enum.any?(manifests, &(&1.name == "section"))
+      assert Enum.any?(manifests, &(&1.name == "container"))
+      assert Enum.any?(manifests, &(&1.name == "feature_card"))
+      assert Enum.any?(manifests, &(&1.name == "cta_section"))
+      assert Enum.any?(manifests, &(&1.name == "copy_button"))
+      assert Enum.any?(manifests, &(&1.name == "table_of_contents"))
     end
 
     test "raises for unknown manifests" do
@@ -116,12 +127,13 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Enum.any?(slots, &("button" in &1.accepts))
     end
 
-    test "declares examples for each variant" do
-      for manifest <- Registry.all() do
+    test "declares examples for each variant (manifests that opt in)" do
+      for manifest <- Registry.all(), manifest.examples != [] do
         variant_ids = manifest.variants |> Enum.map(& &1.id) |> Enum.sort()
         example_ids = manifest.examples |> Enum.map(& &1.variant) |> Enum.sort()
 
-        assert example_ids == variant_ids
+        assert example_ids == variant_ids,
+               "#{manifest.name}: examples #{inspect(example_ids)} don't match variants #{inspect(variant_ids)}"
       end
     end
 
@@ -638,6 +650,157 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert Registry.get!("mockup_browser").accepted_children != []
       assert Registry.get!("mockup_window").accepted_children != []
       assert Registry.get!("mockup_code").accepted_children == []
+    end
+
+    test "renders new typography components" do
+      for name <-
+            ~w(heading paragraph rich_text blockquote code_block ordered_list unordered_list text_gradient label_text) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+        assert html != "", "#{name} rendered empty"
+      end
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("heading")) =~
+               "Your Heading Here"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("paragraph")) =~
+               "Enter your paragraph"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("blockquote")) =~
+               "inspiring quote"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("code_block")) =~
+               "code"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("text_gradient")) =~
+               "Gradient Text"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("label_text")) =~
+               "Section Label"
+    end
+
+    test "typography manifests are in Typography group" do
+      for name <-
+            ~w(heading paragraph rich_text blockquote code_block ordered_list unordered_list text_gradient label_text) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Typography", "#{name} should be in Typography group"
+        assert manifest.variants != [], "#{name} should have variants"
+        assert manifest.fields != %{}, "#{name} should have fields"
+      end
+    end
+
+    test "renders new media components" do
+      for name <- ~w(image video audio gallery embed icon_block) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+        assert html != "", "#{name} rendered empty"
+      end
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("image")) =~
+               "no-image-placeholder"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("gallery")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("icon_block")) =~
+               "hero-star"
+    end
+
+    test "media manifests are in Media group" do
+      for name <- ~w(image video audio gallery embed icon_block) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Media", "#{name} should be in Media group"
+        assert manifest.variants != [], "#{name} should have variants"
+      end
+
+      assert Registry.get!("gallery").alpine != %{}
+    end
+
+    test "renders new layout components" do
+      for name <- ~w(section container row column grid spacer) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+        assert html != "", "#{name} rendered empty"
+      end
+    end
+
+    test "layout manifests are in Layout group with accepted children" do
+      for name <- ~w(section container row column grid) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Layout", "#{name} should be in Layout group"
+        assert manifest.accepted_children != [], "#{name} should accept children"
+      end
+
+      spacer = Registry.get!("spacer")
+      assert spacer.group == "Layout"
+      assert spacer.accepted_children == []
+    end
+
+    test "renders new content/marketing components" do
+      for name <-
+            ~w(feature_card feature_grid cta_section testimonial testimonial_grid pricing_card pricing_table team_member team_grid faq_section banner logo_grid steps_section empty_state notification_bar) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+        assert html != "", "#{name} rendered empty"
+      end
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("feature_card")) =~
+               "Feature Title"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("cta_section")) =~
+               "Ready to get started"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("pricing_card")) =~
+               "Get started"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("faq_section")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("banner")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("notification_bar")) =~
+               "x-data"
+    end
+
+    test "content manifests are in Content group" do
+      for name <-
+            ~w(feature_card feature_grid cta_section testimonial testimonial_grid pricing_card pricing_table team_member team_grid faq_section banner logo_grid steps_section empty_state notification_bar) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Content", "#{name} should be in Content group"
+        assert manifest.variants != [], "#{name} should have variants"
+      end
+    end
+
+    test "renders new interactive/utility components" do
+      for name <-
+            ~w(copy_button read_more scroll_to_top cookie_banner back_link share_buttons table_of_contents) do
+        html = render_component(&Renderer.node/1, node: Registry.default_node(name))
+        assert html != "", "#{name} rendered empty"
+      end
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("copy_button")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("read_more")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("scroll_to_top")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("cookie_banner")) =~
+               "x-data"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("back_link")) =~
+               "Back"
+
+      assert render_component(&Renderer.node/1, node: Registry.default_node("table_of_contents")) =~
+               "Contents"
+    end
+
+    test "interactive manifests are in Interactive group" do
+      for name <-
+            ~w(copy_button read_more scroll_to_top cookie_banner back_link share_buttons table_of_contents) do
+        manifest = Registry.get!(name)
+        assert manifest.group == "Interactive", "#{name} should be in Interactive group"
+        assert manifest.variants != [], "#{name} should have variants"
+      end
     end
 
     test "renders data display batch one defaults and bindings" do

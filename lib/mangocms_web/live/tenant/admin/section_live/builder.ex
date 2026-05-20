@@ -6,6 +6,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   alias MangoCMS.Tenant.Collections.CollectionItem
   alias MangoCMS.Tenant.Pages
   alias MangoCMSWeb.AdminGuard
+  alias MangoCMSWeb.Builder.Registry
   alias MangoCMSWeb.Live.Admin.EditorCanvas
 
   @impl true
@@ -74,7 +75,9 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
   end
 
   def handle_event("add_node", %{"name" => name}, socket) do
-    tree = ContentTree.insert_node(socket.assigns.tree, "root", new_node(name), :into)
+    tree =
+      ContentTree.insert_node(socket.assigns.tree, "root", Registry.default_node(name), :into)
+
     {:noreply, socket |> assign(:tree, tree) |> assign_preview_tree()}
   end
 
@@ -119,7 +122,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
         socket
       ) do
     position = parse_position(Map.get(params, "position"))
-    node = new_node(name)
+    node = Registry.default_node(name)
     parent_name = target_container_name(socket.assigns.tree, target_id, position)
     child_name = Map.get(node, "name")
 
@@ -403,18 +406,22 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
           </div>
 
           <div :if={@left_tab == "components"} class="min-h-0 flex-1 overflow-y-auto p-4">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Blocks</h2>
-            <div class="mt-4 grid gap-2">
-              <button
-                :for={item <- block_palette()}
-                id={"section-builder-add-#{item.name}"}
-                type="button"
-                phx-click="add_node"
-                phx-value-name={item.name}
-                class="btn btn-ghost justify-start"
-              >
-                <.icon name={item.icon} class="size-4" /> {item.label}
-              </button>
+            <div :for={{group, manifests} <- palette_groups()}>
+              <h2 class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-base-content/40 first:mt-0">
+                {group}
+              </h2>
+              <div class="grid gap-1">
+                <button
+                  :for={m <- manifests}
+                  id={"section-builder-add-#{m.name}"}
+                  type="button"
+                  phx-click="add_node"
+                  phx-value-name={m.name}
+                  class="btn btn-ghost btn-sm justify-start gap-2"
+                >
+                  <.icon name={m.icon} class="size-4" /> {m.label}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -927,95 +934,11 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   defp accepted_types(name), do: name |> EditorCanvas.accepted_child_types() |> Enum.join(",")
 
-  defp block_palette do
-    [
-      %{name: "section", label: "Section", icon: "hero-square-3-stack-3d"},
-      %{name: "row", label: "Row", icon: "hero-bars-3"},
-      %{name: "column", label: "Column", icon: "hero-rectangle-group"},
-      %{name: "heading", label: "Heading", icon: "hero-h1"},
-      %{name: "paragraph", label: "Paragraph", icon: "hero-document-text"},
-      %{name: "image", label: "Image", icon: "hero-photo"},
-      %{name: "button", label: "Button", icon: "hero-cursor-arrow-rays"},
-      %{name: "loop", label: "Collection loop", icon: "hero-arrow-path-rounded-square"}
-    ]
+  defp palette_groups do
+    Registry.all()
+    |> Enum.group_by(& &1.group)
+    |> Enum.sort_by(fn {group, _} -> group end)
   end
-
-  defp new_node("section"), do: container_node("section", %{"custom" => "py-12"})
-  defp new_node("row"), do: container_node("row", %{"custom" => "mx-auto grid max-w-7xl gap-6"})
-  defp new_node("column"), do: container_node("column", %{"custom" => "grid gap-4"})
-
-  defp new_node("heading") do
-    leaf_node("heading", %{"text" => "Editable {{title}}"}, %{"custom" => "text-4xl font-bold"})
-  end
-
-  defp new_node("paragraph") do
-    leaf_node(
-      "paragraph",
-      %{"text" => "Write static copy or use {{description}} from a data source."},
-      %{
-        "custom" => "text-base-content/70"
-      }
-    )
-  end
-
-  defp new_node("image") do
-    leaf_node("image", %{"src" => "", "alt" => ""}, %{
-      "custom" => "aspect-video rounded-lg object-cover"
-    })
-  end
-
-  defp new_node("button") do
-    leaf_node("button", %{"text" => "Learn more", "href" => "#"}, %{"custom" => "btn btn-primary"})
-  end
-
-  defp new_node("loop") do
-    %{
-      "type" => "component",
-      "name" => "loop",
-      "id" => node_id("loop"),
-      "props" => %{"source" => "collection_results", "as" => "item"},
-      "classes" => %{"custom" => "grid gap-4 md:grid-cols-3"},
-      "children" => [
-        container_node("column", %{"custom" => "card bg-base-100 p-5 shadow-sm"})
-        |> Map.put("children", [
-          leaf_node("heading", %{"text" => "{{item.title}}", "level" => "3"}, %{
-            "custom" => "text-xl font-semibold"
-          }),
-          leaf_node("paragraph", %{"text" => "{{item.payload.description}}"}, %{
-            "custom" => "mt-2 text-base-content/70"
-          }),
-          leaf_node("button", %{"text" => "Open", "href" => "/{{item.slug}}"}, %{
-            "custom" => "btn btn-primary btn-sm mt-4"
-          })
-        ])
-      ]
-    }
-  end
-
-  defp new_node(_name), do: new_node("paragraph")
-
-  defp container_node(name, classes) do
-    %{
-      "type" => "component",
-      "name" => name,
-      "id" => node_id(name),
-      "props" => %{},
-      "classes" => classes,
-      "children" => []
-    }
-  end
-
-  defp leaf_node(name, props, classes) do
-    %{
-      "type" => "component",
-      "name" => name,
-      "id" => node_id(name),
-      "props" => props,
-      "classes" => classes
-    }
-  end
-
-  defp node_id(prefix), do: "#{prefix}-#{Ecto.UUID.generate()}"
 
   defp error_text(%Ecto.Changeset{} = changeset) do
     changeset

@@ -8,25 +8,66 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
 
   use MangoCMSWeb, :html
 
+  alias MangoCMSWeb.Builder.Registry
+  alias MangoCMSWeb.Builder.Renderer
   alias MangoCMSWeb.PageRenderer
   alias MangoCMSWeb.PageElements
 
   @accepted_types %{
-    "root" => ["section", "section_ref"],
-    "section" => ["row"],
+    "root" => ["section", "container", "section_ref"],
+    "section" => ["container", "row", "column", "grid", "heading", "paragraph", "image", "button"],
+    "container" => [
+      "row",
+      "column",
+      "grid",
+      "heading",
+      "paragraph",
+      "image",
+      "button",
+      "rich_text"
+    ],
     "row" => ["column"],
     "column" => [
       "heading",
       "paragraph",
+      "rich_text",
       "blockquote",
+      "code_block",
+      "ordered_list",
+      "unordered_list",
+      "text_gradient",
+      "label_text",
       "image",
       "video",
+      "audio",
+      "gallery",
+      "embed",
+      "icon_block",
+      "feature_card",
+      "cta_section",
+      "testimonial",
+      "pricing_card",
+      "team_member",
+      "faq_section",
+      "banner",
+      "logo_grid",
+      "steps_section",
+      "empty_state",
+      "notification_bar",
+      "copy_button",
+      "read_more",
+      "scroll_to_top",
+      "cookie_banner",
+      "back_link",
+      "share_buttons",
+      "table_of_contents",
       "button",
       "anchor",
       "dynamic_form",
       "loop",
       "section_ref"
     ],
+    "grid" => ["column", "feature_card", "card", "image", "heading"],
     "loop" => [
       "heading",
       "paragraph",
@@ -150,6 +191,7 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
 
     ~H"""
     <%= case @name do %>
+      <%!-- Legacy container nodes (PageElements-backed) --%>
       <% "section" -> %>
         <PageElements.section props={@props} classes={@classes}>
           <%= for child <- @children do %>
@@ -178,6 +220,25 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
             <.editable_node node={child} selected_id={@selected_id} />
           <% end %>
         </div>
+        <%!-- Manifest container nodes (LayoutComponents-backed) --%>
+      <% "container" -> %>
+        <div class={[
+          "mx-auto w-full",
+          Map.get(@props, "padding_x", ""),
+          Map.get(@props, "padding_y", ""),
+          Map.get(@classes, "custom", "")
+        ]}>
+          <%= for child <- @children do %>
+            <.editable_node node={child} selected_id={@selected_id} />
+          <% end %>
+        </div>
+      <% "grid" -> %>
+        <div class={["grid gap-6", Map.get(@classes, "custom", "")]}>
+          <%= for child <- @children do %>
+            <.editable_node node={child} selected_id={@selected_id} />
+          <% end %>
+        </div>
+        <%!-- Legacy editable-text nodes --%>
       <% "heading" -> %>
         <.editable_text_node node={@node} tag="heading" classes={@classes} />
       <% "paragraph" -> %>
@@ -188,8 +249,13 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         <.editable_text_node node={@node} tag="button" classes={@classes} />
       <% "anchor" -> %>
         <.editable_text_node node={@node} tag="anchor" classes={@classes} />
+        <%!-- Manifest leaf nodes via Registry --%>
       <% _other -> %>
-        <PageRenderer.render_node node={@node} />
+        <%= if Registry.get(@name) do %>
+          <Renderer.node node={@node} context={%{mode: :editor}} />
+        <% else %>
+          <PageRenderer.render_node node={@node} />
+        <% end %>
     <% end %>
     """
   end
@@ -229,7 +295,18 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
 
   @doc "Returns accepted child component names for a container node."
   @spec accepted_child_types(String.t()) :: [String.t()]
-  def accepted_child_types(name) when is_binary(name), do: Map.get(@accepted_types, name, [])
+  def accepted_child_types(name) when is_binary(name) do
+    case Map.get(@accepted_types, name) do
+      nil ->
+        case Registry.get(name) do
+          %{accepted_children: children} when children != [] -> children
+          _ -> []
+        end
+
+      types ->
+        types
+    end
+  end
 
   @doc "Checks whether a child component may be dropped into a container."
   @spec accepts?(String.t(), String.t()) :: boolean()
@@ -256,7 +333,9 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
 
   defp text_node_class(_tag, classes), do: PageElements.class_names(classes, "")
 
-  defp empty_container?(%{"name" => name}, []), do: name in ["section", "row", "column", "loop"]
+  defp empty_container?(%{"name" => name}, []),
+    do: name in ["section", "container", "row", "column", "grid", "loop"]
+
   defp empty_container?(_node, _children), do: false
 
   defp canvas_wrapper_class(%{"name" => "column", "classes" => classes}) when is_map(classes) do

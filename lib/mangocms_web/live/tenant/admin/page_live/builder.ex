@@ -10,6 +10,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   alias MangoCMS.Tenant.Pages.Page
   alias MangoCMS.Uploads
   alias MangoCMSWeb.AdminGuard
+  alias MangoCMSWeb.Builder.Registry
   alias MangoCMSWeb.Live.Admin.EditorCanvas
 
   @viewport_options [
@@ -18,64 +19,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     {"Mobile", "mobile", "hero-device-phone-mobile"}
   ]
 
-  @palette_groups [
-    %{
-      id: "layout",
-      label: "Layout Blocks",
-      items: [
-        %{name: "section", label: "Section", icon: "hero-rectangle-stack", variant: "default"},
-        %{name: "row", label: "Row", icon: "hero-table-cells", variant: "1:1"},
-        %{name: "row", label: "Row 2:1", icon: "hero-squares-2x2", variant: "2:1"},
-        %{name: "row", label: "Row 3:1", icon: "hero-squares-2x2", variant: "3:1"},
-        %{name: "row", label: "Row 4:1", icon: "hero-squares-2x2", variant: "4:1"},
-        %{name: "row", label: "Row 3:2", icon: "hero-squares-2x2", variant: "3:2"},
-        %{name: "column", label: "Column", icon: "hero-view-columns", variant: "full"}
-      ]
-    },
-    %{
-      id: "typography",
-      label: "Typography",
-      items:
-        Enum.map(1..6, fn level ->
-          %{
-            name: "heading",
-            label: "H#{level}",
-            icon: "hero-hashtag",
-            variant: Integer.to_string(level)
-          }
-        end) ++
-          [
-            %{
-              name: "paragraph",
-              label: "Paragraph",
-              icon: "hero-bars-3-bottom-left",
-              variant: "default"
-            },
-            %{
-              name: "blockquote",
-              label: "Blockquote",
-              icon: "hero-chat-bubble-left-right",
-              variant: "default"
-            }
-          ]
-    },
-    %{
-      id: "media",
-      label: "Media",
-      items: [
-        %{name: "image", label: "Image", icon: "hero-photo", variant: "default"},
-        %{name: "video", label: "Video", icon: "hero-video-camera", variant: "default"}
-      ]
-    },
-    %{
-      id: "interactive",
-      label: "Interactive",
-      items: [
-        %{name: "button", label: "Button", icon: "hero-cursor-arrow-rays", variant: "primary"},
-        %{name: "anchor", label: "Anchor Link", icon: "hero-link", variant: "default"},
-        %{name: "dynamic_form", label: "Simple Form", icon: "hero-envelope", variant: "default"}
-      ]
-    }
+  @legacy_palette_items [
+    %{name: "anchor", label: "Anchor Link", icon: "hero-link", variant: "default"},
+    %{name: "dynamic_form", label: "Simple Form", icon: "hero-envelope", variant: "default"}
   ]
 
   @impl true
@@ -1164,9 +1110,16 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   # ---------------------------------------------------------------------------
 
   defp add_node_to_tree(socket, name, variant, target_id, position) do
-    node = new_node(socket, name, variant)
+    node = build_node(socket, name, variant)
     insert_valid_node(socket, node, target_id, position)
   end
+
+  defp build_node(socket, "section_ref", section_id),
+    do: new_node(socket, "section_ref", section_id)
+
+  defp build_node(_socket, "anchor", variant), do: new_node(nil, "anchor", variant)
+  defp build_node(_socket, "dynamic_form", variant), do: new_node(nil, "dynamic_form", variant)
+  defp build_node(_socket, name, variant), do: Registry.default_node(name, variant)
 
   defp insert_valid_node(socket, node, target_id, position) do
     tree = socket.assigns.tree
@@ -1630,13 +1583,35 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
     ~w(w-full rounded-lg bg-base-100 text-base-content shadow-sm border border-base-300 p-4 m-0)
   end
 
-  defp filtered_palette(""), do: @palette_groups
-  defp filtered_palette(nil), do: @palette_groups
+  defp palette_groups do
+    registry_groups =
+      Registry.all()
+      |> Enum.group_by(& &1.group)
+      |> Enum.sort_by(fn {group, _} -> group end)
+      |> Enum.map(fn {group_label, manifests} ->
+        items =
+          Enum.map(manifests, fn m ->
+            %{name: m.name, label: m.label, icon: m.icon, variant: m.default_variant}
+          end)
+
+        %{id: String.downcase(group_label), label: group_label, items: items}
+      end)
+
+    legacy =
+      if @legacy_palette_items == [],
+        do: [],
+        else: [%{id: "legacy", label: "Legacy", items: @legacy_palette_items}]
+
+    registry_groups ++ legacy
+  end
+
+  defp filtered_palette(""), do: palette_groups()
+  defp filtered_palette(nil), do: palette_groups()
 
   defp filtered_palette(query) do
     query = query |> String.downcase() |> String.trim()
 
-    Enum.flat_map(@palette_groups, fn group ->
+    Enum.flat_map(palette_groups(), fn group ->
       items =
         Enum.filter(group.items, fn item ->
           String.contains?(String.downcase(item.label), query) or

@@ -446,3 +446,266 @@ Mockup
 <a href="/components/mockup-code/">Code</a>
 <a href="/components/mockup-phone/">Phone</a>
 <a href="/components/mockup-window/">Window</a>
+
+
+
+Here's the prompt in MD format:
+
+---
+
+# Section Builder Migration + Complete Component Library
+
+## Project Context
+
+MangoCMS is a Phoenix 1.8 / LiveView multi-tenant CMS with a manifest-driven builder system. Every UI component has:
+
+1. **Manifest** at `lib/mangocms_web/builder/manifests/<name>.ex` — defines `name`, `label`, `group`, `default_props`, `default_classes`, `variants`, `fields` (inspector), `slots`, `accepted_children`, `alpine` metadata
+2. **Renderer** function in `lib/mangocms_web/components/builder_library/<group>_components.ex` — pure Phoenix function component, receives `node` and `context` assigns
+3. **Registration** in `lib/mangocms_web/builder/registry.ex`
+
+The UI Library at `/admin/ui-library` and `/platform/admin/ui-library` renders every registered component as a browsable, live-preview card.
+
+The page/section builder at `/admin/pages/:id/builder` currently uses its **own older component block system** that predates the manifest library.
+
+---
+
+## Key Files to Read Before Starting
+
+| File | Purpose |
+|---|---|
+| `lib/mangocms_web/builder/manifest.ex` | `@behaviour` spec |
+| `lib/mangocms_web/builder/field.ex` | Field DSL |
+| `lib/mangocms_web/builder/registry.ex` | Registration list |
+| `lib/mangocms_web/builder/renderer.ex` | Node rendering |
+| `lib/mangocms_web/builder/manifests/button.ex` | Reference manifest |
+| `lib/mangocms_web/builder/manifests/accordion.ex` | Reference — Alpine + slots |
+| `lib/mangocms_web/builder/manifests/hero.ex` | Reference — slots + accepted_children |
+| `lib/mangocms_web/components/builder_library/action_components.ex` | Reference renderer |
+| `lib/mangocms_web/live/tenant/admin/ui_library_live/index.ex` | UI Library LiveView |
+| All section/page builder files | Read first to understand old block system |
+
+---
+
+## Step 1 — Audit Old Builder Blocks
+
+Read:
+
+```
+lib/mangocms_web/live/tenant/admin/page_live/builder.ex
+lib/mangocms_web/live/tenant/admin/section_live/builder.ex
+```
+
+List every block type the old builder knows about so nothing is silently dropped.
+
+---
+
+## Step 2 — Replace Old Blocks with Manifest Components
+
+- The builder palette (left-side drag panel) must list components from `MangoCMSWeb.Builder.Registry.all()` grouped by `manifest.group`
+- Dragging a palette item creates a node via `Registry.default_node(name, variant_id)` and inserts it into the content tree
+- The canvas renders nodes via `Renderer.node/1`
+- Remove all code referencing old block types
+
+---
+
+## Step 3 — Create Missing Components
+
+Check `lib/mangocms_web/builder/registry.ex` for what already exists before creating anything. For each new component:
+
+- **(a)** Create `lib/mangocms_web/builder/manifests/<name>.ex`
+- **(b)** Add renderer to the appropriate builder_library file, or create a new one (e.g. `typography_components.ex`, `media_components.ex`, `content_components.ex`, `utility_components.ex`)
+- **(c)** Register in `lib/mangocms_web/builder/registry.ex`
+- **(d)** Must appear in the UI Library at `/admin/ui-library`
+
+---
+
+### Group: Typography
+
+| Name | Description |
+|---|---|
+| `heading` | `<h1>`–`<h6>` — props: `text`, `level` (1–6), `size`, `weight`, `align`, `color` |
+| `paragraph` | `<p>` block — props: `body`, `size`, `align`, `max_width`, `color` |
+| `rich_text` | Rendered HTML/markdown body — props: `content` (textarea), `max_width` |
+| `blockquote` | `<blockquote>` with styled left border — props: `text`, `author`, `cite` |
+| `code_block` | Syntax-highlighted `<pre><code>` — props: `language`, `code` (textarea) |
+| `ordered_list` | `<ol>` — props: `items` (action_list), `style` (decimal/alpha/roman) |
+| `unordered_list` | `<ul>` — props: `items` (action_list), `style` (disc/circle/square) |
+| `text_gradient` | Inline text with CSS gradient fill — props: `text`, `from_color`, `to_color`, `direction`, `size`, `weight` |
+| `label_text` | Small uppercase eyebrow/label `<span>` — props: `text`, `color`, `size` |
+
+---
+
+### Group: Media
+
+| Name | Description |
+|---|---|
+| `image` | `<img>` with `src` (media picker), `alt`, `aspect_ratio`, `object_fit`, `rounded`, `caption`; default src: `/images/no-image-placeholder.webp` |
+| `video` | `<video>` or YouTube/Vimeo embed — props: `src`, `embed_type` (file/youtube/vimeo), `autoplay`, `controls`, `loop`, `aspect_ratio` |
+| `audio` | `<audio>` player — props: `src`, `controls`, `autoplay`, `loop` |
+| `gallery` | Responsive image grid — props: `images` (action_list of src+alt), `columns` (2–4), `gap`, `rounded`; clicking opens lightbox (Alpine) |
+| `embed` | `<iframe>` wrapper — props: `url` (safe-checked), `aspect_ratio`, `title` |
+| `icon_block` | Display icon with optional label — props: `icon` (icon field), `size`, `color`, `label`, `label_size`, `align` |
+
+---
+
+### Group: Layout
+
+| Name | Description |
+|---|---|
+| `section` | Full-width `<section>` wrapper — props: `padding_y`, `padding_x`, `bg_color`, `bg_image` (media), `max_width`, `id` (anchor); slot: content |
+| `container` | Max-width centering `<div>` — props: `max_width`, `padding_x`, `padding_y`, `bg_color`, `rounded`; `accepted_children: [*]` |
+| `row` | Flex/grid row — props: `columns` (1–4), `gap`, `align`, `justify`, `wrap`; `accepted_children: [column, *]` |
+| `column` | Flex column child — props: `span` (1–12), `padding`, `align`; `accepted_children: [*]` |
+| `grid` | CSS grid with `template_columns` prop, `gap`, `align`; `accepted_children: [*]` |
+| `spacer` | Empty vertical gap — props: `size` (xs/sm/md/lg/xl/2xl) |
+| `divider` | Already exists — verify it is registered |
+
+---
+
+### Group: Content (Marketing / Editorial)
+
+| Name | Description |
+|---|---|
+| `feature_card` | Icon + heading + body — props: `icon`, `title`, `body`, `icon_color`, `align`; variants: `with_border`, `colored_icon` |
+| `feature_grid` | 2–4 column grid of feature items — props: `columns`, `items` (action_list of icon+title+body) |
+| `cta_section` | Call-to-action block — props: `eyebrow`, `heading`, `body`, `primary_label`, `primary_href`, `secondary_label`, `secondary_href`, `align`; variants: `centered`, `left_aligned`, `with_image` |
+| `testimonial` | Quote + author + avatar — props: `quote`, `author_name`, `author_role`, `avatar_src`, `rating` (0–5); variants: `card`, `minimal`, `large` |
+| `testimonial_grid` | Grid of testimonial items — props: `columns`, `items` (action_list) |
+| `pricing_card` | Single pricing tier — props: `name`, `price`, `period`, `currency`, `features` (action_list), `cta_label`, `cta_href`, `highlighted` (toggle), `badge_label` |
+| `pricing_table` | Side-by-side pricing cards — props: `tiers` (action_list) |
+| `team_member` | Photo + name + role + bio — props: `name`, `role`, `bio`, `avatar_src`, `social_links` (action_list of platform+href) |
+| `team_grid` | Grid of team members — props: `columns`, `members` (action_list) |
+| `faq_section` | FAQ list as accordion — props: `items` (action_list of question+answer), `style` (arrow/plus), `layout` (single/two_column) |
+| `banner` | Full-width announcement strip — props: `text`, `bg_color`, `text_color`, `dismissible` (toggle, Alpine), `cta_label`, `cta_href` |
+| `logo_grid` | Partner/client logos — props: `logos` (action_list of src+alt+href), `columns` (3–8), `grayscale` (toggle) |
+| `steps_section` | Numbered how-it-works steps — props: `items` (action_list of number+title+body), `layout` (horizontal/vertical), `icon_color` |
+| `empty_state` | Zero-data placeholder — props: `icon`, `heading`, `body`, `cta_label`, `cta_href`; variants: `simple`, `with_image` |
+| `notification_bar` | Sticky top-of-page notice — props: `text`, `type` (info/warn/error), `dismissible`, `cta_label`, `cta_href`, `bg_color`; Alpine for dismiss |
+
+---
+
+### Group: Interactive / Utility
+
+| Name | Description |
+|---|---|
+| `copy_button` | Copies value to clipboard — props: `label`, `value`, `copied_label`, `style`; Alpine: `owns: ["copied"]`, uses `navigator.clipboard` |
+| `read_more` | Truncated text with expand toggle — props: `body`, `lines` (2/3/4/5), `more_label`, `less_label`; Alpine: `owns: ["expanded"]` |
+| `scroll_to_top` | Floating button shown on scroll — props: `position`, `style`, `threshold_px`; Alpine: `owns: ["visible"]`, uses `window` scroll listener |
+| `cookie_banner` | GDPR consent bar — props: `text`, `accept_label`, `decline_label`, `privacy_href`; Alpine: `owns: ["dismissed"]`, persists to `localStorage` |
+| `back_link` | ← Back navigation link — props: `label`, `href` |
+| `share_buttons` | Social share row — props: `platforms` (action_list), `url`, `title`; each button opens share URL in new window |
+| `table_of_contents` | Auto-generated anchor list — props: `heading_selector`, `title`; Alpine: scans parent DOM for headings on `x-init` |
+
+---
+
+## Step 4 — Inspector Fields
+
+Every component must have a complete `fields` map in its manifest so the right-side inspector can edit every prop.
+
+**Field DSL reference:**
+
+```elixir
+Field.text/2          # single-line text
+Field.textarea/2      # multi-line text
+Field.select/2        # dropdown — options: [{"Label", "value"}, ...]
+Field.toggle/2        # boolean checkbox
+Field.number/2        # numeric input
+Field.color/2         # colour picker
+Field.icon/2          # hero-icon picker
+Field.media/2         # media library picker (image_src)
+Field.link/2          # href + target
+Field.action_list/2   # list of sub-items (repeater)
+Field.class_list/2    # custom Tailwind classes
+Field.slot_controls/2 # slot visibility toggles
+```
+
+---
+
+## Step 5 — Tests
+
+Add tests for all new components to:
+
+```
+test/mangocms_web/builder/registry_test.exs
+```
+
+Pattern for each batch:
+
+```elixir
+test "renders <group> component defaults" do
+  assert render_component(&Renderer.node/1, node: Registry.default_node("heading")) =~ "h1"
+  assert render_component(&Renderer.node/1, node: Registry.default_node("paragraph")) =~ "p"
+  # ...
+end
+
+test "<group> manifests are in correct group with variants" do
+  heading = Registry.get("heading")
+  assert heading.group == "Typography"
+  assert length(heading.variants) >= 1
+end
+```
+
+Run after all changes:
+
+```bash
+MANGO_DB=sqlite3 mix precommit
+```
+
+All tests must pass with 0 failures.
+
+---
+
+## Conventions to Follow Strictly
+
+### HTML Structure
+
+- Primitive layout components (`section`, `container`, `row`, `column`, `grid`) must use `accepted_children: [...]` to declare what can nest inside them
+- Components with slots must declare them in `slots:` and expose a `:slot_controls` field in the inspector
+
+### Image Placeholder
+
+Default image `src` must always be:
+
+```
+/images/no-image-placeholder.webp
+```
+
+Never hardcode any other URL.
+
+### `href` Safety
+
+All rendered `href` attributes must go through `safe_href/1`:
+
+```elixir
+@safe_schemes ["#", "/", "http://", "https://", "mailto:", "tel:"]
+
+defp safe_href(href) when is_binary(href) do
+  if Enum.any?(@safe_schemes, &String.starts_with?(href, &1)), do: href, else: "#"
+end
+defp safe_href(_), do: "#"
+```
+
+Defined in `action_components.ex` and `display_components.ex` — copy the pattern.
+
+### Alpine.js
+
+- `x-data` **always** uses `Jason.encode!` — never string interpolation `'#{value}'`
+- Any container LiveView can patch needs: `id="stable-id" phx-hook="AlpineInit"`
+- Alpine owns local UI state; LiveView owns persisted/shared state
+
+### Card Grid Thumbnails
+
+- Component grid cards **must** use `<div phx-click={JS.patch(...)}>`
+- **Never** use `<.link>` — it renders as `<a>`, and nested anchors break browsers
+
+### Prop Naming Consistency
+
+| Concept | Key name |
+|---|---|
+| Display/button text | `label` |
+| Heading / semantic title | `title` |
+| Body / paragraph text | `body` |
+| Image URL | `image_src` / `avatar_src` / `src` |
+| Link URL | `href` |
+| Boolean toggles | `true` / `false` (not strings) |
+| Variant id | `lowercase_snake_case` (e.g. `with_border`, `left_aligned`) |
