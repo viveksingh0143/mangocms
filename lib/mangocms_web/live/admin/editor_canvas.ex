@@ -13,9 +13,91 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
   alias MangoCMSWeb.PageRenderer
   alias MangoCMSWeb.PageElements
 
+  @leaf_components [
+    "heading",
+    "paragraph",
+    "rich_text",
+    "blockquote",
+    "code_block",
+    "ordered_list",
+    "unordered_list",
+    "text_gradient",
+    "label_text",
+    "image",
+    "video",
+    "audio",
+    "gallery",
+    "embed",
+    "icon_block",
+    "feature_card",
+    "cta_section",
+    "testimonial",
+    "pricing_card",
+    "team_member",
+    "faq_section",
+    "banner",
+    "logo_grid",
+    "steps_section",
+    "empty_state",
+    "notification_bar",
+    "copy_button",
+    "read_more",
+    "scroll_to_top",
+    "cookie_banner",
+    "back_link",
+    "share_buttons",
+    "table_of_contents",
+    "button",
+    "anchor",
+    "dynamic_form",
+    "loop",
+    "section_ref"
+  ]
+
   @accepted_types %{
     "root" => ["section", "container", "section_ref"],
-    "section" => ["container", "row", "column", "grid", "heading", "paragraph", "image", "button"],
+    "section" =>
+      ["container", "row", "column", "grid"] ++
+        [
+          "heading",
+          "paragraph",
+          "rich_text",
+          "blockquote",
+          "code_block",
+          "ordered_list",
+          "unordered_list",
+          "text_gradient",
+          "label_text",
+          "image",
+          "video",
+          "audio",
+          "gallery",
+          "embed",
+          "icon_block",
+          "feature_card",
+          "cta_section",
+          "testimonial",
+          "pricing_card",
+          "team_member",
+          "faq_section",
+          "banner",
+          "logo_grid",
+          "steps_section",
+          "empty_state",
+          "notification_bar",
+          "copy_button",
+          "read_more",
+          "scroll_to_top",
+          "cookie_banner",
+          "back_link",
+          "share_buttons",
+          "table_of_contents",
+          "button",
+          "anchor",
+          "dynamic_form",
+          "loop",
+          "section_ref"
+        ],
     "container" => [
       "row",
       "column",
@@ -26,7 +108,38 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
       "button",
       "rich_text"
     ],
-    "row" => ["column"],
+    "row" => [
+      "column",
+      "heading",
+      "paragraph",
+      "rich_text",
+      "blockquote",
+      "image",
+      "video",
+      "button",
+      "anchor",
+      "feature_card",
+      "cta_section",
+      "testimonial",
+      "pricing_card",
+      "team_member",
+      "faq_section",
+      "banner",
+      "icon_block",
+      "empty_state",
+      "notification_bar",
+      "logo_grid",
+      "steps_section",
+      "copy_button",
+      "read_more",
+      "scroll_to_top",
+      "cookie_banner",
+      "back_link",
+      "share_buttons",
+      "table_of_contents",
+      "dynamic_form",
+      "loop"
+    ],
     "column" => [
       "heading",
       "paragraph",
@@ -307,6 +420,10 @@ defmodule MangoCMSWeb.Live.Admin.EditorCanvas do
         types
     end
   end
+
+  @doc "Returns true if the given component name is a leaf (non-container) component."
+  @spec leaf_component?(String.t()) :: boolean()
+  def leaf_component?(name), do: name in @leaf_components
 
   @doc "Checks whether a child component may be dropped into a container."
   @spec accepts?(String.t(), String.t()) :: boolean()

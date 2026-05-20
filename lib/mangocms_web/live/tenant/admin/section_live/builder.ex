@@ -41,6 +41,7 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
      |> assign(:source_config, source_config)
      |> assign(:filters, section.filters || %{})
      |> assign(:loop_settings, section.loop_settings || %{"enabled" => false, "limit" => 6})
+     |> assign(:component_query, "")
      |> assign_preview_tree()}
   end
 
@@ -64,6 +65,22 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   def handle_event("close_right_sidebar", _params, socket) do
     {:noreply, assign(socket, :right_sidebar_open?, false)}
+  end
+
+  def handle_event("search_components", %{"q" => query}, socket) do
+    {:noreply, assign(socket, :component_query, query || "")}
+  end
+
+  def handle_event("duplicate_node", %{"id" => id}, socket) do
+    case ContentTree.find_node(socket.assigns.tree, id) do
+      nil ->
+        {:noreply, socket}
+
+      node ->
+        duplicate = deep_copy_with_new_ids(node)
+        tree = ContentTree.insert_node(socket.assigns.tree, id, duplicate, :after)
+        {:noreply, socket |> assign(:tree, tree) |> assign_preview_tree()}
+    end
   end
 
   def handle_event("set_right_sidebar_size", %{"size" => size}, socket)
@@ -405,23 +422,23 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
             </div>
           </div>
 
-          <div :if={@left_tab == "components"} class="min-h-0 flex-1 overflow-y-auto p-4">
-            <div :for={{group, manifests} <- palette_groups()}>
-              <h2 class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-base-content/40 first:mt-0">
-                {group}
-              </h2>
-              <div class="grid gap-1">
-                <button
-                  :for={m <- manifests}
-                  id={"section-builder-add-#{m.name}"}
-                  type="button"
-                  phx-click="add_node"
-                  phx-value-name={m.name}
-                  class="btn btn-ghost btn-sm justify-start gap-2"
-                >
-                  <.icon name={m.icon} class="size-4" /> {m.label}
-                </button>
-              </div>
+          <div :if={@left_tab == "components"} class="flex min-h-0 flex-1 flex-col">
+            <div class="border-b border-base-300 p-3">
+              <label class="input input-bordered input-sm flex items-center gap-2">
+                <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
+                <input
+                  id="section-builder-component-search"
+                  type="search"
+                  name="q"
+                  value={@component_query}
+                  phx-keyup="search_components"
+                  placeholder="Search components"
+                  class="grow"
+                />
+              </label>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-3">
+              <.section_components_palette groups={palette_groups(@component_query)} />
             </div>
           </div>
 
@@ -906,6 +923,17 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
           {@name}
         </button>
         <button
+          id={"section-builder-layer-duplicate-#{@node_id}"}
+          type="button"
+          phx-click="duplicate_node"
+          phx-value-id={@node_id}
+          class="btn btn-ghost btn-xs btn-circle shrink-0 text-base-content/50 opacity-0 transition hover:text-primary group-hover:opacity-100"
+          aria-label={"Duplicate #{@name}"}
+          title="Duplicate"
+        >
+          <.icon name="hero-document-duplicate" class="size-3.5" />
+        </button>
+        <button
           id={"section-builder-layer-delete-#{@node_id}"}
           type="button"
           phx-click="delete_node"
@@ -934,10 +962,59 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
 
   defp accepted_types(name), do: name |> EditorCanvas.accepted_child_types() |> Enum.join(",")
 
-  defp palette_groups do
-    Registry.all()
-    |> Enum.group_by(& &1.group)
-    |> Enum.sort_by(fn {group, _} -> group end)
+  attr :groups, :list, required: true
+
+  defp section_components_palette(assigns) do
+    ~H"""
+    <p :if={@groups == []} class="py-6 text-center text-sm text-base-content/50">
+      No components match your search.
+    </p>
+    <details
+      :for={{group, manifests} <- @groups}
+      open
+      class="mb-2 overflow-hidden rounded-lg border border-base-300 bg-base-100"
+    >
+      <summary class="flex cursor-pointer items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wide text-base-content/50 hover:bg-base-200">
+        <span>{group}</span>
+        <span class="font-normal normal-case text-base-content/40">{length(manifests)}</span>
+      </summary>
+      <div class="grid gap-0.5 border-t border-base-300 p-1.5">
+        <button
+          :for={m <- manifests}
+          id={"section-builder-add-#{m.name}"}
+          type="button"
+          phx-click="add_node"
+          phx-value-name={m.name}
+          class="btn btn-ghost btn-sm justify-start gap-2"
+        >
+          <.icon name={m.icon} class="size-4" /> {m.label}
+        </button>
+      </div>
+    </details>
+    """
+  end
+
+  defp palette_groups(query) do
+    normalized = query |> String.downcase() |> String.trim()
+
+    all_groups =
+      Registry.all()
+      |> Enum.group_by(& &1.group)
+      |> Enum.sort_by(fn {group, _} -> group end)
+
+    if normalized == "" do
+      all_groups
+    else
+      Enum.flat_map(all_groups, fn {group, manifests} ->
+        matching =
+          Enum.filter(manifests, fn m ->
+            String.contains?(String.downcase(m.label), normalized) or
+              String.contains?(String.downcase(m.name), normalized)
+          end)
+
+        if matching == [], do: [], else: [{group, matching}]
+      end)
+    end
   end
 
   defp error_text(%Ecto.Changeset{} = changeset) do
@@ -1439,5 +1516,15 @@ defmodule MangoCMSWeb.Tenant.Admin.SectionLive.Builder do
     else
       socket
     end
+  end
+
+  defp node_id(prefix), do: "#{prefix}_#{Ecto.UUID.generate()}"
+
+  defp deep_copy_with_new_ids(node) do
+    node
+    |> Map.put("id", node_id(Map.get(node, "name", "node")))
+    |> Map.update("children", [], fn children ->
+      Enum.map(children || [], &deep_copy_with_new_ids/1)
+    end)
   end
 end

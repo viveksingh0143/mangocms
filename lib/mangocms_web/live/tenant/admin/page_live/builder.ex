@@ -20,6 +20,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   ]
 
   @legacy_palette_items [
+    %{name: "loop", label: "Loop (repeat items)", icon: "hero-arrow-path", variant: "default"},
     %{name: "anchor", label: "Anchor Link", icon: "hero-link", variant: "default"},
     %{name: "dynamic_form", label: "Simple Form", icon: "hero-envelope", variant: "default"}
   ]
@@ -58,7 +59,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
      |> assign(:clipboard, nil)
      |> assign(:viewport, "desktop")
      |> assign(:viewport_options, @viewport_options)
-     |> assign(:left_tab, "blocks")
+     |> assign(:left_tab, "components")
      |> assign(:blocks_collapsed, true)
      |> assign(:palette_query, "")
      |> assign(:section_query, "")
@@ -191,7 +192,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   end
 
   def handle_event("set_left_tab", %{"tab" => tab}, socket)
-      when tab in ~w(blocks sections layers) do
+      when tab in ~w(components sections layers) do
     {:noreply, assign(socket, :left_tab, tab)}
   end
 
@@ -265,6 +266,22 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
 
   def handle_event("copy_node", %{"id" => id}, socket) do
     {:noreply, assign(socket, :clipboard, ContentTree.find_node(socket.assigns.tree, id))}
+  end
+
+  def handle_event("duplicate_node", %{"id" => id}, socket) do
+    case ContentTree.find_node(socket.assigns.tree, id) do
+      nil ->
+        {:noreply, socket}
+
+      node ->
+        duplicate = deep_copy_with_new_ids(node)
+        tree = ContentTree.insert_node(socket.assigns.tree, id, duplicate, :after)
+
+        socket
+        |> mutate_tree(tree)
+        |> assign(:selected_id, Map.get(duplicate, "id"))
+        |> noreply()
+    end
   end
 
   def handle_event("paste_node", _params, %{assigns: %{clipboard: nil}} = socket),
@@ -398,45 +415,57 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         phx-hook="AstBuilderCanvas"
         class={[
           "grid h-[calc(100vh-10rem)] min-h-[38rem] gap-3 overflow-hidden",
-          @right_sidebar_open? && "grid-cols-[18rem_minmax(0,1fr)_20rem]",
-          !@right_sidebar_open? && "grid-cols-[18rem_minmax(0,1fr)]"
+          @right_sidebar_open? && "grid-cols-[16rem_minmax(0,1fr)_24rem]",
+          !@right_sidebar_open? && "grid-cols-[16rem_minmax(0,1fr)]"
         ]}
       >
         <aside
           id="builder-palette"
-          class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
+          class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
-          <div class="grid grid-cols-3 border-b border-base-300 p-2">
-            <button
-              id="builder-left-tab-blocks"
-              type="button"
-              phx-click="set_left_tab"
-              phx-value-tab="blocks"
-              class={["btn btn-sm", @left_tab == "blocks" && "btn-active"]}
-            >
-              <.icon name="hero-squares-plus" class="size-4" /> Blocks
-            </button>
-            <button
-              id="builder-left-tab-sections"
-              type="button"
-              phx-click="set_left_tab"
-              phx-value-tab="sections"
-              class={["btn btn-sm", @left_tab == "sections" && "btn-active"]}
-            >
-              <.icon name="hero-rectangle-stack" class="size-4" /> Sections
-            </button>
-            <button
-              id="builder-left-tab-layers"
-              type="button"
-              phx-click="set_left_tab"
-              phx-value-tab="layers"
-              class={["btn btn-sm", @left_tab == "layers" && "btn-active"]}
-            >
-              <.icon name="hero-list-bullet" class="size-4" /> Layers
-            </button>
+          <div class="border-b border-base-300 p-3">
+            <div class="join w-full">
+              <button
+                id="builder-left-tab-components"
+                type="button"
+                phx-click="set_left_tab"
+                phx-value-tab="components"
+                class={["btn join-item btn-sm flex-1", @left_tab == "components" && "btn-active"]}
+                title="Components"
+              >
+                <.icon name="hero-squares-plus" class="size-4" />
+              </button>
+              <button
+                id="builder-left-tab-sections"
+                type="button"
+                phx-click="set_left_tab"
+                phx-value-tab="sections"
+                class={["btn join-item btn-sm flex-1", @left_tab == "sections" && "btn-active"]}
+                title="Sections"
+              >
+                <.icon name="hero-rectangle-stack" class="size-4" />
+              </button>
+              <button
+                id="builder-left-tab-layers"
+                type="button"
+                phx-click="set_left_tab"
+                phx-value-tab="layers"
+                class={["btn join-item btn-sm flex-1", @left_tab == "layers" && "btn-active"]}
+                title="Layers"
+              >
+                <.icon name="hero-list-bullet" class="size-4" />
+              </button>
+            </div>
+            <p class="mt-2 text-center text-xs font-medium text-base-content/50">
+              {cond do
+                @left_tab == "components" -> "Components"
+                @left_tab == "sections" -> "Sections"
+                true -> "Layers"
+              end}
+            </p>
           </div>
 
-          <div :if={@left_tab == "blocks"} class="flex min-h-0 flex-1 flex-col">
+          <div :if={@left_tab == "components"} class="flex min-h-0 flex-1 flex-col">
             <div class="border-b border-base-300 p-3">
               <label class="input input-bordered input-sm flex items-center gap-2">
                 <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
@@ -446,7 +475,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                   name="q"
                   value={@palette_query}
                   phx-keyup="search_palette"
-                  placeholder="Search blocks"
+                  placeholder="Search components"
                   class="grow"
                 />
               </label>
@@ -457,7 +486,9 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
                 class="btn btn-ghost btn-xs mt-3 w-full justify-between"
               >
                 <span>
-                  {if @blocks_collapsed, do: "Expand block groups", else: "Collapse block groups"}
+                  {if @blocks_collapsed,
+                    do: "Expand component groups",
+                    else: "Collapse component groups"}
                 </span>
                 <.icon
                   name={if(@blocks_collapsed, do: "hero-chevron-down", else: "hero-chevron-up")}
@@ -571,7 +602,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
         <aside
           :if={@right_sidebar_open?}
           id="builder-inspector-sidebar"
-          class="sticky top-4 flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
+          class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100"
         >
           <%= if @show_versions? do %>
             <.version_history
@@ -730,6 +761,17 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
           style={"padding-left: #{@depth * 0.75 + 0.5}rem"}
         >
           {@name}
+        </button>
+        <button
+          id={"page-builder-layer-duplicate-#{@node_id}"}
+          type="button"
+          phx-click="duplicate_node"
+          phx-value-id={@node_id}
+          class="btn btn-ghost btn-xs btn-circle shrink-0 text-base-content/50 opacity-0 transition hover:text-primary group-hover:opacity-100"
+          aria-label={"Duplicate #{@name}"}
+          title="Duplicate"
+        >
+          <.icon name="hero-document-duplicate" class="size-3.5" />
         </button>
         <button
           id={"page-builder-layer-delete-#{@node_id}"}
@@ -1117,6 +1159,7 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
   defp build_node(socket, "section_ref", section_id),
     do: new_node(socket, "section_ref", section_id)
 
+  defp build_node(_socket, "loop", _variant), do: new_node(nil, "loop", nil)
   defp build_node(_socket, "anchor", variant), do: new_node(nil, "anchor", variant)
   defp build_node(_socket, "dynamic_form", variant), do: new_node(nil, "dynamic_form", variant)
   defp build_node(_socket, name, variant), do: Registry.default_node(name, variant)
@@ -1306,6 +1349,17 @@ defmodule MangoCMSWeb.Tenant.Admin.PageLive.Builder do
       "template_linked" => true,
       "classes" => %{"display" => ""},
       "children" => (section && section.content_tree) || []
+    }
+  end
+
+  defp new_node(_socket, "loop", _variant) do
+    %{
+      "type" => "component",
+      "name" => "loop",
+      "id" => node_id("loop"),
+      "props" => %{"source" => "", "as" => "item"},
+      "classes" => %{},
+      "children" => []
     }
   end
 
