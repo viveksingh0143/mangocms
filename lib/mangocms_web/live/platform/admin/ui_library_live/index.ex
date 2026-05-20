@@ -1,5 +1,5 @@
-defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
-  @moduledoc "Component UI Library — browse, filter and live-edit every builder manifest."
+defmodule MangoCMSWeb.Platform.Admin.UILibraryLive.Index do
+  @moduledoc "Component UI Library for the platform admin — browse, filter and live-edit every builder manifest."
 
   use MangoCMSWeb, :live_view
 
@@ -14,7 +14,7 @@ defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    case AdminGuard.authorize_tenant(socket, :manage_pages) do
+    case AdminGuard.authorize_platform(socket, :view_dashboard) do
       {:ok, socket} ->
         manifests = Registry.all()
         groups = [@all_group | manifests |> Enum.map(& &1.group) |> Enum.uniq() |> Enum.sort()]
@@ -40,7 +40,7 @@ defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
   def handle_params(%{"name" => name}, _url, socket) do
     case Registry.get(name) do
       nil ->
-        {:noreply, push_patch(socket, to: ~p"/admin/ui-library")}
+        {:noreply, push_patch(socket, to: ~p"/platform/admin/ui-library")}
 
       manifest ->
         variant_id = manifest.default_variant
@@ -122,15 +122,14 @@ defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
       )
 
     ~H"""
-    <Layouts.tenant_admin
+    <Layouts.platform_admin
       flash={@flash}
       title={@page_title}
       current_user={@current_user}
-      current_tenant={@current_tenant}
       active={:ui_library}
     >
       <:actions :if={@live_action == :show}>
-        <.link patch={~p"/admin/ui-library"} class="btn btn-ghost btn-sm gap-1">
+        <.link patch={~p"/platform/admin/ui-library"} class="btn btn-ghost btn-sm gap-1">
           <.icon name="hero-arrow-left" class="size-4" /> All components
         </.link>
       </:actions>
@@ -153,7 +152,7 @@ defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
         preview_width={@preview_width}
         show_node_json={@show_node_json}
       />
-    </Layouts.tenant_admin>
+    </Layouts.platform_admin>
     """
   end
 
@@ -218,14 +217,9 @@ defmodule MangoCMSWeb.Tenant.Admin.UILibraryLive.Index do
       phx-hook="AlpineInit"
       class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
     >
-      <%!--
-        Use <div phx-click> instead of <.link> so components that themselves
-        render <a> tags (button, breadcrumbs, navbar, pagination …) don't
-        create invalid nested anchors that browsers eject from the DOM.
-      --%>
       <div
         :for={manifest <- @manifests}
-        phx-click={JS.patch(~p"/admin/ui-library/#{manifest.name}")}
+        phx-click={JS.patch(~p"/platform/admin/ui-library/#{manifest.name}")}
         class="card border border-base-300 bg-base-100 hover:border-primary hover:shadow-md transition-all cursor-pointer group overflow-hidden"
       >
         <div class="bg-base-200 h-36 flex items-center justify-center overflow-hidden p-3">

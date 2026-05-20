@@ -115,6 +115,12 @@ defmodule MangoCMSWeb.Layouts do
           href: ~p"/platform/admin/users",
           current: active == :users,
           permission: :manage_users
+        },
+        %{
+          label: "UI Library",
+          href: ~p"/platform/admin/ui-library",
+          current: active == :ui_library,
+          permission: :view_dashboard
         }
       ],
       :platform,

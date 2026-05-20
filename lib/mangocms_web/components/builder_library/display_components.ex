@@ -25,7 +25,9 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         accordion_spacing(@props["spacing"]),
         class_value(@classes, "custom")
       ]}
-      x-data={"{ open: '#{@props["default_open"] || first_item_id(@props, "accordion_1")}' }"}
+      x-data={
+        Jason.encode!(%{"open" => @props["default_open"] || first_item_id(@props, "accordion_1")})
+      }
     >
       <%= if @items != [] do %>
         {render_slot(@items)}
@@ -33,12 +35,12 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <section
           :for={item <- accordion_items(@props)}
           class={["collapse join-item border border-base-300", accordion_style(@props["style"])]}
-          x-bind:class={"open === '#{item.id}' && 'collapse-open'"}
+          x-bind:class={"open === #{Jason.encode!(item.id)} && 'collapse-open'"}
         >
           <button
             type="button"
             class="collapse-title text-left text-base font-medium"
-            x-on:click={"open = open === '#{item.id}' ? '' : '#{item.id}'"}
+            x-on:click={"open = open === #{Jason.encode!(item.id)} ? '' : #{Jason.encode!(item.id)}"}
           >
             {item.title}
           </button>
@@ -74,7 +76,10 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
       class_value(@classes, "custom")
     ]}>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "top"}>
-        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
+        <img
+          src={@props["image_src"] || "/images/no-image-placeholder.webp"}
+          alt={@props["image_alt"] || ""}
+        />
       </figure>
       {render_slot(@media)}
       <div class="card-body">
@@ -93,7 +98,10 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <div :if={@actions != []} class="card-actions justify-end">{render_slot(@actions)}</div>
       </div>
       <figure :if={@props["image_enabled"] && @props["image_position"] == "bottom"}>
-        <img src={@props["image_src"] || "/images/no-image-placeholder.webp"} alt={@props["image_alt"] || ""} />
+        <img
+          src={@props["image_src"] || "/images/no-image-placeholder.webp"}
+          alt={@props["image_alt"] || ""}
+        />
       </figure>
     </article>
     """
@@ -180,7 +188,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
           <p class="list-col-wrap text-sm text-base-content/70">
             {item["body"] || @props["body_template"] || "{{item.excerpt}}"}
           </p>
-          <a href={item["href"] || "#"} class="btn btn-square btn-ghost">
+          <a href={safe_href(item["href"])} class="btn btn-square btn-ghost">
             <.icon name="hero-arrow-right" class="size-4" />
           </a>
         </div>
@@ -327,7 +335,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
     ~H"""
     <div
       class={["relative", class_value(@classes, "custom")]}
-      x-data={"{ active: 0, total: #{@props["items_count"] || 3} }"}
+      x-data={Jason.encode!(%{"active" => 0, "total" => carousel_total(@props)})}
     >
       <div class={["carousel w-full", carousel_mode(@props["transition"])]}>
         <%= if @items != [] do %>
@@ -385,7 +393,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
     ~H"""
     <div
       class={class_value(@classes, "custom")}
-      x-data={"{ active: '#{active_tab(@props)}' }"}
+      x-data={Jason.encode!(%{"active" => active_tab(@props)})}
     >
       <div
         role="tablist"
@@ -401,8 +409,8 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
           type="button"
           role="tab"
           class="tab"
-          x-bind:class={"active === '#{tab.id}' && 'tab-active'"}
-          x-on:click={"active = '#{tab.id}'"}
+          x-bind:class={"active === #{Jason.encode!(tab.id)} && 'tab-active'"}
+          x-on:click={"active = #{Jason.encode!(tab.id)}"}
         >
           {tab.label}
         </button>
@@ -413,7 +421,7 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
         <% else %>
           <section
             :for={tab <- tab_items(@props)}
-            x-show={"active === '#{tab.id}'"}
+            x-show={"active === #{Jason.encode!(tab.id)}"}
             x-transition
             class="rounded-box border border-base-300 p-4"
           >
@@ -461,6 +469,14 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
   defp timeline_compact(true), do: "timeline-compact"
   defp timeline_compact("true"), do: "timeline-compact"
   defp timeline_compact(_compact), do: ""
+
+  defp carousel_total(props) do
+    case Map.get(props, "items_count") do
+      n when is_integer(n) -> n
+      s when is_binary(s) -> String.to_integer(s)
+      _ -> 3
+    end
+  end
 
   defp carousel_items(props) do
     props
@@ -1103,7 +1119,11 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
 
   defp gallery_items(_props) do
     [
-      %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 1", "caption" => "Gallery item"},
+      %{
+        "src" => "/images/no-image-placeholder.webp",
+        "alt" => "Photo 1",
+        "caption" => "Gallery item"
+      },
       %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 2"},
       %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 3"},
       %{"src" => "/images/no-image-placeholder.webp", "alt" => "Photo 4"},
@@ -1158,14 +1178,17 @@ defmodule MangoCMSWeb.BuilderLibrary.DisplayComponents do
   defp text_rotate_xdata(props) do
     words = rotate_words(props)
     interval = props["interval_ms"] || 2_000
+    words_json = Jason.encode!(words)
 
-    words_js =
-      "[" <>
-        Enum.map_join(words, ", ", fn w ->
-          ~s("#{String.replace(w, "\"", "\\\"")}")
-        end) <> "]"
-
-    "{ words: #{words_js}, idx: 0," <>
+    "{ words: #{words_json}, idx: 0," <>
       " start() { setInterval(() => { this.idx = (this.idx + 1) % this.words.length; }, #{interval}); } }"
   end
+
+  @safe_schemes ["#", "/", "http://", "https://", "mailto:", "tel:"]
+
+  defp safe_href(href) when is_binary(href) do
+    if Enum.any?(@safe_schemes, &String.starts_with?(href, &1)), do: href, else: "#"
+  end
+
+  defp safe_href(_), do: "#"
 end

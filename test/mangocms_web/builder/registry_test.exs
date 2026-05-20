@@ -378,7 +378,7 @@ defmodule MangoCMSWeb.Builder.RegistryTest do
       assert navbar_html =~ "navbar"
       assert navbar_html =~ "x-data"
       assert tabs_html =~ "tabs-border"
-      assert tabs_html =~ "active:"
+      assert tabs_html =~ "active"
 
       assert render_component(&Renderer.node/1, node: Registry.default_node("pagination")) =~
                "btn-active"

@@ -2,21 +2,6 @@
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
 
-// You can include dependencies in two ways.
-//
-// The simplest option is to put them in assets/vendor and
-// import them using relative paths:
-//
-//     import "../vendor/some-package.js"
-//
-// Alternatively, you can `npm install some-package --prefix assets` and import
-// them using a path starting with the package name:
-//
-//     import "some-package"
-//
-// If you have dependencies that try to import CSS, esbuild will generate a separate `app.css` file.
-// To load it, simply add a second `<link>` to your `root.html.heex` file.
-
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
@@ -24,6 +9,25 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/mangocms"
 import topbar from "../vendor/topbar"
+import Alpine from "../vendor/alpine.min.js"
+
+// Expose Alpine globally so hooks and inline scripts can reach it.
+window.Alpine = Alpine
+
+// Re-initialize Alpine on LiveView-patched elements (e.g. the UI Library preview).
+// Without this, Alpine loses its reactive state whenever LiveView morphs the DOM.
+const AlpineInit = {
+  mounted() {
+    if (!window.Alpine) return
+    window.Alpine.destroyTree(this.el)
+    window.Alpine.initTree(this.el)
+  },
+  updated() {
+    if (!window.Alpine) return
+    window.Alpine.destroyTree(this.el)
+    window.Alpine.initTree(this.el)
+  },
+}
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const ContentEditableInput = {
@@ -610,11 +614,17 @@ const AstBuilderCanvas = {
   },
 }
 
+// Start Alpine before LiveView connects so server-rendered x-data elements
+// are initialized on first paint. LiveView's AlpineInit hook handles re-init
+// after DOM patches.
+Alpine.start()
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
   hooks: {
     ...colocatedHooks,
+    AlpineInit,
     AstBuilderCanvas,
     AstContentEditable,
     AutoGrowTextArea,

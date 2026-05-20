@@ -19,7 +19,7 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
 
     ~H"""
     <a
-      href={@props["href"] || "#"}
+      href={safe_href(@props["href"])}
       target={@props["target"] || "_self"}
       class={["btn", @props["style"] || "btn-primary", class_value(@classes, "custom")]}
     >
@@ -76,7 +76,7 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
         <% else %>
           <ul class="menu">
             <li :for={item <- menu_items(@props)}>
-              <a href={item["href"] || "#"}>{item["label"]}</a>
+              <a href={safe_href(item["href"])}>{item["label"]}</a>
             </li>
           </ul>
         <% end %>
@@ -273,15 +273,15 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
     ~H"""
     <div
       class={["join", class_value(@classes, "custom")]}
-      x-data={"{ theme: localStorage.getItem('mango_theme') || '#{@props["default_theme"] || "light"}' }"}
+      x-data={"{ theme: localStorage.getItem('mango_theme') || #{Jason.encode!(@props["default_theme"] || "light")} }"}
       x-init="document.documentElement.dataset.theme = theme"
     >
       <button
         :for={theme <- themes(@props)}
         type="button"
         class="btn join-item"
-        x-bind:class={"theme === '#{theme}' && 'btn-active'"}
-        x-on:click={"theme = '#{theme}'; localStorage.setItem('mango_theme', theme); document.documentElement.dataset.theme = theme"}
+        x-bind:class={"theme === #{Jason.encode!(theme)} && 'btn-active'"}
+        x-on:click={"theme = #{Jason.encode!(theme)}; localStorage.setItem('mango_theme', theme); document.documentElement.dataset.theme = theme"}
       >
         {String.capitalize(theme)}
       </button>
@@ -337,4 +337,12 @@ defmodule MangoCMSWeb.BuilderLibrary.ActionComponents do
 
   defp themes(%{"themes" => themes}) when is_list(themes) and themes != [], do: themes
   defp themes(_props), do: ["light", "dark", "cupcake"]
+
+  @safe_schemes ["#", "/", "http://", "https://", "mailto:", "tel:"]
+
+  defp safe_href(href) when is_binary(href) do
+    if Enum.any?(@safe_schemes, &String.starts_with?(href, &1)), do: href, else: "#"
+  end
+
+  defp safe_href(_), do: "#"
 end
